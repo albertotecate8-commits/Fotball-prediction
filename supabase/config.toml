@@ -1,0 +1,11 @@
+# Configuración mínima del CLI de Supabase para este proyecto.
+project_id = "football-predictions"
+
+[functions.sync-results]
+verify_jwt = false   # se autentica con x-sync-secret (cron) o JWT de admin, validado dentro
+
+[functions.provider-fixtures]
+verify_jwt = true
+
+[functions.admin-invite]
+verify_jwt = true
