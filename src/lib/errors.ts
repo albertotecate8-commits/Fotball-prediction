@@ -64,7 +64,11 @@ const MESSAGES: Record<string, string> = {
   USER_ALREADY_EXISTS: 'Ese correo ya tiene cuenta: agrégalo al grupo por correo.',
   INVALID_EMAIL: 'Correo no válido.',
   'Invalid login credentials': 'Correo o contraseña incorrectos.',
-  'Email not confirmed': 'Confirma tu correo antes de iniciar sesión.',
+  'Email not confirmed': 'Confirma tu correo antes de iniciar sesión. Abre el enlace que te enviamos o pide uno nuevo aquí abajo.',
+  'For security purposes, you can only request this': 'Espera un minuto antes de pedir otro correo.',
+  over_email_send_rate_limit: 'Se enviaron demasiados correos. Inténtalo más tarde.',
+  'Email rate limit exceeded': 'Se enviaron demasiados correos. Inténtalo más tarde.',
+  'Email link is invalid or has expired': 'El enlace caducó o ya se usó. Pide uno nuevo.',
   'User already registered': 'Ya existe una cuenta con ese correo.',
 }
 

@@ -211,6 +211,69 @@ test.describe('pantallas', () => {
     expect(overflow).toBeLessThanOrEqual(0)
   })
 
+  test('confirmación: enlace caducado muestra el error, limpia la URL y permite reenviar al sitio correcto', async ({ page }, info) => {
+    await page.route('https://mock-project.supabase.co/**', (route) => {
+      const u = new URL(route.request().url())
+      if (u.pathname === '/auth/v1/resend') return route.fulfill({ status: 200, contentType: 'application/json', body: '{}' })
+      return route.fulfill({ status: 200, contentType: 'application/json', body: '{}' })
+    })
+    await page.goto('/auth/confirmar#error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired')
+    await expect(page.getByRole('heading', { name: 'Enlace caducado' })).toBeVisible()
+    await expect(page.getByText('Correo confirmado')).toHaveCount(0)
+    expect(page.url()).not.toContain('error_code')
+    await page.getByLabel('Correo de la cuenta').fill('persona@example.test')
+    const req = page.waitForRequest((r) => r.url().includes('/auth/v1/resend'))
+    await page.getByRole('button', { name: 'Reenviar correo de confirmación' }).click()
+    const body = (await req).postDataJSON()
+    expect(body).toMatchObject({ type: 'signup', email: 'persona@example.test' })
+    expect(new URL((await req).url()).searchParams.get('redirect_to') ?? body.options?.email_redirect_to ?? body.gotrue_meta_security?.redirect_to ?? '').toMatch(/\/auth\/confirmar$/)
+    await expect(page.getByText(/Solicitud aceptada/)).toBeVisible()
+    await page.screenshot({ path: shot('00b-confirmacion-caducada', info.project.name) })
+  })
+
+  test('confirmación: enlace válido solo muestra éxito si Supabase confirma el correo', async ({ page }, info) => {
+    const user = { id: '00000000-0000-4000-8000-0000000000c1', aud: 'authenticated', role: 'authenticated', email: 'persona@example.test', email_confirmed_at: new Date().toISOString(), app_metadata: {}, user_metadata: {}, created_at: new Date().toISOString() }
+    await page.route('https://mock-project.supabase.co/**', (route) => {
+      const u = new URL(route.request().url())
+      if (u.pathname === '/auth/v1/verify') {
+        return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ access_token: 'mock.jwt.token', token_type: 'bearer', expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, refresh_token: 'r', user }) })
+      }
+      if (u.pathname === '/auth/v1/user') return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(user) })
+      return route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+    })
+    await page.goto('/auth/confirmar?token_hash=ficticio123&type=signup')
+    await expect(page.getByRole('heading', { name: 'Correo confirmado' })).toBeVisible()
+    expect(page.url()).not.toContain('token_hash')
+    await page.screenshot({ path: shot('00c-confirmacion-ok', info.project.name) })
+  })
+
+  test('confirmación: si Supabase rechaza el token no se muestra éxito', async ({ page }) => {
+    await page.route('https://mock-project.supabase.co/**', (route) => {
+      const u = new URL(route.request().url())
+      if (u.pathname === '/auth/v1/verify') return route.fulfill({ status: 403, contentType: 'application/json', body: JSON.stringify({ code: 403, error_code: 'otp_expired', msg: 'Email link is invalid or has expired' }) })
+      return route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+    })
+    await page.goto('/auth/confirmar?token_hash=usado&type=signup')
+    await expect(page.getByRole('heading', { name: 'Enlace caducado' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Reenviar correo de confirmación' })).toBeVisible()
+  })
+
+  test('entrar sin confirmar: explica el motivo y ofrece reenviar el correo', async ({ page }, info) => {
+    await page.route('https://mock-project.supabase.co/**', (route) => {
+      const u = new URL(route.request().url())
+      if (u.pathname === '/auth/v1/token') return route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ code: 400, error_code: 'email_not_confirmed', msg: 'Email not confirmed' }) })
+      return route.fulfill({ status: 200, contentType: 'application/json', body: '{}' })
+    })
+    await page.goto('/entrar')
+    await page.getByLabel('Correo').first().fill('persona@example.test')
+    await page.getByLabel('Contraseña').fill('contrasena-ficticia')
+    await page.getByRole('button', { name: 'Entrar' }).click()
+    await expect(page.getByText(/Confirma tu correo antes de iniciar sesión/)).toBeVisible()
+    await expect(page.getByLabel('Correo de la cuenta')).toHaveValue('persona@example.test')
+    await expect(page.getByRole('button', { name: 'Reenviar correo de confirmación' })).toBeVisible()
+    await page.screenshot({ path: shot('00d-entrar-sin-confirmar', info.project.name), fullPage: true })
+  })
+
   test('login sin sesión', async ({ page }, info) => {
     await page.goto('/entrar')
     await expect(page.getByRole('heading', { name: 'Entrar' })).toBeVisible()

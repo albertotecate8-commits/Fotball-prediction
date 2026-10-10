@@ -5,6 +5,7 @@ import { RouteError } from './RouteError'
 import { FullPageSpinner } from '@/components/ui/Spinner'
 import { LoginPage, SignupPage, ForgotPasswordPage } from '@/features/auth/AuthPages'
 import { ResetPasswordPage } from '@/features/auth/ResetPasswordPage'
+import { ConfirmEmailPage } from '@/features/auth/ConfirmEmail'
 import { HomePage } from '@/features/home/HomePage'
 import { QuinielaPage } from '@/features/quiniela/QuinielaPage'
 import { Navigate } from 'react-router'
@@ -24,6 +25,8 @@ export const router = createBrowserRouter([
         ],
       },
       { path: '/restablecer', element: <ResetPasswordPage /> },
+      // Vuelta desde el correo de confirmación (funciona con o sin sesión).
+      { path: '/auth/confirmar', element: <ConfirmEmailPage /> },
       {
         element: <RequireAuth />,
         children: [

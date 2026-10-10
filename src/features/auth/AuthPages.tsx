@@ -8,6 +8,7 @@ import { InlineError } from '@/components/ui/States'
 import { toAppError } from '@/lib/errors'
 import { appUrl } from '@/lib/appUrl'
 import { AuthLayout } from './AuthLayout'
+import { confirmRedirect, ResendConfirmation } from './ConfirmEmail'
 
 
 export function LoginPage() {
@@ -38,6 +39,12 @@ export function LoginPage() {
         <InlineError error={error} />
         <Button type="submit" size="lg" block loading={loading} disabled={!email || !password}>Entrar</Button>
       </form>
+      {toAppError(error ?? '').code === 'Email not confirmed' && (
+        <div className="mt-5 border-t border-line pt-4">
+          <p className="mb-3 text-sm text-muted">¿No te llegó el correo o el enlace caducó? Pide uno nuevo. El enlace dura 1 hora.</p>
+          <ResendConfirmation initialEmail={email.trim()} />
+        </div>
+      )}
     </AuthLayout>
   )
 }
@@ -59,7 +66,7 @@ export function SignupPage() {
     setError(null)
     const { data, error } = await supabase.auth.signUp({
       email: email.trim(), password,
-      options: { data: { display_name: name.trim() }, emailRedirectTo: appUrl('/') },
+      options: { data: { display_name: name.trim() }, emailRedirectTo: confirmRedirect() },
     })
     setLoading(false)
     if (error) return setError(toAppError(error))
@@ -70,7 +77,8 @@ export function SignupPage() {
     return (
       <AuthLayout title="Revisa tu correo" subtitle={`Enviamos un enlace de confirmación a ${email}.`}
         footer={<Link to="/entrar" className="font-semibold text-aqua">Volver a entrar</Link>}>
-        <div className="card flex items-center gap-3 p-4 text-sm text-muted"><MailCheck className="size-6 text-aqua" /> Abre el enlace para activar tu cuenta.</div>
+        <div className="card mb-5 flex items-center gap-3 p-4 text-sm text-muted"><MailCheck className="size-6 shrink-0 text-aqua" /> Abre el enlace para activar tu cuenta. Caduca en 1 hora.</div>
+        <ResendConfirmation initialEmail={email.trim()} />
       </AuthLayout>
     )
   }
