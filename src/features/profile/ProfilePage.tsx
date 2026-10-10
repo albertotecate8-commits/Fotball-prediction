@@ -13,6 +13,7 @@ import { supabase } from '@/lib/supabase'
 import { useAppConfig } from '@/hooks/useAppConfig'
 import { formatDate } from '@/lib/time'
 import { brand } from '@/config/brand'
+import { appUrl } from '@/lib/appUrl'
 import { PageHeader, SectionTitle } from '@/components/PageHeader'
 import { Avatar } from '@/components/ui/Avatar'
 import { Badge } from '@/components/ui/Badge'
@@ -57,7 +58,7 @@ export function ProfilePage() {
   const resetPassword = async () => {
     const email = session.user.email
     if (!email) return
-    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/restablecer` })
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: appUrl('/restablecer') })
     toast(error ? 'No se pudo enviar el correo' : `Enviamos un enlace a ${email}`, error ? 'error' : 'success')
   }
 

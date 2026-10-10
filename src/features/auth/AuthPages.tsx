@@ -6,9 +6,9 @@ import { Button } from '@/components/ui/Button'
 import { Field, Input } from '@/components/ui/Field'
 import { InlineError } from '@/components/ui/States'
 import { toAppError } from '@/lib/errors'
+import { appUrl } from '@/lib/appUrl'
 import { AuthLayout } from './AuthLayout'
 
-const redirectUrl = (path: string) => `${window.location.origin}${path}`
 
 export function LoginPage() {
   const navigate = useNavigate()
@@ -59,7 +59,7 @@ export function SignupPage() {
     setError(null)
     const { data, error } = await supabase.auth.signUp({
       email: email.trim(), password,
-      options: { data: { display_name: name.trim() }, emailRedirectTo: redirectUrl('/') },
+      options: { data: { display_name: name.trim() }, emailRedirectTo: appUrl('/') },
     })
     setLoading(false)
     if (error) return setError(toAppError(error))
@@ -99,7 +99,7 @@ export function ForgotPasswordPage() {
     e.preventDefault()
     setLoading(true)
     setError(null)
-    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: redirectUrl('/restablecer') })
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: appUrl('/restablecer') })
     setLoading(false)
     if (error) return setError(toAppError(error))
     setSent(true)
