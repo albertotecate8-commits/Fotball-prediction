@@ -70,6 +70,22 @@ const MESSAGES: Record<string, string> = {
   'Email rate limit exceeded': 'Se enviaron demasiados correos. Inténtalo más tarde.',
   'Email link is invalid or has expired': 'El enlace caducó o ya se usó. Pide uno nuevo.',
   'User already registered': 'Ya existe una cuenta con ese correo.',
+  'Unable to validate email address': 'El correo no tiene un formato válido. Revisa que no tenga espacios ni caracteres especiales.',
+}
+
+/** Códigos de Supabase Auth (error.code) → mensaje claro. */
+const AUTH_CODES: Record<string, string> = {
+  validation_failed: 'El correo no tiene un formato válido. Revisa que no tenga espacios ni caracteres especiales.',
+  email_address_invalid: 'Ese correo no se puede usar. Revisa que esté bien escrito.',
+  email_not_confirmed: 'Confirma tu correo antes de iniciar sesión. Abre el enlace que te enviamos o pide uno nuevo aquí abajo.',
+  user_already_exists: 'Ya existe una cuenta con ese correo. Entra o recupera tu contraseña.',
+  email_exists: 'Ya existe una cuenta con ese correo. Entra o recupera tu contraseña.',
+  weak_password: 'La contraseña es demasiado débil. Usa al menos 8 caracteres combinando letras y números.',
+  over_email_send_rate_limit: 'Se enviaron demasiados correos. Espera unos minutos e inténtalo de nuevo.',
+  over_request_rate_limit: 'Demasiados intentos seguidos. Espera un momento.',
+  signup_disabled: 'El registro de cuentas nuevas está desactivado.',
+  otp_expired: 'El enlace caducó o ya se usó. Pide uno nuevo.',
+  invalid_credentials: 'Correo o contraseña incorrectos.',
 }
 
 export class AppError extends Error {
@@ -84,7 +100,17 @@ export function toAppError(e: unknown): AppError {
   const raw = (e as { message?: string; error?: string } | null)?.message ?? (e as { error?: string })?.error ?? String(e)
   const code = Object.keys(MESSAGES).find((k) => raw === k || raw.startsWith(k + ':') || raw.includes(k)) ?? raw
   if (/Failed to fetch|NetworkError|network/i.test(raw)) return new AppError('NETWORK', 'Sin conexión. Revisa tu internet e inténtalo de nuevo.')
+  const authCode = (e as { code?: unknown } | null)?.code
+  const isAuth = (e as { __isAuthError?: boolean } | null)?.__isAuthError === true || /^Auth/.test((e as Error | null)?.name ?? '')
+  if (typeof authCode === 'string' && AUTH_CODES[authCode] && !MESSAGES[code]) return new AppError(authCode, AUTH_CODES[authCode])
+  // Error de autenticación sin traducción: se muestra el motivo real (no contiene datos sensibles).
+  if (isAuth && !MESSAGES[code]) return new AppError(typeof authCode === 'string' ? authCode : 'AUTH', `No se pudo completar: ${raw}`)
   return new AppError(code, MESSAGES[code] ?? 'Ocurrió un error inesperado. Inténtalo de nuevo.')
 }
 
 export const errorMessage = (e: unknown) => toAppError(e).message
+
+/** Correo limpio: sin espacios ni caracteres invisibles que agregan algunos teclados (iPhone), en minúsculas. */
+export const normalizeEmail = (raw: string) =>
+  raw.normalize('NFKC').replace(/[\s\u00AD\u180E\u200B-\u200F\u202A-\u202E\u2060-\u2064\uFEFF]/g, '').toLowerCase()
+export const isValidEmail = (email: string) => /^[a-z0-9._%+-]+@[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,}$/.test(email)

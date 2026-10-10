@@ -247,6 +247,22 @@ test.describe('pantallas', () => {
     await page.screenshot({ path: shot('00c-confirmacion-ok', info.project.name) })
   })
 
+  test('confirmación: enlace con la sesión en el fragmento también confirma', async ({ page }) => {
+    const user = { id: '00000000-0000-4000-8000-0000000000c2', aud: 'authenticated', role: 'authenticated', email: 'persona@example.test', email_confirmed_at: new Date().toISOString(), app_metadata: {}, user_metadata: {}, created_at: new Date().toISOString() }
+    await page.route('https://mock-project.supabase.co/**', (route) => {
+      const u = new URL(route.request().url())
+      if (u.pathname === '/auth/v1/user') return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(user) })
+      return route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+    })
+    const exp = Math.floor(Date.now() / 1000) + 3600
+    // JWT ficticio con forma válida (sin firma real).
+    const b64 = (o: unknown) => Buffer.from(JSON.stringify(o)).toString('base64url')
+    const jwt = `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64({ sub: user.id, exp, role: 'authenticated' })}.c2lnbmF0dXJl`
+    await page.goto(`/auth/confirmar#access_token=${jwt}&refresh_token=ficticio&expires_at=${exp}&expires_in=3600&token_type=bearer&type=signup`)
+    await expect(page.getByRole('heading', { name: 'Correo confirmado' })).toBeVisible()
+    expect(page.url()).not.toContain('access_token')
+  })
+
   test('confirmación: si Supabase rechaza el token no se muestra éxito', async ({ page }) => {
     await page.route('https://mock-project.supabase.co/**', (route) => {
       const u = new URL(route.request().url())
@@ -272,6 +288,65 @@ test.describe('pantallas', () => {
     await expect(page.getByLabel('Correo de la cuenta')).toHaveValue('persona@example.test')
     await expect(page.getByRole('button', { name: 'Reenviar correo de confirmación' })).toBeVisible()
     await page.screenshot({ path: shot('00d-entrar-sin-confirmar', info.project.name), fullPage: true })
+  })
+
+  test('registro con correo ya registrado y sin confirmar: no crea otra cuenta y ofrece reenviar', async ({ page }, info) => {
+    const calls: string[] = []
+    await page.route('https://mock-project.supabase.co/**', (route) => {
+      const u = new URL(route.request().url())
+      calls.push(u.pathname)
+      if (u.pathname === '/rest/v1/rpc/auth_email_status') return route.fulfill({ status: 200, contentType: 'application/json', body: '"pending"' })
+      return route.fulfill({ status: 200, contentType: 'application/json', body: '{}' })
+    })
+    await page.goto('/registro')
+    await page.getByLabel('Alias').fill('Persona')
+    await page.getByLabel('Correo').fill(' Persona@Example.test ')
+    await page.getByLabel('Contraseña').fill('contrasena-ficticia')
+    await page.getByRole('button', { name: 'Crear cuenta' }).click()
+    await expect(page.getByRole('heading', { name: 'Ya tienes cuenta' })).toBeVisible()
+    await expect(page.getByText('No se creó otra cuenta', { exact: false })).toBeVisible()
+    expect(calls).not.toContain('/auth/v1/signup')
+    await expect(page.getByLabel('Correo de la cuenta')).toHaveValue('persona@example.test')
+    await page.screenshot({ path: shot('00e-registro-existente', info.project.name) })
+  })
+
+  test('registro de correo nuevo: crea la cuenta con el enlace de confirmación correcto', async ({ page }) => {
+    let signupBody: Record<string, unknown> | null = null
+    let redirect = ''
+    await page.route('https://mock-project.supabase.co/**', (route) => {
+      const u = new URL(route.request().url())
+      if (u.pathname === '/rest/v1/rpc/auth_email_status') return route.fulfill({ status: 200, contentType: 'application/json', body: '"new"' })
+      if (u.pathname === '/auth/v1/signup') {
+        signupBody = route.request().postDataJSON()
+        redirect = u.searchParams.get('redirect_to') ?? ''
+        return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: 'u1', email: 'nueva@example.test', identities: [{ id: 'i1' }] }) })
+      }
+      return route.fulfill({ status: 200, contentType: 'application/json', body: '{}' })
+    })
+    await page.goto('/registro')
+    await page.getByLabel('Alias').fill('Nueva')
+    await page.getByLabel('Correo').fill('nueva@example.test')
+    await page.getByLabel('Contraseña').fill('contrasena-ficticia')
+    await page.getByRole('button', { name: 'Crear cuenta' }).click()
+    await expect(page.getByRole('heading', { name: 'Revisa tu correo' })).toBeVisible()
+    expect(signupBody).toMatchObject({ email: 'nueva@example.test' })
+    expect(redirect).toMatch(/\/auth\/confirmar$/)
+  })
+
+  test('registro: el error real de Supabase se explica, no se oculta', async ({ page }) => {
+    await page.route('https://mock-project.supabase.co/**', (route) => {
+      const u = new URL(route.request().url())
+      if (u.pathname === '/rest/v1/rpc/auth_email_status') return route.fulfill({ status: 200, contentType: 'application/json', body: '"new"' })
+      if (u.pathname === '/auth/v1/signup') return route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ code: 400, error_code: 'validation_failed', msg: 'Unable to validate email address: invalid format' }) })
+      return route.fulfill({ status: 200, contentType: 'application/json', body: '{}' })
+    })
+    await page.goto('/registro')
+    await page.getByLabel('Alias').fill('Nueva')
+    await page.getByLabel('Correo').fill('nueva@example.test')
+    await page.getByLabel('Contraseña').fill('contrasena-ficticia')
+    await page.getByRole('button', { name: 'Crear cuenta' }).click()
+    await expect(page.getByRole('alert')).toContainText('formato válido')
+    await expect(page.getByText('Ocurrió un error inesperado')).toHaveCount(0)
   })
 
   test('login sin sesión', async ({ page }, info) => {

@@ -4,7 +4,7 @@ import { CheckCircle2, MailWarning, RefreshCw } from 'lucide-react'
 import type { EmailOtpType } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import { appUrl } from '@/lib/appUrl'
-import { toAppError } from '@/lib/errors'
+import { isValidEmail, normalizeEmail, toAppError } from '@/lib/errors'
 import { Button } from '@/components/ui/Button'
 import { Field, Input } from '@/components/ui/Field'
 import { InlineError } from '@/components/ui/States'
@@ -52,6 +52,14 @@ export function ConfirmEmailPage() {
       if (errCode) {
         setState({ kind: 'error', expired: EXPIRED.test(`${errCode} ${errDesc}`), detail: errDesc.replace(/\+/g, ' ') })
         return
+      }
+      // Enlace con la sesión en el fragmento (#access_token=…), p. ej. un reenvío hecho desde el servidor.
+      const accessToken = h.get('access_token')
+      const refreshToken = h.get('refresh_token')
+      if (accessToken && refreshToken) {
+        const { data: s, error } = await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
+        if (error) return setState({ kind: 'error', expired: EXPIRED.test(error.message), detail: error.message })
+        return setState(s.user?.email_confirmed_at ? { kind: 'confirmed' } : { kind: 'unknown' })
       }
       if (tokenHash && type) {
         const { data, error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type })
@@ -111,7 +119,7 @@ export function ResendConfirmation({ initialEmail = '' }: { initialEmail?: strin
     e.preventDefault()
     setLoading(true)
     setError(null)
-    const { error } = await supabase.auth.resend({ type: 'signup', email: email.trim(), options: { emailRedirectTo: confirmRedirect() } })
+    const { error } = await supabase.auth.resend({ type: 'signup', email: normalizeEmail(email), options: { emailRedirectTo: confirmRedirect() } })
     setLoading(false)
     if (error) return setError(toAppError(error))
     setSent(true)
@@ -120,15 +128,15 @@ export function ResendConfirmation({ initialEmail = '' }: { initialEmail?: strin
     return (
       <div className="card flex items-start gap-3 p-4 text-sm text-muted" role="status">
         <RefreshCw className="mt-0.5 size-5 shrink-0 text-aqua" />
-        <span>Solicitud aceptada. Si la cuenta de {email} está pendiente de confirmar, recibirás un correo nuevo en unos minutos. Usa el enlace más reciente: los anteriores dejan de servir.</span>
+        <span>Solicitud aceptada. Si la cuenta de {normalizeEmail(email)} está pendiente de confirmar, recibirás un correo nuevo en unos minutos. Usa el enlace más reciente: los anteriores dejan de servir.</span>
       </div>
     )
   }
   return (
     <form onSubmit={onSubmit} className="space-y-3" noValidate aria-label="Reenviar confirmación">
-      <Field label="Correo de la cuenta">{(id) => <Input id={id} type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />}</Field>
+      <Field label="Correo de la cuenta">{(id) => <Input id={id} type="email" inputMode="email" autoCapitalize="none" autoCorrect="off" spellCheck={false} autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />}</Field>
       <InlineError error={error} />
-      <Button type="submit" variant="secondary" block loading={loading} disabled={!/^\S+@\S+\.\S+$/.test(email.trim())} icon={<RefreshCw className="size-4" />}>Reenviar correo de confirmación</Button>
+      <Button type="submit" variant="secondary" block loading={loading} disabled={loading || !isValidEmail(normalizeEmail(email))} icon={<RefreshCw className="size-4" />}>Reenviar correo de confirmación</Button>
     </form>
   )
 }
