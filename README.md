@@ -110,13 +110,20 @@ npm run dev
 
 ## Proveedor deportivo: API-Football
 
+### Plan gratuito: lo verificado con la cuenta real (10-oct-2026)
+
+- Autenticación correcta, plan **Free**, 100 solicitudes al día. El catálogo trae 1,241 competiciones, entre ellas **Liga MX (id 262)**, con temporada actual 2026.
+- El plan **no** permite consultar por temporada (`league` + `season=2026`; responde «Free plans do not have access to this season, try from 2022 to 2024») ni por `ids`. **Sí** permite consultar por fecha (`date=`): el 10-oct devolvió 1,502 partidos, 4 de ellos de Liga MX.
+- Por eso el adaptador recurre solo a consultas por día: una búsqueda por competición abarca como máximo 8 días (1 solicitud por día) y la sincronización consulta los días de los partidos pendientes. Lo que se sabe del plan queda guardado 24 h (`provider_cache`, clave `plan_flags`), así que no se gasta una solicitud en volver a descubrirlo.
+- Las respuestas de «plan restringido» no descuentan cuota del proveedor, pero el contador propio sí las cuenta: es conservador.
+
 ### Protección de la cuota gratuita (100 solicitudes/día)
 
 - `provider_take_quota` reserva cada solicitud **antes** de hacerla: presupuesto propio de 90/día (`API_FOOTBALL_DAILY_BUDGET`), 8 por minuto, y se detiene si el proveedor informa (cabeceras `x-ratelimit-requests-*`) que quedan 5 o menos. Lo consumido queda en `provider_usage` (visible solo para admins).
 - Reintentos con espera progresiva solo ante errores temporales (5xx, 429); cada reintento también consume cupo, así que un error en bucle no puede agotar la cuota. Clave inválida, plan insuficiente o cuota agotada **no** se reintentan.
 - Búsquedas del admin y lista de competiciones se guardan en caché (`provider_cache`: 24 h competiciones, 30 min si el rango incluye hoy, 6 h si no).
 - Si la cuota se agota, la ejecución queda «parcial» y se conservan los últimos datos válidos; nada se marca como finalizado por horario.
-- Consumo estimado: 1 solicitud por ejecución con partidos pendientes. Día con partidos en vivo: ~12–30; sin partidos en vivo: 1–8.
+- Consumo medido: **1 solicitud por ejecución** con partidos pendientes del mismo día (todos van en la misma consulta). Día con partidos en vivo: ~15–30; sin partidos en vivo: 1–8.
 
 ### Datos reales y de prueba
 
