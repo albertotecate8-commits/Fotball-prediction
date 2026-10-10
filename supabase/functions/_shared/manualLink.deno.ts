@@ -5,6 +5,7 @@ import type { SupabaseClient } from 'npm:@supabase/supabase-js@2'
 import { ProviderError, type FootballProvider, type NormalizedFixture } from './football/index.ts'
 import { loadPlanFlags, savePlanFlags } from './providers.deno.ts'
 import { findProviderMatch, utcDaysAround } from './football/matching.ts'
+import { featuredDue, selectFeatured } from './football/featured.ts'
 
 export interface ManualInput {
   home?: string
@@ -127,4 +128,20 @@ export async function autoLinkManual(db: SupabaseClient, provider: FootballProvi
     }
   }
   return out
+}
+
+/**
+ * Refresca los destacados de Inicio con los partidos de hoy y mañana (en
+ * caché por día). No toca jornadas: solo la tabla featured_fixtures.
+ */
+export async function refreshFeatured(db: SupabaseClient, provider: FootballProvider, force = false) {
+  const { data: last } = await db.rpc('featured_last_refresh', { p_provider: provider.id })
+  if (!force && !featuredDue(last ?? null)) return { skipped: true }
+  const today = new Date().toISOString().slice(0, 10)
+  const tomorrow = new Date(Date.now() + 86400e3).toISOString().slice(0, 10)
+  const fixtures = await dayFixtures(db, provider, [today, tomorrow], today)
+  const items = selectFeatured(fixtures)
+  const { error } = await db.rpc('upsert_featured_fixtures', { p_provider: provider.id, p_items: items })
+  if (error) throw new Error(`upsert_featured_fixtures: ${error.message}`)
+  return { skipped: false, candidates: fixtures.length, featured: items.length }
 }

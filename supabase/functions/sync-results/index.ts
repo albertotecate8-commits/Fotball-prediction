@@ -2,7 +2,7 @@
 // Invocación: pg_cron (cabecera x-sync-secret) o un admin desde el panel.
 // Un candado impide dos sincronizaciones simultáneas (cron + botón).
 import { corsHeaders, json, requireAdmin, safeEqual, serviceClient } from '../_shared/http.deno.ts'
-import { autoLinkManual, linkManualMatch, type ManualInput } from '../_shared/manualLink.deno.ts'
+import { autoLinkManual, linkManualMatch, refreshFeatured, type ManualInput } from '../_shared/manualLink.deno.ts'
 import type { ApiFootballProvider } from '../_shared/football/index.ts'
 import { loadPlanFlags, providerEnv, realProviderConfigured, resolveProvider, savePlanFlags } from '../_shared/providers.deno.ts'
 import { runAllProviders, type SyncStore } from '../_shared/football/sync.ts'
@@ -30,7 +30,7 @@ Deno.serve(async (req) => {
     return data as T
   }
 
-  let body: { diagnose?: boolean; league?: string; date?: string; ids?: string; import?: boolean; teams?: string[]; next?: boolean; link?: ManualInput } = {}
+  let body: { diagnose?: boolean; league?: string; date?: string; ids?: string; import?: boolean; teams?: string[]; next?: boolean; link?: ManualInput; refreshFeatured?: boolean } = {}
   try { body = await req.json() } catch { /* cuerpo vacío */ }
 
   // Diagnóstico acotado (solo cron/servidor o admin): estado de la cuenta
@@ -143,7 +143,7 @@ Deno.serve(async (req) => {
     runMaintenance: () => rpc('run_maintenance', {}),
   }
 
-  let result
+  let result: (Awaited<ReturnType<typeof runAllProviders>> & { autoLink: Record<string, unknown> | null; featured: Record<string, unknown> | null }) | undefined
   try {
     const resolved = new Map<string, ReturnType<typeof resolveProvider>>()
     for (const id of ['api-football', 'mock']) {
@@ -153,6 +153,7 @@ Deno.serve(async (req) => {
     }
     // Partidos capturados a mano que ya pueden vincularse con el proveedor real.
     let autoLink: Record<string, unknown> | null = null
+    const featured: Record<string, unknown> | null = null
     const real = resolved.get('api-football')
     if (real) {
       try {
@@ -161,7 +162,15 @@ Deno.serve(async (req) => {
         autoLink = { error: (e as Error).message }
       }
     }
-    result = { ...(await runAllProviders(store, (id) => resolved.get(id) ?? resolveProvider(db, id), viaCron ? 'cron' : 'manual')), autoLink }
+    result = { ...(await runAllProviders(store, (id) => resolved.get(id) ?? resolveProvider(db, id), viaCron ? 'cron' : 'manual')), autoLink, featured }
+    // Destacados de Inicio: después de la quiniela oficial, con lo que quede de cuota.
+    if (real) {
+      try {
+        result.featured = await refreshFeatured(db, real, body.refreshFeatured === true)
+      } catch (e) {
+        result.featured = { error: (e as Error).message }
+      }
+    }
     for (const p of resolved.values()) await savePlanFlags(db, p)
   } catch (e) {
     return json(req, { error: 'SYNC_FAILED', message: (e as Error).message }, 500)

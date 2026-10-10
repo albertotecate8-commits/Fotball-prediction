@@ -1,5 +1,5 @@
 import { afterAll, describe, expect, it } from 'vitest'
-import { asService, asUser, createGroup, createMatch, createOpenRound, createUser, expectDbError, pool, sql } from './helpers'
+import { asAnon, asService, asUser, createGroup, createMatch, createOpenRound, createUser, expectDbError, pool, sql } from './helpers'
 
 afterAll(() => pool.end())
 
@@ -203,5 +203,35 @@ describe('vinculación automática de partidos manuales', () => {
   it('los jugadores no pueden vincular', async () => {
     const u = await createUser()
     await expectDbError(asUser(u, `select * from public.get_link_candidates(1, 1)`), 'permission denied')
+  })
+})
+
+describe('partidos destacados', () => {
+  const item = (id: string, status = 'scheduled', priority = 50) => ({
+    external_id: id, kickoff_at: new Date(Date.now() + 3600e3).toISOString(), status, priority, reason: 'Liga MX',
+    data: { home: { name: 'Local Real' }, away: { name: 'Visita Real' }, competition: { name: 'Liga MX' } },
+  })
+
+  it('los jugadores los leen sin acceso directo a la tabla, y no se agregan a ninguna jornada', async () => {
+    const p = `feat-${Date.now()}`
+    await asService(`select public.upsert_featured_fixtures($1, $2::jsonb)`, [p, JSON.stringify([item('a1'), item('a2', 'live', 10)])])
+    const u = await createUser()
+    const rows = (await asUser(u, `select * from public.get_featured_matches(30)`)).filter((r) => r.provider === p)
+    expect(rows.map((r) => r.external_id)).toEqual(['a2', 'a1'])
+    expect(rows.every((r) => r.in_round_id === null)).toBe(true)
+    await expectDbError(asUser(u, `select * from public.featured_fixtures`), 'permission denied')
+    await expectDbError(asUser(u, `select public.upsert_featured_fixtures('x', '[]')`), 'permission denied')
+    await expectDbError(asAnon(`select * from public.get_featured_matches(5)`), 'permission denied')
+  })
+
+  it('lo que deja de venir en la selección caduca sin borrarse', async () => {
+    const p = `feat2-${Date.now()}`
+    await asService(`select public.upsert_featured_fixtures($1, $2::jsonb)`, [p, JSON.stringify([item('b1'), item('b2')])])
+    await asService(`select public.upsert_featured_fixtures($1, $2::jsonb)`, [p, JSON.stringify([item('b2')])])
+    const u = await createUser()
+    const rows = (await asUser(u, `select external_id from public.get_featured_matches(30)`)).map((r) => r.external_id)
+    expect(rows).toContain('b2')
+    expect(rows).not.toContain('b1')
+    expect(await sql(`select 1 from public.featured_fixtures where provider = $1`, [p])).toHaveLength(2)
   })
 })
