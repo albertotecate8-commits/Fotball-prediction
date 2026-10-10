@@ -63,7 +63,11 @@ export interface FootballProvider {
   /** true si los datos son ficticios (modo demostración / pruebas). */
   readonly isTestData: boolean
   searchFixtures(query: FixtureSearch): Promise<NormalizedFixture[]>
-  getFixturesByIds(externalIds: string[]): Promise<NormalizedFixture[]>
+  /**
+   * `dates` (YYYY-MM-DD UTC de cada partido) permite al adaptador recurrir a
+   * consultas por día si el plan no permite consultar por id.
+   */
+  getFixturesByIds(externalIds: string[], hint?: { dates?: string[] }): Promise<NormalizedFixture[]>
   listCompetitions(): Promise<NormalizedCompetition[]>
   /** Comprueba la conexión y la cuenta (no consume cuota en API-Football). */
   status(): Promise<ProviderStatus>

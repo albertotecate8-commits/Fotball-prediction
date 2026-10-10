@@ -8,6 +8,15 @@ import {
 
 const BASE_URL = 'https://v3.football.api-sports.io'
 const MAX_IDS_PER_REQUEST = 20
+/** Días máximos por búsqueda cuando el plan obliga a consultar día por día. */
+export const MAX_DAYS_BY_DATE = 8
+const DAY = 86400e3
+
+const daysBetween = (from: string, to: string) => {
+  const out: string[] = []
+  for (let t = Date.parse(`${from}T00:00:00Z`); t <= Date.parse(`${to}T00:00:00Z`); t += DAY) out.push(new Date(t).toISOString().slice(0, 10))
+  return out
+}
 
 /** Códigos cortos de API-Football → estado interno. */
 export function mapApiFootballStatus(short: string | null | undefined): MatchStatus {
@@ -202,34 +211,75 @@ export class ApiFootballProvider implements FootballProvider {
     throw lastError ?? new ProviderError('API-Football no disponible', true, undefined, 'UNAVAILABLE')
   }
 
-  async searchFixtures(q: FixtureSearch): Promise<NormalizedFixture[]> {
-    const statusParam = q.status === 'scheduled' ? 'NS-TBD' : q.status === 'live' ? '1H-HT-2H-ET-BT-P-LIVE' : q.status === 'finished' ? 'FT-AET-PEN' : undefined
-    let params: Record<string, string | undefined>
-    if (q.competitionId) {
-      if (!q.season) throw new ProviderError('Indica la temporada de la competición', false, undefined, 'BAD_REQUEST')
-      // Una sola solicitud para todo el rango de fechas de la competición.
-      params = { league: q.competitionId, season: q.season, from: q.from, to: q.to ?? q.from, status: statusParam, timezone: 'UTC' }
-    } else if (q.from && (!q.to || q.to === q.from)) {
-      // Sin competición: un solo día (todas las ligas en una solicitud).
-      params = { date: q.from, status: statusParam, timezone: 'UTC' }
-    } else {
-      throw new ProviderError('Elige una competición o busca un solo día', false, undefined, 'BAD_REQUEST')
-    }
-    const rows = await this.request<ApiFixture[]>('/fixtures', params)
-    const team = q.team?.trim().toLowerCase()
-    return (rows ?? [])
-      .map(normalizeApiFootballFixture)
-      .filter((f) => !team || f.home.name.toLowerCase().includes(team) || f.away.name.toLowerCase().includes(team))
+  /**
+   * El plan gratuito solo permite consultar por temporada las de años
+   * anteriores, pero sí permite consultar por fecha. Cuando la temporada está
+   * restringida se recurre a una consulta por día (todas las ligas) y se filtra.
+   */
+  seasonRestricted = false
+
+  private statusParam(q: FixtureSearch) {
+    return q.status === 'scheduled' ? 'NS-TBD' : q.status === 'live' ? '1H-HT-2H-ET-BT-P-LIVE' : q.status === 'finished' ? 'FT-AET-PEN' : undefined
   }
 
-  async getFixturesByIds(ids: string[]): Promise<NormalizedFixture[]> {
+  private async byDays(days: string[], status?: string): Promise<NormalizedFixture[]> {
+    if (days.length > MAX_DAYS_BY_DATE) {
+      throw new ProviderError(`Con el plan gratuito busca como máximo ${MAX_DAYS_BY_DATE} días por competición`, false, undefined, 'BAD_REQUEST')
+    }
     const out: NormalizedFixture[] = []
-    for (let i = 0; i < ids.length; i += MAX_IDS_PER_REQUEST) {
-      const chunk = ids.slice(i, i + MAX_IDS_PER_REQUEST)
-      const rows = await this.request<ApiFixture[]>('/fixtures', { ids: chunk.join('-'), timezone: 'UTC' })
+    for (const date of days) {
+      const rows = await this.request<ApiFixture[]>('/fixtures', { date, status, timezone: 'UTC' })
       out.push(...(rows ?? []).map(normalizeApiFootballFixture))
     }
     return out
+  }
+
+  async searchFixtures(q: FixtureSearch): Promise<NormalizedFixture[]> {
+    const status = this.statusParam(q)
+    let fixtures: NormalizedFixture[]
+    if (q.competitionId) {
+      if (!q.from) throw new ProviderError('Indica la fecha inicial', false, undefined, 'BAD_REQUEST')
+      const to = q.to ?? q.from
+      const viaDays = async () => (await this.byDays(daysBetween(q.from!, to), status)).filter((f) => f.competition?.external_id === q.competitionId)
+      if (this.seasonRestricted || !q.season) {
+        fixtures = await viaDays()
+      } else {
+        try {
+          // Una sola solicitud para todo el rango de fechas de la competición.
+          const rows = await this.request<ApiFixture[]>('/fixtures', { league: q.competitionId, season: q.season, from: q.from, to, status, timezone: 'UTC' })
+          fixtures = (rows ?? []).map(normalizeApiFootballFixture)
+        } catch (e) {
+          if (!(e instanceof ProviderError) || e.code !== 'PLAN_RESTRICTED') throw e
+          this.seasonRestricted = true
+          fixtures = await viaDays()
+        }
+      }
+    } else if (q.from && (!q.to || q.to === q.from)) {
+      // Sin competición: un solo día (todas las ligas en una solicitud).
+      fixtures = await this.byDays([q.from], status)
+    } else {
+      throw new ProviderError('Elige una competición o busca un solo día', false, undefined, 'BAD_REQUEST')
+    }
+    const team = q.team?.trim().toLowerCase()
+    return fixtures.filter((f) => !team || f.home.name.toLowerCase().includes(team) || f.away.name.toLowerCase().includes(team))
+  }
+
+  async getFixturesByIds(ids: string[], hint?: { dates?: string[] }): Promise<NormalizedFixture[]> {
+    const out: NormalizedFixture[] = []
+    try {
+      for (let i = 0; i < ids.length; i += MAX_IDS_PER_REQUEST) {
+        const chunk = ids.slice(i, i + MAX_IDS_PER_REQUEST)
+        const rows = await this.request<ApiFixture[]>('/fixtures', { ids: chunk.join('-'), timezone: 'UTC' })
+        out.push(...(rows ?? []).map(normalizeApiFootballFixture))
+      }
+      return out
+    } catch (e) {
+      // Plan sin acceso por id: consultar los días de los partidos pendientes.
+      if (!(e instanceof ProviderError) || e.code !== 'PLAN_RESTRICTED' || !hint?.dates?.length) throw e
+      const wanted = new Set(ids)
+      const days = [...new Set(hint.dates)].sort().slice(0, MAX_DAYS_BY_DATE)
+      return (await this.byDays(days)).filter((f) => wanted.has(f.external_id))
+    }
   }
 
   async listCompetitions(): Promise<NormalizedCompetition[]> {

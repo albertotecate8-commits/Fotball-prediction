@@ -28,7 +28,7 @@ Deno.serve(async (req) => {
     return data as T
   }
 
-  let body: { diagnose?: boolean; league?: string; date?: string } = {}
+  let body: { diagnose?: boolean; league?: string; date?: string; ids?: string } = {}
   try { body = await req.json() } catch { /* cuerpo vacío */ }
 
   // Diagnóstico acotado (solo cron/servidor o admin): estado de la cuenta
@@ -40,6 +40,16 @@ Deno.serve(async (req) => {
     if (!p) return json(req, { api_football_configured: false })
     const league = /^\d{1,6}$/.test(body.league ?? '') ? body.league! : '262'
     const out: Record<string, unknown> = { api_football_configured: true, status: await p.status() }
+    if (/^\d{1,10}(-\d{1,10}){0,4}$/.test(body.ids ?? '')) {
+      // Consulta por id (lo que usa la sincronización): 1 solicitud, o la de la fecha si el plan no lo permite.
+      try {
+        const fx = await p.getFixturesByIds(body.ids!.split('-'), { dates: body.date ? [body.date] : [] })
+        out.ids_result = fx.map((f) => ({ id: f.external_id, status: f.status, score: [f.home_goals, f.away_goals], match: `${f.home.name} vs ${f.away.name}` }))
+      } catch (e) {
+        out.error = `${(e as { code?: string }).code ?? 'ERROR'}: ${(e as Error).message}`
+      }
+      return json(req, out)
+    }
     if (/^\d{4}-\d{2}-\d{2}$/.test(body.date ?? '')) {
       // Un día concreto, todas las ligas: 1 solicitud.
       try {

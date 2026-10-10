@@ -164,10 +164,31 @@ describe('clasificación de errores', () => {
     expect(fetchImpl).toHaveBeenCalledTimes(1)
   })
 
-  it('temporada fuera del plan: PLAN_RESTRICTED', async () => {
-    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({ errors: { plan: 'Free plans do not have access to this season' }, response: [] }), { status: 200 }))
+  it('temporada fuera del plan: recurre a consultas por día filtradas por liga', async () => {
+    const restricted = () => new Response(JSON.stringify({ errors: { plan: 'Free plans do not have access to this season' }, response: [] }), { status: 200 })
+    const other = fixture({ fixture: { id: 2002, date: '2026-10-10T02:00:00Z', status: { short: 'NS', elapsed: null } }, league: { id: 39, name: 'Otra', country: 'X', season: 2026, logo: null } })
+    const fetchImpl = vi.fn(async (u: string) => (new URL(u).searchParams.has('season') ? restricted() : ok([fixture(), other])))
     const p = new ApiFootballProvider({ apiKey: 'k', fetchImpl: fetchImpl as never, sleep: async () => {} })
-    await expect(p.searchFixtures({ competitionId: '262', season: '2026', from: '2026-10-10', to: '2026-10-20' })).rejects.toMatchObject({ code: 'PLAN_RESTRICTED' })
+    const r = await p.searchFixtures({ competitionId: '262', season: '2026', from: '2026-10-10', to: '2026-10-11' })
+    expect(r.map((f) => f.external_id)).toEqual(['1001', '1001'])
+    expect(fetchImpl).toHaveBeenCalledTimes(3)
+    // La segunda búsqueda ya no gasta una solicitud en la temporada restringida.
+    await p.searchFixtures({ competitionId: '262', season: '2026', from: '2026-10-12' })
+    expect(fetchImpl).toHaveBeenCalledTimes(4)
+    // Rango demasiado largo: se rechaza sin consultar.
+    await expect(p.searchFixtures({ competitionId: '262', season: '2026', from: '2026-10-01', to: '2026-10-20' })).rejects.toMatchObject({ code: 'BAD_REQUEST' })
+    expect(fetchImpl).toHaveBeenCalledTimes(4)
+  })
+
+  it('ids fuera del plan: consulta los días de los partidos pendientes', async () => {
+    const fetchImpl = vi.fn(async (u: string) => (new URL(u).searchParams.has('ids')
+      ? new Response(JSON.stringify({ errors: { plan: 'Free plans do not have access to this season' }, response: [] }), { status: 200 })
+      : ok([fixture(), fixture({ fixture: { id: 9, date: '2026-10-12T02:00:00Z', status: { short: 'NS', elapsed: null } } })])))
+    const p = new ApiFootballProvider({ apiKey: 'k', fetchImpl: fetchImpl as never, sleep: async () => {} })
+    const r = await p.getFixturesByIds(['1001'], { dates: ['2026-10-12', '2026-10-12'] })
+    expect(r.map((f) => f.external_id)).toEqual(['1001'])
+    expect(fetchImpl).toHaveBeenCalledTimes(2)
+    await expect(p.getFixturesByIds(['1001'])).rejects.toMatchObject({ code: 'PLAN_RESTRICTED' })
   })
 })
 

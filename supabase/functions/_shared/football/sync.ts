@@ -6,6 +6,7 @@ export interface SyncTarget {
   match_id: string
   provider: string
   external_id: string
+  kickoff_at?: string
 }
 
 export interface SyncStore {
@@ -54,7 +55,8 @@ export async function runSync(store: SyncStore, provider: FootballProvider, trig
     skipped = all.length - targets.length
 
     if (targets.length > 0) {
-      const fixtures = await provider.getFixturesByIds([...new Set(targets.map((t) => t.external_id))])
+      const dates = [...new Set(targets.flatMap((t) => (t.kickoff_at ? [new Date(t.kickoff_at).toISOString().slice(0, 10)] : [])))]
+      const fixtures = await provider.getFixturesByIds([...new Set(targets.map((t) => t.external_id))], { dates })
       const byId = new Map(fixtures.map((f) => [f.external_id, f]))
       for (const t of targets) {
         checked++
