@@ -23,6 +23,8 @@ export const playerApi = {
       'submit_prediction', { p_round_id: roundId, p_items: items, p_client_seq: seq }),
   featured: () => rpc<FeaturedMatch[]>('get_featured_matches', { p_limit: 14 }),
   /** Cuándo se actualizaron los resultados (los datos siempre vienen de Supabase, nunca del proveedor). */
+  /** Bolsa acumulada (60 % de los pagos confirmados); el resto nunca llega al navegador. */
+  pot: () => rpc<{ pot: number; paid_count: number; currency: string; configured: boolean } | null>('get_prize_pot'),
   week: () => rpc<{ label: string; week_start: string; week_end: string; max_matches: number; filled: number } | null>('get_pool_week'),
   freshness: () => rpc<{ updated_at: string | null; delayed: boolean } | null>('get_results_freshness'),
   participation: (roundId?: string | null) => rpc<Participation>('get_my_participation', { p_round_id: roundId ?? null }),

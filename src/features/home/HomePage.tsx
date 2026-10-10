@@ -11,6 +11,7 @@ import { SectionTitle } from '@/components/PageHeader'
 import { MatchRow } from '@/components/MatchCard'
 import { FeaturedHero, FeaturedRow } from './Featured'
 import { PoolAccess } from './PoolAccess'
+import { PrizePot } from './PrizePot'
 import type { FeaturedMatch } from '@/types/domain'
 
 const upcomingFirst = (a: FeaturedMatch, b: FeaturedMatch) => b.priority - a.priority || Date.parse(a.kickoff_at) - Date.parse(b.kickoff_at)
@@ -30,6 +31,7 @@ export function HomePage() {
 
   return (
     <div>
+      <PrizePot />
       <PoolAccess />
 
       <h2 className="display mb-3 mt-6 text-xl font-semibold uppercase tracking-wide">Partidos destacados</h2>
