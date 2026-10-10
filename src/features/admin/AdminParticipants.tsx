@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { MailPlus, Search, ShieldCheck, UserX, UserCheck } from 'lucide-react'
 import { adminApi, type Participant } from '@/services/admin'
+import type { PaymentStatus } from '@/types/domain'
 import { qk } from '@/services/queryKeys'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { useAppConfig } from '@/hooks/useAppConfig'
@@ -25,6 +26,8 @@ export function AdminParticipants() {
   const { timezone } = useAppConfig()
   const q = useQuery({ queryKey: qk.admin.participants, queryFn: adminApi.participants })
   const groups = useQuery({ queryKey: qk.admin.groups, queryFn: adminApi.groups })
+  const payments = useQuery({ queryKey: ['admin', 'payments'], queryFn: adminApi.payments })
+  const [paying, setPaying] = useState<{ p: Participant; groupId: string; groupName: string } | null>(null)
   const [search, setSearch] = useState('')
   const [inviteOpen, setInviteOpen] = useState(false)
 
@@ -56,18 +59,26 @@ export function AdminParticipants() {
         <ul className="space-y-3">
           {list.map((p) => (
             <ParticipantRow key={p.user_id} p={p} isSelf={p.user_id === profile?.id} tz={timezone}
-              groups={groups.data ?? []} busy={run.isPending}
+              groups={groups.data ?? []} busy={run.isPending} payments={payments.data ?? []}
+              onPayment={(groupId, groupName) => setPaying({ p, groupId, groupName })}
               onRun={(fn) => run.mutate(fn)} />
           ))}
         </ul>
+      )}
+      {paying && (
+        <PaymentSheet key={paying.p.user_id + paying.groupId} target={paying} onClose={() => setPaying(null)}
+          onSave={(status, validUntil, reference, reason) => run.mutate(() => adminApi.setPayment(paying.groupId, paying.p.user_id, status, validUntil, reference, reason).then(() => setPaying(null)))} />
       )}
       <InviteSheet open={inviteOpen} onClose={() => setInviteOpen(false)} groups={groups.data ?? []} onDone={() => void refresh()} />
     </div>
   )
 }
 
-function ParticipantRow({ p, isSelf, tz, groups, busy, onRun }: {
-  p: Participant; isSelf: boolean; tz: string; groups: { id: string; name: string }[]; busy: boolean; onRun: (fn: () => Promise<unknown>) => void
+type PaymentRow = { group_id: string; user_id: string; payment_status: PaymentStatus; payment_valid_until: string | null; payment_reference: string | null }
+
+function ParticipantRow({ p, isSelf, tz, groups, busy, onRun, payments, onPayment }: {
+  p: Participant; isSelf: boolean; tz: string; groups: { id: string; name: string; requires_payment?: boolean }[]; busy: boolean
+  onRun: (fn: () => Promise<unknown>) => void; payments: PaymentRow[]; onPayment: (groupId: string, groupName: string) => void
 }) {
   const [addGroup, setAddGroup] = useState('')
   const missing = groups.filter((g) => !p.memberships.some((m) => m.group_id === g.id))
@@ -94,10 +105,25 @@ function ParticipantRow({ p, isSelf, tz, groups, busy, onRun }: {
                 onChange={(e) => onRun(() => adminApi.setMember(m.group_id, p.user_id, e.target.value as 'active'))}>
                 <option value="pending">Pendiente</option><option value="active">Activo</option><option value="suspended">Suspendido</option>
               </Select>
-              <Select aria-label={`Autorización en ${m.group_name}`} className="h-9 w-auto rounded-full px-3 text-xs" value={m.payment_status} disabled={busy}
-                onChange={(e) => onRun(() => adminApi.setMember(m.group_id, p.user_id, m.status, e.target.value as 'pending'))}>
-                {Object.entries(PAYMENT_LABEL).map(([v, l]) => <option key={v} value={v}>Autorización: {l}</option>)}
-              </Select>
+              {groups.find((g) => g.id === m.group_id)?.requires_payment ? (() => {
+                const pay = payments.find((x) => x.group_id === m.group_id && x.user_id === p.user_id)
+                const st = pay?.payment_status ?? m.payment_status
+                return (
+                  <>
+                    <Badge tone={st === 'authorized' ? 'success' : st === 'rejected' ? 'danger' : st === 'pending' ? 'warning' : 'neutral'}>
+                      Pago: {PAYMENT_LABEL[st]}{st === 'authorized' && pay?.payment_valid_until ? ` · hasta ${formatDate(pay.payment_valid_until, tz)}` : ''}
+                    </Badge>
+                    <Button size="sm" variant="secondary" disabled={busy} onClick={() => onPayment(m.group_id, m.group_name)}>
+                      {st === 'authorized' ? 'Cambiar pago' : 'Confirmar pago'}
+                    </Button>
+                  </>
+                )
+              })() : (
+                <Select aria-label={`Autorización en ${m.group_name}`} className="h-9 w-auto rounded-full px-3 text-xs" value={m.payment_status} disabled={busy}
+                  onChange={(e) => onRun(() => adminApi.setMember(m.group_id, p.user_id, m.status, e.target.value as 'pending'))}>
+                  {Object.entries(PAYMENT_LABEL).map(([v, l]) => <option key={v} value={v}>Autorización: {l}</option>)}
+                </Select>
+              )}
             </li>
           ))}
         </ul>
@@ -176,6 +202,41 @@ function InviteSheet({ open, onClose, groups, onDone }: { open: boolean; onClose
         )}</Field>
         <p className="text-xs text-muted">Las contraseñas nunca son visibles: el participante crea la suya desde el correo.</p>
         <InlineError error={error} />
+      </div>
+    </Sheet>
+  )
+}
+
+/** Confirmación manual del pago. No hay cobro automático ni pasarela. */
+function PaymentSheet({ target, onClose, onSave }: {
+  target: { p: Participant; groupName: string }; onClose: () => void
+  onSave: (status: PaymentStatus, validUntil: string | null, reference: string, reason: string) => void
+}) {
+  const [status, setStatus] = useState<PaymentStatus>('authorized')
+  const [reference, setReference] = useState('')
+  const [until, setUntil] = useState('')
+  const [reason, setReason] = useState('')
+  const valid = reason.trim().length >= 5 && (status !== 'authorized' || reference.trim().length >= 3)
+  return (
+    <Sheet open onClose={onClose} title={`Pago de ${target.p.display_name}`}
+      footer={<Button block size="lg" disabled={!valid} onClick={() => onSave(status, status === 'authorized' && until ? new Date(`${until}T23:59:59`).toISOString() : null, reference, reason)}>Guardar</Button>}>
+      <div className="space-y-4">
+        <p className="text-sm text-muted">{target.groupName}. Confirma solo pagos que hayas verificado (transferencia, recibo). Queda registrado en la auditoría.</p>
+        <Field label="Estado del pago">{(id) => (
+          <Select id={id} value={status} onChange={(e) => setStatus(e.target.value as PaymentStatus)}>
+            <option value="authorized">Confirmado (puede participar)</option>
+            <option value="pending">Pendiente</option>
+            <option value="rejected">Rechazado</option>
+            <option value="not_applicable">Sin pago</option>
+          </Select>
+        )}</Field>
+        {status === 'authorized' && (
+          <>
+            <Field label="Referencia del pago">{(id) => <Input id={id} value={reference} maxLength={120} onChange={(e) => setReference(e.target.value)} placeholder="Nº de transferencia o recibo" />}</Field>
+            <Field label="Vigente hasta (opcional)">{(id) => <Input id={id} type="date" value={until} onChange={(e) => setUntil(e.target.value)} />}</Field>
+          </>
+        )}
+        <Field label="Motivo">{(id) => <Input id={id} value={reason} maxLength={200} onChange={(e) => setReason(e.target.value)} placeholder="Ej. Transferencia verificada en banco" />}</Field>
       </div>
     </Sheet>
   )

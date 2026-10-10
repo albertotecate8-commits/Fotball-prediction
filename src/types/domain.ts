@@ -189,3 +189,11 @@ export interface FeaturedMatch {
     away: { name: string; short_name: string; logo_url: string | null }
   }
 }
+
+/** Estado de participación (pago confirmado por un administrador). */
+export interface Participation {
+  requires_payment: boolean
+  payment_status: PaymentStatus
+  valid_until: string | null
+  can_participate: boolean
+}

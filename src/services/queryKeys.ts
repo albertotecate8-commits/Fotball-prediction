@@ -9,6 +9,7 @@ export const qk = {
   summary: (g: string) => ['summary', g] as const,
   upcoming: (g: string) => ['upcoming', g] as const,
   featured: ['featured'] as const,
+  participation: (r: string | null) => ['participation', r] as const,
   admin: {
     stats: ['admin', 'stats'] as const,
     participants: ['admin', 'participants'] as const,

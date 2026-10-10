@@ -3,7 +3,7 @@ import { playerApi } from '@/services/player'
 import { toAppError } from '@/lib/errors'
 import { nextSeq, writeLocalDraft, type Picks } from './draftStore'
 
-export type SaveState = 'idle' | 'pending' | 'saving' | 'saved' | 'error' | 'locked'
+export type SaveState = 'idle' | 'pending' | 'saving' | 'saved' | 'error' | 'locked' | 'local'
 
 interface Options {
   roundId: string
@@ -11,6 +11,8 @@ interface Options {
   matchOrder: string[]
   initialSeq: number
   enabled: boolean
+  /** Sin participación activa: solo se guarda en este dispositivo. */
+  localOnly?: boolean
   debounceMs?: number
   onLocked?: () => void
 }
@@ -22,7 +24,7 @@ interface Options {
  *  - secuencia monotónica: el servidor ignora guardados que llegan tarde,
  *  - reintentos con espera creciente y respaldo en localStorage.
  */
-export function useDraftAutosave({ roundId, userId, matchOrder, initialSeq, enabled, debounceMs = 700, onLocked }: Options) {
+export function useDraftAutosave({ roundId, userId, matchOrder, initialSeq, enabled, localOnly = false, debounceMs = 700, onLocked }: Options) {
   const [state, setState] = useState<SaveState>('idle')
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -36,7 +38,7 @@ export function useDraftAutosave({ roundId, userId, matchOrder, initialSeq, enab
   order.current = matchOrder
 
   const flush = useCallback(async () => {
-    if (!enabled || inFlight.current || !dirty.current || !latest.current) return
+    if (!enabled || localOnly || inFlight.current || !dirty.current || !latest.current) return
     inFlight.current = true
     dirty.current = false
     const picks = latest.current
@@ -79,16 +81,21 @@ export function useDraftAutosave({ roundId, userId, matchOrder, initialSeq, enab
       inFlight.current = false
       if (dirty.current && retries.current === 0) void flush()
     }
-  }, [enabled, roundId, userId, onLocked])
+  }, [enabled, localOnly, roundId, userId, onLocked])
 
   const schedule = useCallback((picks: Picks) => {
     latest.current = picks
+    if (localOnly) {
+      writeLocalDraft(roundId, userId, { seq: seq.current, picks, savedToServer: false, localOnly: true })
+      setState('local')
+      return
+    }
     dirty.current = true
     writeLocalDraft(roundId, userId, { seq: seq.current, picks, savedToServer: false })
     setState('pending')
     if (timer.current) clearTimeout(timer.current)
     timer.current = setTimeout(() => { retries.current = 0; void flush() }, debounceMs)
-  }, [debounceMs, flush, roundId, userId])
+  }, [debounceMs, flush, localOnly, roundId, userId])
 
   // Reintento inmediato al recuperar la conexión.
   useEffect(() => {

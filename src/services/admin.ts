@@ -84,6 +84,7 @@ export interface AdminGroup {
   join_requires_approval: boolean
   is_active: boolean
   is_default?: boolean
+  requires_payment?: boolean
   created_at: string
 }
 
@@ -143,6 +144,13 @@ export const adminApi = {
       'admin_group_members', { p_group_id: groupId }),
   setMember: (groupId: string, userId: string, status: MemberStatus, payment?: PaymentStatus) =>
     rpc<void>('admin_set_member', { p_group_id: groupId, p_user_id: userId, p_status: status, p_payment_status: payment ?? null }),
+  /** Confirmación manual del pago (sin pasarela): referencia, vigencia y motivo quedan auditados. */
+  setPayment: (groupId: string, userId: string, status: PaymentStatus, validUntil: string | null, reference: string, reason: string) =>
+    rpc<void>('admin_set_payment', { p_group_id: groupId, p_user_id: userId, p_payment_status: status, p_valid_until: validUntil, p_reference: reference, p_reason: reason }),
+  payments: async () =>
+    unwrap<{ group_id: string; user_id: string; payment_status: PaymentStatus; payment_valid_until: string | null; payment_reference: string | null; payment_confirmed_at: string | null }[]>(
+      await supabase.from('group_members').select('group_id, user_id, payment_status, payment_valid_until, payment_reference, payment_confirmed_at'),
+    ),
   addMemberByEmail: (groupId: string, email: string) => rpc<string>('admin_add_member_by_email', { p_group_id: groupId, p_email: email }),
 
   rounds: async () =>

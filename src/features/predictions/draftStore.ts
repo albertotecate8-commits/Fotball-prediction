@@ -1,6 +1,7 @@
 // Respaldo local del borrador: si la red falla, no se pierde lo capturado.
 export type Picks = Record<string, { home: number | null; away: number | null }>
-export interface LocalDraft { seq: number; picks: Picks; savedToServer: boolean }
+/** `localOnly`: preparado sin participación activa; nunca se sube solo al servidor. */
+export interface LocalDraft { seq: number; picks: Picks; savedToServer: boolean; localOnly?: boolean }
 
 const key = (roundId: string, userId: string) => `fp.draft.${userId}.${roundId}`
 

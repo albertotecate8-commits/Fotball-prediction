@@ -1,6 +1,6 @@
 import { rpc } from './rpc'
 import type {
-  AppConfig, FeaturedMatch, LeaderboardRow, MyGroup, PlayerSummary, PositionHistoryRow, PredictionItemInput, RoundDetail, RoundListItem, UpcomingMatch,
+  AppConfig, FeaturedMatch, LeaderboardRow, Participation, MyGroup, PlayerSummary, PositionHistoryRow, PredictionItemInput, RoundDetail, RoundListItem, UpcomingMatch,
 } from '@/types/domain'
 
 export const playerApi = {
@@ -22,5 +22,6 @@ export const playerApi = {
     rpc<{ status: 'submitted'; already_submitted: boolean; submitted_at: string }>(
       'submit_prediction', { p_round_id: roundId, p_items: items, p_client_seq: seq }),
   featured: () => rpc<FeaturedMatch[]>('get_featured_matches', { p_limit: 14 }),
+  participation: (roundId?: string | null) => rpc<Participation>('get_my_participation', { p_round_id: roundId ?? null }),
   claimFirstAdmin: () => rpc<boolean>('claim_first_admin'),
 }

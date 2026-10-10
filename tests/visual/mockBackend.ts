@@ -110,7 +110,7 @@ const RPC: Record<string, (body: Record<string, unknown>) => unknown> = {
     last_sync: { id: 12, provider: 'mock', status: 'success', started_at: iso(-10 * 60e3), finished_at: iso(-10 * 60e3 + 3000), matches_checked: 10, matches_updated: 2, error_message: null } }),
 }
 
-export async function mockBackend(page: Page, opts: { admin?: boolean; featured?: unknown[]; noGroup?: boolean } = {}) {
+export async function mockBackend(page: Page, opts: { admin?: boolean; featured?: unknown[]; noGroup?: boolean; paid?: boolean; calls?: string[] } = {}) {
   await page.emulateMedia({ reducedMotion: 'reduce' })
   const session = {
     access_token: 'mock.jwt.token', token_type: 'bearer', expires_in: 3600 * 24 * 365, expires_at: Math.floor(now / 1000) + 3600 * 24 * 365,
@@ -133,7 +133,12 @@ export async function mockBackend(page: Page, opts: { admin?: boolean; featured?
     if (url.pathname.startsWith('/rest/v1/rpc/')) {
       const fn = url.pathname.split('/').pop()!
       const body = route.request().postDataJSON() ?? {}
+      opts.calls?.push(fn)
       if (fn === 'get_featured_matches') return json(opts.featured ?? FEATURED)
+      if (fn === 'get_my_participation') {
+        const paid = opts.paid ?? true
+        return json({ requires_payment: true, payment_status: paid ? 'authorized' : 'not_applicable', valid_until: null, can_participate: paid })
+      }
       if (fn === 'get_my_groups' && opts.noGroup) return json([])
       const h = RPC[fn]
       return h ? json(h(body)) : json({ message: `mock: ${fn} no simulado` }, 400)

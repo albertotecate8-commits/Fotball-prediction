@@ -8,8 +8,10 @@ import { roundCta } from './NextRoundCard'
 import type { RoundListItem } from '@/types/domain'
 
 /** Acceso compacto a la quiniela oficial (la jornada que publica el admin). */
-export function QuinielaAccess({ round, tz }: { round: RoundListItem; tz: string }) {
-  const cta = roundCta(round)
+export function QuinielaAccess({ round, tz, explore = false }: { round: RoundListItem; tz: string; explore?: boolean }) {
+  const base = roundCta(round)
+  // Sin participación activa la acción es explorar/preparar en el dispositivo, no enviar.
+  const cta = explore && round.phase === 'open' && round.my_status !== 'submitted' ? { ...base, label: 'Explorar y preparar', variant: 'secondary' as const } : base
   const progress = round.match_count ? Math.round((round.my_items / round.match_count) * 100) : 0
   const showCountdown = round.phase === 'open' || round.phase === 'upcoming'
   return (

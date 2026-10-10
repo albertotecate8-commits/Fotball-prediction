@@ -15,6 +15,7 @@ import { ButtonLink } from '@/components/ui/Button'
 import { CardSkeleton } from '@/components/ui/Skeleton'
 import { EmptyState, ErrorState } from '@/components/ui/States'
 import { QuinielaAccess } from '@/features/home/QuinielaAccess'
+import { ParticipationNotice } from '@/features/participation/ParticipationNotice'
 import { formatShortDate, formatTime } from '@/lib/time'
 import { cn } from '@/lib/cn'
 import { pickFeaturedRound, useRounds } from './useRounds'
@@ -55,12 +56,12 @@ function QuinielaMatch({ m, tz, to }: { m: RoundMatch; tz: string; to: string })
   )
 }
 
-function CurrentRound({ round, tz }: { round: RoundListItem; tz: string }) {
+function CurrentRound({ round, tz, explore }: { round: RoundListItem; tz: string; explore: boolean }) {
   const detail = useQuery({ queryKey: qk.round(round.round_id), queryFn: () => playerApi.roundDetail(round.round_id), refetchInterval: 60_000 })
   const to = roundHref(round)
   return (
     <>
-      <QuinielaAccess round={round} tz={tz} />
+      <QuinielaAccess round={round} tz={tz} explore={explore} />
       <SectionTitle>Partidos de la quiniela</SectionTitle>
       {detail.isLoading ? <CardSkeleton lines={4} /> : detail.error ? <ErrorState error={detail.error} onRetry={() => void detail.refetch()} /> : (
         <div className="space-y-2">
@@ -77,6 +78,7 @@ export function RoundsPage() {
   const { isAdmin } = useAuth()
   const { timezone } = useAppConfig()
   const rounds = useRounds(group?.group_id)
+  const part = useQuery({ queryKey: qk.participation(null), queryFn: () => playerApi.participation(null), staleTime: 30_000 })
   const current = rounds.data ? pickFeaturedRound(rounds.data.filter((r) => r.phase !== 'draft')) : null
   const others = (rounds.data ?? []).filter((r) => r.round_id !== current?.round_id)
 
@@ -86,7 +88,10 @@ export function RoundsPage() {
       {loading || rounds.isLoading ? <CardSkeleton lines={6} /> : rounds.error ? (
         <ErrorState error={rounds.error} onRetry={() => void rounds.refetch()} />
       ) : current ? (
-        <CurrentRound round={current} tz={timezone} />
+        <>
+          {part.data && <ParticipationNotice participation={part.data} className="mb-4" />}
+          <CurrentRound round={current} tz={timezone} explore={part.data ? !part.data.can_participate : false} />
+        </>
       ) : (
         <EmptyState icon={<Ticket className="size-6" />} title="Aún no hay partidos en la quiniela"
           description="Cuando se publique la jornada oficial verás aquí sus partidos para pronosticar. Mientras, revisa los partidos destacados."

@@ -74,6 +74,24 @@ test.describe('pantallas', () => {
     await page.screenshot({ path: shot('04-revision', info.project.name) })
   })
 
+  test('sin pago confirmado: explora y prepara solo en el dispositivo, sin enviar', async ({ page }, info) => {
+    const calls: string[] = []
+    await mockBackend(page, { paid: false, calls })
+    await page.goto('/quinielas')
+    await expect(page.getByText('Modo exploración')).toBeVisible()
+    await page.getByRole('link', { name: /Explorar y preparar/ }).click()
+    await expect(page.getByText('Modo exploración')).toBeVisible()
+    const card = page.locator('li', { hasText: 'Partido 7' })
+    await card.getByRole('textbox').first().fill('2')
+    await card.getByRole('textbox').nth(1).fill('1')
+    await expect(page.getByText('Guardado solo en este dispositivo')).toBeVisible()
+    await page.waitForTimeout(1200)
+    expect(calls).not.toContain('save_prediction_draft')
+    expect(calls).not.toContain('submit_prediction')
+    await expect(page.getByRole('button', { name: 'Participación no activada' })).toBeDisabled()
+    await page.screenshot({ path: shot('03b-exploracion', info.project.name) })
+  })
+
   test('campos de goles rechazan texto y negativos', async ({ page }) => {
     await mockBackend(page)
     await page.goto('/quinielas/r-open/jugar')

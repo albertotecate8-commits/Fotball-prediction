@@ -24,6 +24,7 @@ export function HomePage() {
   const gid = group?.group_id
   const rounds = useRounds(gid)
   const featured = useQuery({ queryKey: qk.featured, queryFn: playerApi.featured, refetchInterval: 120_000 })
+  const part = useQuery({ queryKey: qk.participation(null), queryFn: () => playerApi.participation(null), staleTime: 30_000 })
   const upcoming = useQuery({ queryKey: qk.upcoming(gid ?? ''), queryFn: () => playerApi.upcoming(gid!), enabled: !!gid, refetchInterval: 60_000 })
 
   const officialRound = rounds.data ? pickFeaturedRound(rounds.data) : null
@@ -57,7 +58,7 @@ export function HomePage() {
       {groupLoading || (gid && rounds.isLoading) ? <CardSkeleton lines={3} /> : rounds.error ? (
         <ErrorState error={rounds.error} onRetry={() => void rounds.refetch()} />
       ) : officialRound ? (
-        <QuinielaAccess round={officialRound} tz={timezone} />
+        <QuinielaAccess round={officialRound} tz={timezone} explore={part.data ? !part.data.can_participate : false} />
       ) : (
         <NoQuiniela />
       )}
