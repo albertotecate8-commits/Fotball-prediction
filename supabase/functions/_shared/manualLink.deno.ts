@@ -15,6 +15,8 @@ export interface ManualInput {
   competitionName?: string
   pick_external_id?: string
   create_unlinked?: boolean
+  /** No crear partido manual si la fecha no se puede consultar (lo decide el admin). */
+  no_create?: boolean
 }
 
 /** Partidos de varios días (todas las ligas), en caché: 1 solicitud por día UTC. */
@@ -75,6 +77,7 @@ export async function linkManualMatch(db: SupabaseClient, provider: FootballProv
   } catch (e) {
     await savePlanFlags(db, provider)
     if (!(e instanceof ProviderError) || e.code !== 'PLAN_RESTRICTED') throw e
+    if (m.no_create) return { kind: 'outside_window' as const, provider: provider.id, message: e.message, candidates: [] }
     // Fecha aún fuera de la ventana del plan: se guarda como manual y el
     // sincronizador lo vinculará solo cuando el proveedor permita consultarla.
     return { kind: 'pending_link' as const, provider: provider.id, message: e.message, ...(await createManual()) }
@@ -144,4 +147,26 @@ export async function refreshFeatured(db: SupabaseClient, provider: FootballProv
   const { error } = await db.rpc('upsert_featured_fixtures', { p_provider: provider.id, p_items: items })
   if (error) throw new Error(`upsert_featured_fixtures: ${error.message}`)
   return { skipped: false, candidates: fixtures.length, featured: items.length }
+}
+
+/**
+ * Importación automática a la quiniela: partidos de hoy y mañana de las
+ * fuentes configuradas (pool_sources). Usa la misma caché por día que los
+ * destacados, así que no gasta solicitudes adicionales.
+ */
+export async function autoImportPool(db: SupabaseClient, provider: FootballProvider) {
+  const { data: sources, error: se } = await db.from('pool_sources').select('kind, external_id').eq('provider', provider.id).eq('enabled', true)
+  if (se) throw new Error(`pool_sources: ${se.message}`)
+  const leagues = new Set((sources ?? []).filter((s) => s.kind === 'league').map((s) => s.external_id))
+  const teams = new Set((sources ?? []).filter((s) => s.kind === 'team').map((s) => s.external_id))
+  if (!leagues.size && !teams.size) return { candidates: 0, added: 0 }
+  const today = new Date().toISOString().slice(0, 10)
+  const tomorrow = new Date(Date.now() + 86400e3).toISOString().slice(0, 10)
+  const fixtures = await dayFixtures(db, provider, [today, tomorrow], today)
+  const wanted = fixtures.filter((f) => f.status === 'scheduled' && Date.parse(f.kickoff_at) > Date.now() && (
+    (f.competition && leagues.has(f.competition.external_id)) || teams.has(f.home.external_id) || teams.has(f.away.external_id)))
+  if (!wanted.length) return { candidates: 0, added: 0 }
+  const { data, error } = await db.rpc('pool_auto_import', { p_provider: provider.id, p_fixtures: wanted })
+  if (error) throw new Error(`pool_auto_import: ${error.message}`)
+  return { candidates: wanted.length, ...(data as { imported: number; added: number }) }
 }

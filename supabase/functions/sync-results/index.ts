@@ -2,7 +2,7 @@
 // Invocación: pg_cron (cabecera x-sync-secret) o un admin desde el panel.
 // Un candado impide dos sincronizaciones simultáneas (cron + botón).
 import { corsHeaders, json, requireAdmin, safeEqual, serviceClient } from '../_shared/http.deno.ts'
-import { autoLinkManual, linkManualMatch, refreshFeatured, type ManualInput } from '../_shared/manualLink.deno.ts'
+import { autoImportPool, autoLinkManual, linkManualMatch, refreshFeatured, type ManualInput } from '../_shared/manualLink.deno.ts'
 import type { ApiFootballProvider } from '../_shared/football/index.ts'
 import { loadPlanFlags, providerEnv, realProviderConfigured, resolveProvider, savePlanFlags } from '../_shared/providers.deno.ts'
 import { runAllProviders, type SyncStore } from '../_shared/football/sync.ts'
@@ -30,7 +30,7 @@ Deno.serve(async (req) => {
     return data as T
   }
 
-  let body: { diagnose?: boolean; league?: string; date?: string; ids?: string; import?: boolean; teams?: string[]; next?: boolean; link?: ManualInput; refreshFeatured?: boolean } = {}
+  let body: { diagnose?: boolean; league?: string; date?: string; ids?: string; import?: boolean; teams?: string[]; next?: boolean; link?: ManualInput; refreshFeatured?: boolean; importPool?: boolean } = {}
   try { body = await req.json() } catch { /* cuerpo vacío */ }
 
   // Diagnóstico acotado (solo cron/servidor o admin): estado de la cuenta
@@ -143,7 +143,7 @@ Deno.serve(async (req) => {
     runMaintenance: () => rpc('run_maintenance', {}),
   }
 
-  let result: (Awaited<ReturnType<typeof runAllProviders>> & { autoLink: Record<string, unknown> | null; featured: Record<string, unknown> | null }) | undefined
+  let result: (Awaited<ReturnType<typeof runAllProviders>> & { autoLink: Record<string, unknown> | null; featured: Record<string, unknown> | null; poolImport?: Record<string, unknown> | null }) | undefined
   try {
     const resolved = new Map<string, ReturnType<typeof resolveProvider>>()
     for (const id of ['api-football', 'mock']) {
@@ -169,6 +169,16 @@ Deno.serve(async (req) => {
         result.featured = await refreshFeatured(db, real, body.refreshFeatured === true)
       } catch (e) {
         result.featured = { error: (e as Error).message }
+      }
+      // Partidos nuevos de las fuentes configuradas → quiniela. Solo cuando los destacados
+      // acaban de refrescarse: la caché por día está fresca y no se gastan solicitudes extra.
+      const refreshed = result.featured && !('error' in result.featured) && result.featured.skipped === false
+      if (refreshed || body.importPool === true) {
+        try {
+          result.poolImport = await autoImportPool(db, real)
+        } catch (e) {
+          result.poolImport = { error: (e as Error).message }
+        }
       }
     }
     for (const p of resolved.values()) await savePlanFlags(db, p)

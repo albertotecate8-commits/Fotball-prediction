@@ -53,6 +53,8 @@ export async function createUser(name = `Jugador ${tag()}`) {
 
 export async function createAdmin() {
   const id = await createUser(`Admin ${tag()}`)
+  // Solo los correos autorizados administran (en producción: shabex10@gmail.com).
+  await sql(`insert into private.admin_email_allowlist (email) select lower(email) from auth.users where id = $1 on conflict do nothing`, [id])
   await sql(`update public.profiles set role = 'admin' where id = $1`, [id])
   return id
 }
