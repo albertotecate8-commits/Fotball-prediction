@@ -2,7 +2,7 @@
 // Invocación: pg_cron (cabecera x-sync-secret) o un admin desde el panel.
 // Un candado impide dos sincronizaciones simultáneas (cron + botón).
 import { corsHeaders, json, requireAdmin, safeEqual, serviceClient } from '../_shared/http.deno.ts'
-import { resolveProvider } from '../_shared/providers.deno.ts'
+import { providerEnv, realProviderConfigured, resolveProvider } from '../_shared/providers.deno.ts'
 import { runAllProviders, type SyncStore } from '../_shared/football/sync.ts'
 
 const LEASE = 'sync-results'
@@ -26,6 +26,41 @@ Deno.serve(async (req) => {
     const { data, error } = await db.rpc(fn, args)
     if (error) throw new Error(`${fn}: ${error.message}`)
     return data as T
+  }
+
+  let body: { diagnose?: boolean; league?: string } = {}
+  try { body = await req.json() } catch { /* cuerpo vacío */ }
+
+  // Diagnóstico acotado (solo cron/servidor o admin): estado de la cuenta
+  // (no consume cuota), cobertura de una liga y sus próximos partidos.
+  // Máximo 2 solicitudes con caché; nada se guarda en partidos ni jornadas.
+  if (body.diagnose) {
+    const configured = realProviderConfigured(providerEnv())
+    const p = configured ? resolveProvider(db, 'api-football') : null
+    if (!p) return json(req, { api_football_configured: false })
+    const league = /^\d{1,6}$/.test(body.league ?? '') ? body.league! : '262'
+    const out: Record<string, unknown> = { api_football_configured: true, status: await p.status() }
+    try {
+      const { data: cached } = await db.rpc('provider_cache_get', { p_provider: p.id, p_key: 'competitions' })
+      const comps = (cached as { external_id: string; name: string; country: string | null; season: string | null }[] | null) ?? await p.listCompetitions()
+      if (!cached) await db.rpc('provider_cache_put', { p_provider: p.id, p_key: 'competitions', p_payload: comps, p_ttl_seconds: 86400 })
+      const c = comps.find((x) => x.external_id === league)
+      out.competitions_available = comps.length
+      out.league = c ?? null
+      if (c?.season) {
+        const from = new Date().toISOString().slice(0, 10)
+        const to = new Date(Date.now() + 21 * 86400e3).toISOString().slice(0, 10)
+        const fx = await p.searchFixtures({ competitionId: league, season: c.season, from, to })
+        out.fixtures_next_21_days = fx.length
+        out.sample = fx.slice(0, 5).map((f) => ({ id: f.external_id, kickoff_at: f.kickoff_at, status: f.status, match: `${f.home.name} vs ${f.away.name}` }))
+      }
+    } catch (e) {
+      out.error = e instanceof Error ? `${(e as { code?: string }).code ?? 'ERROR'}: ${e.message}` : String(e)
+    }
+    const { data: usage } = await db.from('provider_usage').select('requests, reported_remaining, reported_limit, last_error')
+      .eq('provider', 'api-football').eq('usage_date', new Date().toISOString().slice(0, 10)).maybeSingle()
+    out.usage_today = usage
+    return json(req, out)
   }
 
   const holder = crypto.randomUUID()
