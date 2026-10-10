@@ -1,8 +1,8 @@
-# Football Predictions (nombre provisional)
+# SHABEX — La Quiniela
 
 Plataforma de quinielas de fútbol entre amigos, pensada primero para el teléfono: jornadas, pronósticos con autoguardado, envío definitivo bloqueado, resultados automáticos, puntuación oficial, clasificación y panel de administración.
 
-> El nombre y los textos de marca viven en `src/config/brand.ts` (y en el `<title>` de `index.html`). Para cambiar el nombre basta con editar esos dos archivos.
+> Marca: `src/config/brand.ts`, logo en `src/assets/brand/shabex-mark.svg` (símbolo) y `src/components/BrandLogo.tsx` (versión horizontal); favicon, iconos PWA y `manifest.webmanifest` en `public/`.
 
 ## Stack
 
@@ -110,9 +110,15 @@ npm run dev
 
 ## Proveedor deportivo: API-Football
 
+### Partidos destacados (Inicio)
+
+- `sync-results` refresca `featured_fixtures` con los partidos de hoy y mañana (consulta por fecha, en caché): cada 3 h, o cada 20 min mientras haya destacados en juego. Selección: Barcelona (529), Real Madrid (541), Durango (15941, Liga de Expansión MX), Liga MX (262) y otras ligas principales.
+- Es una tabla aparte: mostrar un destacado **no** lo agrega a ninguna jornada. Los jugadores lo leen con `get_featured_matches()`, que indica si el partido está en una jornada que pueden ver (entonces Inicio ofrece «Hacer pronóstico»).
+- Partidos capturados a mano: el admin escribe equipos y fecha; se vinculan con API-Football sin duplicados. Si la fecha aún no se puede consultar (el plan gratuito solo permite de ayer a mañana), quedan como manuales y el sincronizador los vincula solos al llegar la fecha, conservando su id, la jornada y los pronósticos.
+
 ### Plan gratuito: lo verificado con la cuenta real (10-oct-2026)
 
-- Autenticación correcta, plan **Free**, 100 solicitudes al día. El catálogo trae 1,241 competiciones, entre ellas **Liga MX (id 262)**, con temporada actual 2026.
+- Autenticación correcta, plan **Free**, 100 solicitudes al día. Consulta por fecha solo **de ayer a mañana**; el parámetro `next` (próximos partidos de un equipo) no está disponible. El catálogo trae 1,241 competiciones, entre ellas **Liga MX (id 262)**, con temporada actual 2026.
 - El plan **no** permite consultar por temporada (`league` + `season=2026`; responde «Free plans do not have access to this season, try from 2022 to 2024») ni por `ids`. **Sí** permite consultar por fecha (`date=`): el 10-oct devolvió 1,502 partidos, 4 de ellos de Liga MX.
 - Por eso el adaptador recurre solo a consultas por día: una búsqueda por competición abarca como máximo 8 días (1 solicitud por día) y la sincronización consulta los días de los partidos pendientes. Lo que se sabe del plan queda guardado 24 h (`provider_cache`, clave `plan_flags`), así que no se gasta una solicitud en volver a descubrirlo.
 - Las respuestas de «plan restringido» no descuentan cuota del proveedor, pero el contador propio sí las cuenta: es conservador.
