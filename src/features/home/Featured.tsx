@@ -13,8 +13,8 @@ const hasScore = (m: FeaturedMatch) => (m.status === 'live' || m.status === 'fin
 
 /** Acción real para un destacado: solo se pronostica si el admin lo incluyó en una jornada. */
 function featuredAction(m: FeaturedMatch) {
-  if (m.in_round_id) return { to: `/quinielas/${m.in_round_id}`, label: 'Hacer pronóstico', primary: true }
-  return { to: '/quinielas', label: 'Ver quiniela oficial', primary: false }
+  if (m.in_round_id) return { to: `/quinielas/${m.in_round_id}`, label: 'Hacer pronóstico', primary: false }
+  return { to: '/quinielas', label: 'Ir a Mi quiniela', primary: false }
 }
 
 function Meta({ m }: { m: FeaturedMatch }) {
@@ -63,7 +63,7 @@ export function FeaturedHero({ match: m, tz }: { match: FeaturedMatch; tz: strin
           </div>
         </div>
         <ButtonLink to={action.to} variant={action.primary ? 'primary' : 'secondary'} block className="mt-4" icon={<Ticket className="size-4" />}>{action.label}</ButtonLink>
-        {!m.in_round_id && <p className="mt-2 text-center text-[11px] text-faint">Destacado del proveedor: solo cuenta si el administrador lo incluye en la quiniela oficial.</p>}
+        {!m.in_round_id && <p className="mt-2 text-center text-[11px] text-faint">Este partido no forma parte de la quiniela oficial.</p>}
       </div>
     </article>
   )

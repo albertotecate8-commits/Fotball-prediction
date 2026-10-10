@@ -5,14 +5,13 @@ import { formatDateTime } from '@/lib/time'
 import type { RoundListItem } from '@/types/domain'
 
 export function roundHref(r: Pick<RoundListItem, 'round_id' | 'phase' | 'my_status'>) {
-  if (r.phase === 'open' && r.my_status !== 'submitted') return `/quinielas/${r.round_id}/jugar`
   return `/quinielas/${r.round_id}`
 }
 
-export function RoundCard({ round, tz }: { round: RoundListItem; tz?: string }) {
+export function RoundCard({ round, tz, hrefOverride }: { round: RoundListItem; tz?: string; hrefOverride?: string }) {
   const scored = round.my_points !== null && ['in_progress', 'closed', 'finished', 'under_review'].includes(round.phase)
   return (
-    <Link to={roundHref(round)} className="card group block p-4 transition hover:border-aqua/30 animate-fade-up">
+    <Link to={hrefOverride ?? roundHref(round)} className="card group block p-4 transition hover:border-aqua/30 animate-fade-up">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="mb-2 flex flex-wrap gap-1.5">

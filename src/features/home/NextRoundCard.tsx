@@ -8,11 +8,11 @@ import type { RoundListItem } from '@/types/domain'
 
 /** Estado del botón principal según la fase de la jornada y la quiniela del jugador. */
 export function roundCta(r: RoundListItem) {
-  if (r.my_status === 'submitted') return { label: 'Quiniela enviada', to: `/quinielas/${r.round_id}`, icon: <CheckCircle2 className="size-5" />, variant: 'secondary' as const }
+  if (r.my_status === 'submitted') return { label: 'Ver mi quiniela', to: '/quinielas', icon: <CheckCircle2 className="size-5" />, variant: 'secondary' as const }
   if (r.phase === 'open') {
-    if (r.my_items >= r.match_count && r.match_count > 0) return { label: 'Revisar y enviar', to: `/quinielas/${r.round_id}/jugar`, icon: <Send className="size-5" />, variant: 'primary' as const }
-    if (r.my_items > 0) return { label: 'Continuar borrador', to: `/quinielas/${r.round_id}/jugar`, icon: <PencilLine className="size-5" />, variant: 'primary' as const }
-    return { label: 'Hacer mi quiniela', to: `/quinielas/${r.round_id}/jugar`, icon: <Ticket className="size-5" />, variant: 'primary' as const }
+    if (r.my_items >= r.match_count && r.match_count > 0) return { label: 'Revisar y enviar', to: '/quinielas', icon: <Send className="size-5" />, variant: 'primary' as const }
+    if (r.my_items > 0) return { label: 'Continuar mi quiniela', to: '/quinielas', icon: <PencilLine className="size-5" />, variant: 'primary' as const }
+    return { label: 'Llenar mi quiniela', to: '/quinielas', icon: <Ticket className="size-5" />, variant: 'primary' as const }
   }
   if (r.phase === 'upcoming') return { label: 'Abre pronto', to: `/quinielas/${r.round_id}`, icon: <CalendarClock className="size-5" />, variant: 'secondary' as const }
   return { label: 'Jornada cerrada', to: `/quinielas/${r.round_id}`, icon: <Lock className="size-5" />, variant: 'secondary' as const }

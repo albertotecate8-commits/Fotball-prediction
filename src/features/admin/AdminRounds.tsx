@@ -8,7 +8,7 @@ import { useAppConfig } from '@/hooks/useAppConfig'
 import { formatDateTime, fromLocalInput } from '@/lib/time'
 import { Badge, type Tone } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
-import { Field, Input, Select } from '@/components/ui/Field'
+import { Field, Input } from '@/components/ui/Field'
 import { Sheet } from '@/components/ui/Sheet'
 import { CardSkeleton } from '@/components/ui/Skeleton'
 import { EmptyState, ErrorState, InlineError } from '@/components/ui/States'
@@ -16,7 +16,7 @@ import type { RoundStatus } from '@/types/domain'
 
 export const ROUND_STATUS: Record<RoundStatus, { label: string; tone: Tone }> = {
   draft: { label: 'Borrador', tone: 'neutral' },
-  open: { label: 'Abierta', tone: 'accent' },
+  open: { label: 'Publicada', tone: 'accent' },
   closed: { label: 'Cerrada', tone: 'warning' },
   finished: { label: 'Finalizada', tone: 'success' },
   under_review: { label: 'En revisión', tone: 'warning' },
@@ -32,11 +32,11 @@ export function AdminRounds() {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="display text-3xl font-semibold uppercase">Jornadas</h1>
+        <h1 className="display text-3xl font-semibold uppercase">Gestionar jornada</h1>
         <Button size="sm" icon={<Plus className="size-4" />} onClick={() => setCreating(true)}>Nueva</Button>
       </div>
       {q.isLoading ? <CardSkeleton /> : q.error ? <ErrorState error={q.error} onRetry={() => void q.refetch()} /> : (q.data ?? []).length === 0 ? (
-        <EmptyState title="Sin jornadas" description="Crea una jornada, selecciona los partidos y ábrela para que los jugadores participen." action={<Button onClick={() => setCreating(true)}>Crear jornada</Button>} />
+        <EmptyState title="Sin jornadas" description="Crea la jornada, agrega los partidos y publícala." action={<Button onClick={() => setCreating(true)}>Crear jornada</Button>} />
       ) : (
         <ul className="space-y-3">
           {q.data!.map((r) => (
@@ -45,7 +45,6 @@ export function AdminRounds() {
                 <div className="min-w-0 flex-1">
                   <div className="mb-1 flex flex-wrap items-center gap-2">
                     <Badge tone={ROUND_STATUS[r.status].tone}>{ROUND_STATUS[r.status].label}</Badge>
-                    <span className="text-xs text-muted">{r.group?.name}</span>
                   </div>
                   <div className="display truncate text-xl font-semibold uppercase">{r.name}</div>
                   <div className="text-xs text-muted"><span className="capitalize">Cierre {formatDateTime(r.deadline_at, timezone)}</span> · {r.round_matches[0]?.count ?? 0} partidos</div>
@@ -65,13 +64,12 @@ function CreateRoundSheet({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate()
   const { timezone } = useAppConfig()
   const groups = useQuery({ queryKey: qk.admin.groups, queryFn: adminApi.groups })
-  const [groupId, setGroupId] = useState('')
   const [name, setName] = useState('')
   const [deadline, setDeadline] = useState('')
   const [error, setError] = useState<unknown>(null)
   const [loading, setLoading] = useState(false)
   // Por defecto, la quiniela oficial (el grupo predeterminado).
-  const gid = groupId || groups.data?.find((g) => g.is_default)?.id || groups.data?.[0]?.id || ''
+  const gid = groups.data?.find((g) => g.is_default)?.id || ''
 
   const create = async () => {
     const deadlineIso = fromLocalInput(deadline, timezone)
@@ -87,14 +85,8 @@ function CreateRoundSheet({ onClose }: { onClose: () => void }) {
     <Sheet open onClose={onClose} title="Nueva jornada"
       footer={<Button block size="lg" loading={loading} disabled={!gid || name.trim().length < 2 || !deadline} onClick={() => void create()}>Crear borrador</Button>}>
       <div className="space-y-4">
-        {groups.data?.length === 0 && <p className="text-sm text-danger">Primero crea un grupo.</p>}
-        <Field label="Grupo">{(id) => (
-          <Select id={id} value={gid} onChange={(e) => setGroupId(e.target.value)}>
-            {(groups.data ?? []).filter((g) => g.is_active).map((g) => <option key={g.id} value={g.id}>{g.name}{g.is_default ? ' (todos los jugadores)' : ''}</option>)}
-          </Select>
-        )}</Field>
         <Field label="Nombre">{(id) => <Input id={id} placeholder="Jornada 1" maxLength={80} value={name} onChange={(e) => setName(e.target.value)} />}</Field>
-        <Field label="Fecha límite" hint={`Hora de ${timezone}. Debe ser anterior al primer partido.`}>{(id) => (
+        <Field label="Cierre" hint="Hora del centro de México. Puedes ajustarlo al agregar los partidos.">{(id) => (
           <Input id={id} type="datetime-local" value={deadline} onChange={(e) => setDeadline(e.target.value)} />
         )}</Field>
         <InlineError error={error} />

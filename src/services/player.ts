@@ -1,6 +1,6 @@
 import { rpc } from './rpc'
 import type {
-  AppConfig, FeaturedMatch, LeaderboardRow, Participation, MyGroup, PlayerSummary, PositionHistoryRow, PredictionItemInput, RoundDetail, RoundListItem, UpcomingMatch,
+  AppConfig, FeaturedMatch, LeaderboardRow, MyPayment, Participation, QuinielaPickInput, MyGroup, PlayerSummary, PositionHistoryRow, PredictionItemInput, RoundDetail, RoundListItem, UpcomingMatch,
 } from '@/types/domain'
 
 export const playerApi = {
@@ -23,5 +23,10 @@ export const playerApi = {
       'submit_prediction', { p_round_id: roundId, p_items: items, p_client_seq: seq }),
   featured: () => rpc<FeaturedMatch[]>('get_featured_matches', { p_limit: 14 }),
   participation: (roundId?: string | null) => rpc<Participation>('get_my_participation', { p_round_id: roundId ?? null }),
+  saveQuiniela: (roundId: string, items: QuinielaPickInput[], seq: number) =>
+    rpc<{ status: 'draft'; saved_at: string; picks: number; total: number; can_submit: boolean; client_seq: number }>('save_quiniela', { p_round_id: roundId, p_items: items, p_client_seq: seq }),
+  submitQuiniela: (roundId: string, items: QuinielaPickInput[], seq: number) =>
+    rpc<{ status: 'submitted'; already_submitted: boolean; submitted_at: string; picks?: number }>('submit_quiniela', { p_round_id: roundId, p_items: items, p_client_seq: seq }),
+  myPayment: () => rpc<MyPayment>('get_my_payment'),
   claimFirstAdmin: () => rpc<boolean>('claim_first_admin'),
 }

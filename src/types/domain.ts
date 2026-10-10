@@ -55,6 +55,8 @@ export interface RoundListItem {
   is_official: boolean
 }
 
+export type Outcome = '1' | 'X' | '2'
+
 export interface RoundMatch {
   match_id: string
   position: number
@@ -69,7 +71,7 @@ export interface RoundMatch {
   competition: { name: string; logo_url: string | null } | null
   home: Team
   away: Team
-  pick: { home: number; away: number } | null
+  pick: { outcome: Outcome; home: number | null; away: number | null } | null
   score: { points: number; exact_hit: boolean; outcome_hit: boolean; goal_error: number; is_final: boolean } | null
 }
 
@@ -196,4 +198,28 @@ export interface Participation {
   payment_status: PaymentStatus
   valid_until: string | null
   can_participate: boolean
+}
+
+/** Datos para pagar la participación (los captura el admin). */
+export interface MyPayment {
+  configured: boolean
+  bank: string | null
+  holder: string | null
+  clabe: string | null
+  account: string | null
+  amount: number | null
+  currency: string
+  concept: string | null
+  instructions: string | null
+  contact: string | null
+  reference: string
+  payment_status: PaymentStatus
+  valid_until: string | null
+}
+
+export interface QuinielaPickInput {
+  match_id: string
+  outcome: Outcome | null
+  home?: number | null
+  away?: number | null
 }

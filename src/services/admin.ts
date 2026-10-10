@@ -151,6 +151,12 @@ export const adminApi = {
     unwrap<{ group_id: string; user_id: string; payment_status: PaymentStatus; payment_valid_until: string | null; payment_reference: string | null; payment_confirmed_at: string | null }[]>(
       await supabase.from('group_members').select('group_id, user_id, payment_status, payment_valid_until, payment_reference, payment_confirmed_at'),
     ),
+  paymentList: () => rpc<{ user_id: string; display_name: string; email: string; reference: string; payment_status: PaymentStatus; valid_until: string | null;
+    payment_reference: string | null; confirmed_at: string | null; confirmed_by: string | null; joined_at: string }[]>('admin_payments'),
+  paymentInfo: async () => unwrap<{ bank: string | null; holder: string | null; clabe: string | null; account: string | null; amount: number | null; concept: string | null;
+    instructions: string | null; contact: string | null; updated_at: string } | null>(await supabase.from('payment_info').select('*').maybeSingle()),
+  savePaymentInfo: (v: { bank: string; holder: string; clabe: string; account: string; amount: number | null; concept: string; instructions: string; contact: string }) =>
+    rpc<void>('admin_save_payment_info', { p_bank: v.bank, p_holder: v.holder, p_clabe: v.clabe, p_account: v.account, p_amount: v.amount, p_concept: v.concept, p_instructions: v.instructions, p_contact: v.contact }),
   addMemberByEmail: (groupId: string, email: string) => rpc<string>('admin_add_member_by_email', { p_group_id: groupId, p_email: email }),
 
   rounds: async () =>

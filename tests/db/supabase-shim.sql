@@ -11,6 +11,7 @@ create table if not exists auth.users (
   email varchar(255) unique,
   raw_user_meta_data jsonb not null default '{}'::jsonb,
   last_sign_in_at timestamptz,
+  email_confirmed_at timestamptz,
   created_at timestamptz not null default now()
 );
 

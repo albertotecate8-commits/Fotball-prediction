@@ -2,12 +2,10 @@ import { NavLink, Outlet } from 'react-router'
 import { cn } from '@/lib/cn'
 
 const LINKS = [
-  { to: '/admin', label: 'Resumen', end: true },
-  { to: '/admin/jornadas', label: 'Jornadas' },
-  { to: '/admin/resultados', label: 'Resultados' },
-  { to: '/admin/participantes', label: 'Participantes' },
-  { to: '/admin/grupos', label: 'Grupos' },
-  { to: '/admin/auditoria', label: 'Auditoría' },
+  { to: '/admin/jornadas', label: 'Jornada', end: false },
+  { to: '/admin/resultados', label: 'Capturar resultados', end: false },
+  { to: '/admin/participantes', label: 'Participantes y pagos', end: false },
+  { to: '/admin/datos-pago', label: 'Datos de pago', end: false },
 ]
 
 export function AdminLayout() {

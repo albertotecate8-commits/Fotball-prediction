@@ -8,9 +8,9 @@ import { BrandLogo } from '@/components/BrandLogo'
 
 export const NAV = [
   { to: '/', label: 'Inicio', icon: Home, end: true },
-  { to: '/quinielas', label: 'Quiniela', icon: Ticket, end: false },
+  { to: '/quinielas', label: 'Mi quiniela', icon: Ticket, end: false },
   { to: '/clasificacion', label: 'Clasificación', icon: Trophy, end: false },
-  { to: '/perfil', label: 'Perfil', icon: UserRound, end: false },
+  { to: '/perfil', label: 'Mi perfil', icon: UserRound, end: false },
 ]
 
 /** Navegación inferior: icono + texto, el activo en rojo. */
@@ -41,10 +41,18 @@ function BottomNav() {
 
 /** Cabecera móvil con el logo horizontal. */
 function TopBar() {
-  const { profile } = useAuth()
+  const { profile, isAdmin } = useAuth()
+  const { pathname } = useLocation()
+  const inAdmin = pathname.startsWith('/admin')
   return (
     <header className="glass sticky top-0 z-30 -mx-4 mb-4 flex items-center gap-3 border-b border-line px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)] lg:hidden">
       <Link to="/" aria-label="Inicio" className="min-w-0 flex-1"><BrandLogo size="sm" /></Link>
+      {isAdmin && (
+        <Link to={inAdmin ? '/' : '/admin'} className={cn('inline-flex h-9 items-center gap-1.5 rounded-full border px-3 text-xs font-bold',
+          inAdmin ? 'border-line-strong text-ink' : 'border-aqua/50 text-aqua')}>
+          <Shield className="size-4" /> {inAdmin ? 'Salir de admin' : 'Admin'}
+        </Link>
+      )}
       <Link to="/perfil" aria-label="Mi perfil" className="rounded-full"><Avatar name={profile?.display_name ?? '?'} url={profile?.avatar_url} size={36} /></Link>
     </header>
   )
@@ -86,17 +94,14 @@ function Sidebar() {
 }
 
 export function AppShell() {
-  const { pathname } = useLocation()
-  // La pantalla de captura de quiniela usa toda la altura (barra de envío propia).
-  const immersive = /\/jugar$/.test(pathname)
   return (
     <div className="flex min-h-dvh">
       <Sidebar />
-      <main className={cn('mx-auto w-full max-w-3xl px-4 lg:px-8 lg:pt-8 xl:max-w-4xl', immersive ? 'pb-40 pt-[calc(env(safe-area-inset-top)+1rem)]' : 'safe-bottom')}>
-        {!immersive && <TopBar />}
+      <main className="safe-bottom mx-auto w-full max-w-3xl px-4 lg:px-8 lg:pt-8 xl:max-w-4xl">
+        <TopBar />
         <Outlet />
       </main>
-      {!immersive && <BottomNav />}
+      <BottomNav />
     </div>
   )
 }

@@ -154,7 +154,7 @@ describe('pronósticos: envío y bloqueo', () => {
 
     const [detail] = await asUser(player, `select public.get_round_detail($1) as d`, [roundId])
     const picks = (detail!.d.matches as { pick: { home: number; away: number } | null }[]).map((m) => m.pick)
-    expect(picks).toEqual([{ home: 1, away: 0 }, { home: 2, away: 2 }, null])
+    expect(picks).toEqual([{ home: 1, away: 0, outcome: '1' }, { home: 2, away: 2, outcome: 'X' }, null])
     expect(detail!.d.prediction.status).toBe('draft')
 
     // Enviar después de un borrador funciona y reemplaza los valores.

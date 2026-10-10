@@ -6,12 +6,10 @@ import { FullPageSpinner } from '@/components/ui/Spinner'
 import { LoginPage, SignupPage, ForgotPasswordPage } from '@/features/auth/AuthPages'
 import { ResetPasswordPage } from '@/features/auth/ResetPasswordPage'
 import { HomePage } from '@/features/home/HomePage'
-import { RoundsPage } from '@/features/rounds/RoundsPage'
-import { RoundResultsPage } from '@/features/rounds/RoundResultsPage'
-import { PredictionPage } from '@/features/predictions/PredictionPage'
+import { QuinielaPage } from '@/features/quiniela/QuinielaPage'
+import { Navigate, useParams } from 'react-router'
 import { LeaderboardPage } from '@/features/leaderboard/LeaderboardPage'
 import { ProfilePage } from '@/features/profile/ProfilePage'
-import { GroupsPage } from '@/features/groups/GroupsPage'
 
 export const router = createBrowserRouter([
   {
@@ -33,11 +31,10 @@ export const router = createBrowserRouter([
             element: <AppShell />,
             children: [
               { path: '/', element: <HomePage /> },
-              { path: '/quinielas', element: <RoundsPage /> },
-              { path: '/quinielas/:roundId', element: <RoundResultsPage /> },
-              { path: '/quinielas/:roundId/jugar', element: <PredictionPage /> },
+              { path: '/quinielas', element: <QuinielaPage /> },
+              { path: '/quinielas/:roundId', element: <QuinielaPage /> },
+              { path: '/quinielas/:roundId/jugar', element: <LegacyPlayRedirect /> },
               { path: '/clasificacion', element: <LeaderboardPage /> },
-              { path: '/grupos', element: <GroupsPage /> },
               { path: '/perfil', element: <ProfilePage /> },
               {
                 element: <RequireAdmin />,
@@ -48,13 +45,12 @@ export const router = createBrowserRouter([
                     lazy: async () => ({ Component: (await import('@/features/admin/AdminLayout')).AdminLayout }),
                     hydrateFallbackElement: <FullPageSpinner />,
                     children: [
-                      { index: true, lazy: async () => ({ Component: (await import('@/features/admin/AdminDashboard')).AdminDashboard }) },
-                      { path: 'participantes', lazy: async () => ({ Component: (await import('@/features/admin/AdminParticipants')).AdminParticipants }) },
-                      { path: 'grupos', lazy: async () => ({ Component: (await import('@/features/admin/AdminGroups')).AdminGroups }) },
+                      { index: true, element: <Navigate to="/admin/jornadas" replace /> },
+                      { path: 'participantes', lazy: async () => ({ Component: (await import('@/features/admin/AdminPayments')).AdminPayments }) },
+                      { path: 'datos-pago', lazy: async () => ({ Component: (await import('@/features/admin/AdminPaymentInfo')).AdminPaymentInfo }) },
                       { path: 'jornadas', lazy: async () => ({ Component: (await import('@/features/admin/AdminRounds')).AdminRounds }) },
                       { path: 'jornadas/:roundId', lazy: async () => ({ Component: (await import('@/features/admin/AdminRoundEditor')).AdminRoundEditor }) },
                       { path: 'resultados', lazy: async () => ({ Component: (await import('@/features/admin/AdminResults')).AdminResults }) },
-                      { path: 'auditoria', lazy: async () => ({ Component: (await import('@/features/admin/AdminAudit')).AdminAudit }) },
                     ],
                   },
                 ],
@@ -66,3 +62,9 @@ export const router = createBrowserRouter([
     ],
   },
 ], { basename: import.meta.env.BASE_URL.replace(/\/$/, '') || '/' })
+
+/** Enlaces antiguos /jugar: la captura vive ahora en Mi quiniela. */
+function LegacyPlayRedirect() {
+  const { roundId } = useParams()
+  return <Navigate to={`/quinielas/${roundId}`} replace />
+}

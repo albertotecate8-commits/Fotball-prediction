@@ -21,7 +21,7 @@ const openMatches = Array.from({ length: 10 }, (_, i) => ({
   home_goals: null, away_goals: null, result_confirmed: false, is_test_data: true,
   competition: { name: 'Liga de Prueba (datos ficticios)', logo_url: null },
   home: T[i % 10], away: T[(i + 3) % 10],
-  pick: i < 6 ? { home: (i % 3), away: (i + 1) % 2 } : null, score: null,
+  pick: i < 6 ? { outcome: (['1', 'X', '2'] as const)[i % 3], home: null, away: null } : null, score: null,
 }))
 
 const finishedReal = [[2, 1], [1, 1], [0, 2], [3, 0], [1, 0], [2, 2], [0, 0], [1, 2], [4, 1], [0, 1]]
@@ -36,7 +36,7 @@ const finishedMatches = finishedReal.map((r, i) => ({
   home_goals: r[0], away_goals: r[1], result_confirmed: true, is_test_data: true,
   competition: { name: 'Liga de Prueba (datos ficticios)', logo_url: null },
   home: T[(i + 2) % 10], away: T[(i + 5) % 10],
-  pick: { home: finishedPick[i]![0], away: finishedPick[i]![1] }, score: score(finishedPick[i]!, r),
+  pick: { outcome: Math.sign(finishedPick[i]![0]! - finishedPick[i]![1]!) > 0 ? '1' : Math.sign(finishedPick[i]![0]! - finishedPick[i]![1]!) < 0 ? '2' : 'X', home: finishedPick[i]![0], away: finishedPick[i]![1] }, score: score(finishedPick[i]!, r),
 }))
 const finPoints = finishedMatches.reduce((a, m) => a + m.score.points, 0)
 
@@ -110,7 +110,7 @@ const RPC: Record<string, (body: Record<string, unknown>) => unknown> = {
     last_sync: { id: 12, provider: 'mock', status: 'success', started_at: iso(-10 * 60e3), finished_at: iso(-10 * 60e3 + 3000), matches_checked: 10, matches_updated: 2, error_message: null } }),
 }
 
-export async function mockBackend(page: Page, opts: { admin?: boolean; featured?: unknown[]; noGroup?: boolean; paid?: boolean; calls?: string[] } = {}) {
+export async function mockBackend(page: Page, opts: { admin?: boolean; featured?: unknown[]; noGroup?: boolean; paid?: boolean; calls?: string[]; payInfo?: boolean } = {}) {
   await page.emulateMedia({ reducedMotion: 'reduce' })
   const session = {
     access_token: 'mock.jwt.token', token_type: 'bearer', expires_in: 3600 * 24 * 365, expires_at: Math.floor(now / 1000) + 3600 * 24 * 365,
@@ -135,6 +135,22 @@ export async function mockBackend(page: Page, opts: { admin?: boolean; featured?
       const body = route.request().postDataJSON() ?? {}
       opts.calls?.push(fn)
       if (fn === 'get_featured_matches') return json(opts.featured ?? FEATURED)
+      if (fn === 'save_quiniela') {
+        const items = (body.p_items as { outcome: string | null }[]) ?? []
+        return json({ status: 'draft', saved_at: new Date().toISOString(), picks: items.filter((x) => x.outcome).length, total: items.length, can_submit: opts.paid ?? true, client_seq: body.p_client_seq })
+      }
+      if (fn === 'submit_quiniela') {
+        if (!(opts.paid ?? true)) return json({ code: 'P0001', message: 'PAYMENT_REQUIRED' }, 400)
+        return json({ status: 'submitted', already_submitted: false, submitted_at: new Date().toISOString() })
+      }
+      if (fn === 'get_my_payment') {
+        const paid = opts.paid ?? true
+        // Datos de pago FICTICIOS para la prueba visual.
+        return json(opts.payInfo
+          ? { configured: true, bank: 'Banco de Prueba', holder: 'Titular Ficticio', clabe: '000000000000000000', account: null, amount: 100, currency: 'MXN', concept: 'Quiniela', instructions: 'Instrucciones de prueba', contact: null, reference: 'SHX-ABC123', payment_status: paid ? 'authorized' : 'not_applicable', valid_until: null }
+          : { configured: false, bank: null, holder: null, clabe: null, account: null, amount: null, currency: 'MXN', concept: null, instructions: null, contact: null, reference: 'SHX-ABC123', payment_status: paid ? 'authorized' : 'not_applicable', valid_until: null })
+      }
+      if (fn === 'admin_payments') return json([{ user_id: UID, display_name: 'Alberto', email: 'alberto@example.test', reference: 'SHX-ABC123', payment_status: 'not_applicable', valid_until: null, payment_reference: null, confirmed_at: null, confirmed_by: null, joined_at: iso(-90 * 24 * H) }])
       if (fn === 'get_my_participation') {
         const paid = opts.paid ?? true
         return json({ requires_payment: true, payment_status: paid ? 'authorized' : 'not_applicable', valid_until: null, can_participate: paid })

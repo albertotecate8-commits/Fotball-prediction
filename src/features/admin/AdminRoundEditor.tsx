@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowDown, ArrowUp, CloudDownload, Lock, Plus, Search, Trash2, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, CheckCircle2, CloudDownload, Lock, Plus, Search, Trash2, X, XCircle } from 'lucide-react'
+import { cn } from '@/lib/cn'
 import { adminApi, type AdminMatch, type AdminRound, type ManualCandidate } from '@/services/admin'
 import { qk } from '@/services/queryKeys'
 import { useAppConfig } from '@/hooks/useAppConfig'
@@ -12,7 +13,7 @@ import { TeamCrest } from '@/components/TeamCrest'
 import { MATCH_STATUS_LABEL } from '@/components/StatusBadge'
 import { Badge, TestDataBadge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
-import { Field, Input, Select, Textarea } from '@/components/ui/Field'
+import { Field, Input, Select } from '@/components/ui/Field'
 import { Sheet } from '@/components/ui/Sheet'
 import { CardSkeleton } from '@/components/ui/Skeleton'
 import { EmptyState, ErrorState, InlineError } from '@/components/ui/States'
@@ -39,10 +40,10 @@ function Editor({ round }: { round: AdminRound }) {
   const editableDetails = round.status === 'draft' || round.status === 'open' || round.status === 'closed'
 
   const [name, setName] = useState(round.name)
-  const [description, setDescription] = useState(round.description ?? '')
-  const [opensAt, setOpensAt] = useState(toLocalInput(round.opens_at, timezone))
+  const [description] = useState(round.description ?? '')
+  const [opensAt] = useState(toLocalInput(round.opens_at, timezone))
   const [deadline, setDeadline] = useState(toLocalInput(round.deadline_at, timezone))
-  const [participation, setParticipation] = useState(round.participation)
+  const [participation] = useState(round.participation)
   const [matches, setMatches] = useState<AdminMatch[]>(round.round_matches.map((rm) => rm.match))
   const [pickerOpen, setPickerOpen] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -86,11 +87,25 @@ function Editor({ round }: { round: AdminRound }) {
 
   const firstKickoff = matches.length ? matches.reduce((a, m) => (m.kickoff_at < a ? m.kickoff_at : a), matches[0]!.kickoff_at) : null
   const deadlineIso = fromLocalInput(deadline, timezone)
-  const deadlineWarning = firstKickoff && deadlineIso && deadlineIso > firstKickoff ? 'La fecha límite es posterior al primer partido.' : null
+  const deadlineWarning = firstKickoff && deadlineIso && deadlineIso > firstKickoff ? 'El cierre es posterior al primer partido.' : null
+  const savedDeadline = round.deadline_at
+  const deadlineOk = !!firstKickoff && savedDeadline < firstKickoff && Date.parse(savedDeadline) > Date.now()
+  const notStarted = matches.every((m) => m.status === 'scheduled' && Date.parse(m.kickoff_at) > Date.now())
+  const checks = [
+    { label: `Partidos guardados (${round.round_matches.length})`, ok: round.round_matches.length > 0 && !matchesDirty },
+    { label: 'Ningún partido ha empezado', ok: matches.length > 0 && notStarted },
+    { label: 'Cierre en el futuro y antes del primer partido', ok: deadlineOk },
+  ]
+  const ready = checks.every((c) => c.ok)
+  const fixDeadline = () => act(async () => {
+    const d = new Date(Date.parse(firstKickoff!) - 15 * 60e3).toISOString()
+    await adminApi.saveRound({ id: round.id, group_id: round.group_id, name, description, opens_at: null, deadline_at: d, participation: 'all_members' })
+    setDeadline(toLocalInput(d, timezone))
+  }, 'Cierre ajustado')
 
   return (
     <div>
-      <PageHeader title={round.name} back="/admin/jornadas" subtitle={round.group?.name} />
+      <PageHeader title={round.name} back="/admin/jornadas" />
       <div className="mb-5 flex flex-wrap items-center gap-2">
         <Badge tone={ROUND_STATUS[round.status].tone}>{ROUND_STATUS[round.status].label}</Badge>
         <Badge tone="neutral">{submittedCount} enviadas</Badge>
@@ -98,11 +113,27 @@ function Editor({ round }: { round: AdminRound }) {
       </div>
       <InlineError error={error} />
 
+      {round.status === 'draft' && (
+        <>
+          <SectionTitle>Lista para publicar</SectionTitle>
+          <ul className="card space-y-2 p-4 text-sm">
+            {checks.map((c) => (
+              <li key={c.label} className={cn('flex items-center gap-2', c.ok ? 'text-success' : 'text-danger')}>
+                {c.ok ? <CheckCircle2 className="size-4 shrink-0" /> : <XCircle className="size-4 shrink-0" />} <span className="text-ink">{c.label}</span>
+              </li>
+            ))}
+            {firstKickoff && !deadlineOk && (
+              <li><Button size="sm" variant="secondary" disabled={busy} onClick={() => void fixDeadline()}>Ajustar cierre a 15 min antes del primer partido</Button></li>
+            )}
+          </ul>
+        </>
+      )}
+
       <SectionTitle>Estado</SectionTitle>
       <div className="card flex flex-wrap gap-2 p-4">
-        {round.status === 'draft' && <Button disabled={busy || matchesDirty} onClick={() => changeStatus('open', '¿Abrir la jornada? Los jugadores podrán enviar pronósticos.')}>Abrir jornada</Button>}
+        {round.status === 'draft' && <Button size="lg" disabled={busy || matchesDirty || !ready} onClick={() => changeStatus('open', '¿Publicar la jornada? Todos podrán ver los partidos y llenar su quiniela.')}>Publicar jornada</Button>}
         {round.status === 'open' && <Button variant="secondary" disabled={busy} onClick={() => changeStatus('closed', '¿Cerrar la jornada ahora? Nadie más podrá enviar.')}>Cerrar ahora</Button>}
-        {round.status === 'open' && <Button variant="ghost" disabled={busy} onClick={() => changeStatus('draft')}>Volver a borrador</Button>}
+        {round.status === 'open' && <Button variant="ghost" disabled={busy} onClick={() => changeStatus('draft', '¿Cancelar la publicación? La jornada vuelve a borrador (solo si nadie ha guardado o enviado pronósticos).')}>Cancelar publicación</Button>}
         {round.status === 'closed' && <Button variant="secondary" disabled={busy} onClick={() => changeStatus('open', '¿Reabrir? Solo es posible si la fecha límite está en el futuro.')}>Reabrir</Button>}
         {round.status === 'closed' && <Button disabled={busy} onClick={() => changeStatus('finished', '¿Finalizar y hacer oficiales los puntos?')}>Finalizar</Button>}
         {round.status === 'finished' && <Button variant="secondary" disabled={busy} onClick={() => changeStatus('under_review')}>Poner en revisión</Button>}
@@ -110,27 +141,17 @@ function Editor({ round }: { round: AdminRound }) {
         {round.status !== 'draft' && <Button variant="ghost" disabled={busy} onClick={() => void act(() => adminApi.recompute(round.id), 'Puntos recalculados')}>Recalcular puntos</Button>}
         {round.status === 'draft' && (
           <Button variant="danger" disabled={busy} icon={<Trash2 className="size-4" />}
-            onClick={() => { if (confirm('¿Eliminar este borrador?')) void act(async () => { await adminApi.deleteRound(round.id); navigate('/admin/jornadas') }, 'Jornada eliminada') }}>
-            Eliminar
+            onClick={() => { if (confirm('¿Eliminar este borrador de jornada? Esta acción no se puede deshacer.')) void act(async () => { await adminApi.deleteRound(round.id); navigate('/admin/jornadas') }, 'Jornada eliminada') }}>
+            Eliminar borrador
           </Button>
         )}
-        {matchesDirty && round.status === 'draft' && <p className="w-full text-xs text-muted">Guarda los partidos antes de abrir.</p>}
+        {matchesDirty && round.status === 'draft' && <p className="w-full text-xs text-muted">Guarda los partidos antes de publicar.</p>}
       </div>
 
       <SectionTitle>Datos</SectionTitle>
       <div className="card space-y-4 p-4">
         <Field label="Nombre">{(id) => <Input id={id} value={name} maxLength={80} disabled={!editableDetails} onChange={(e) => setName(e.target.value)} />}</Field>
-        <Field label="Descripción">{(id) => <Textarea id={id} value={description} maxLength={500} disabled={!editableDetails} onChange={(e) => setDescription(e.target.value)} />}</Field>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Visible desde (opcional)" hint="Antes de esta hora se muestra como «Próxima».">{(id) => <Input id={id} type="datetime-local" value={opensAt} disabled={!editableDetails} onChange={(e) => setOpensAt(e.target.value)} />}</Field>
-          <Field label="Fecha límite" hint={`Zona horaria: ${timezone}`} error={deadlineWarning}>{(id) => <Input id={id} type="datetime-local" value={deadline} disabled={!editableDetails} onChange={(e) => setDeadline(e.target.value)} />}</Field>
-        </div>
-        <Field label="¿Quién participa?">{(id) => (
-          <Select id={id} value={participation} disabled={!editableDetails || submittedCount > 0} onChange={(e) => setParticipation(e.target.value as 'all_members')}>
-            <option value="all_members">Todos los miembros activos del grupo</option>
-            <option value="selected">Solo jugadores seleccionados</option>
-          </Select>
-        )}</Field>
+        <Field label="Cierre (hora del centro de México)" error={deadlineWarning}>{(id) => <Input id={id} type="datetime-local" value={deadline} disabled={!editableDetails} onChange={(e) => setDeadline(e.target.value)} />}</Field>
         {editableDetails && <Button disabled={busy} onClick={() => void saveDetails()}>Guardar datos</Button>}
         {submittedCount > 0 && <p className="text-xs text-muted">Hay quinielas enviadas: cualquier cambio queda registrado en la auditoría.</p>}
       </div>

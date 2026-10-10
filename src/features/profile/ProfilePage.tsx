@@ -1,11 +1,10 @@
 import { useState } from 'react'
 import { Link } from 'react-router'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ChevronRight, KeyRound, LogOut, Pencil, Shield, Users } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
+import { KeyRound, LogOut, Pencil, Shield } from 'lucide-react'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { useGroup } from '@/features/groups/GroupProvider'
 import { useRounds } from '@/features/rounds/useRounds'
-import { playerApi } from '@/services/player'
 import { profileApi } from '@/services/profile'
 import { qk } from '@/services/queryKeys'
 import { supabase } from '@/lib/supabase'
@@ -20,12 +19,12 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Field'
 import { InlineError } from '@/components/ui/States'
 import { useToast } from '@/components/ui/Toast'
-import { StatTile } from '@/components/StatTile'
 import { RoundCard } from '@/components/RoundCard'
+import { PaymentCard } from './PaymentCard'
 
 export function ProfilePage() {
   const { profile, session, isAdmin, signOut } = useAuth()
-  const { groups, group } = useGroup()
+  const { group } = useGroup()
   const { timezone } = useAppConfig()
   const qc = useQueryClient()
   const toast = useToast()
@@ -33,7 +32,6 @@ export function ProfilePage() {
   const [name, setName] = useState(profile?.display_name ?? '')
   const [error, setError] = useState<unknown>(null)
   const [saving, setSaving] = useState(false)
-  const summary = useQuery({ queryKey: qk.summary(group?.group_id ?? ''), queryFn: () => playerApi.summary(group!.group_id), enabled: !!group })
   const rounds = useRounds(group?.group_id)
 
   if (!profile || !session) return null
@@ -63,7 +61,7 @@ export function ProfilePage() {
 
   return (
     <div>
-      <PageHeader title="Perfil" />
+      <PageHeader title="Mi perfil" />
       <section className="card mb-6 flex flex-col items-center gap-3 p-6 text-center">
         <Avatar name={profile.display_name} url={profile.avatar_url} size={84} className="border-2 border-aqua/60" />
         {editing ? (
@@ -87,28 +85,12 @@ export function ProfilePage() {
         )}
       </section>
 
-      {summary.data && (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <StatTile accent label="Puntos" value={summary.data.total_points} />
-          <StatTile label="Posición" value={summary.data.position ? `#${summary.data.position}` : '—'} />
-          <StatTile label="Exactos" value={summary.data.exact_hits} />
-          <StatTile label="Aciertos 1X2" value={summary.data.outcome_hits} />
-        </div>
-      )}
-
-      {groups.filter((g) => g.member_status === 'active').length > 1 && (
-        <Link to="/grupos" className="card mt-6 flex items-center gap-3 px-4 py-3 transition hover:border-aqua/30">
-          <Users className="size-5 text-aqua" />
-          <span className="flex-1 text-sm font-semibold">Quinielas privadas</span>
-          <span className="text-xs text-muted">activa: {group?.name}</span>
-          <ChevronRight className="size-4 text-muted" />
-        </Link>
-      )}
+      <PaymentCard />
 
       {played.length > 0 && (
         <>
-          <SectionTitle>Mi historial</SectionTitle>
-          <div className="space-y-3">{played.map((r) => <RoundCard key={r.round_id} round={r} tz={timezone} />)}</div>
+          <SectionTitle>Mis pronósticos</SectionTitle>
+          <div className="space-y-3">{played.map((r) => <RoundCard key={r.round_id} round={r} tz={timezone} hrefOverride={`/quinielas/${r.round_id}`} />)}</div>
         </>
       )}
 
