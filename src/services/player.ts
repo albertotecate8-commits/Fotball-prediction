@@ -1,6 +1,6 @@
 import { rpc } from './rpc'
 import type {
-  AppConfig, FeaturedMatch, LeaderboardRow, MyPayment, Participation, QuinielaPickInput, MyGroup, PlayerSummary, PositionHistoryRow, PredictionItemInput, RoundDetail, RoundListItem, UpcomingMatch,
+  AppConfig, FeaturedMatch, LeaderboardRow, MyPayment, Participation, PoolData, QuinielaPickInput, MyGroup, PlayerSummary, PositionHistoryRow, PredictionItemInput, RoundDetail, RoundListItem, UpcomingMatch,
 } from '@/types/domain'
 
 export const playerApi = {
@@ -28,5 +28,9 @@ export const playerApi = {
   submitQuiniela: (roundId: string, items: QuinielaPickInput[], seq: number) =>
     rpc<{ status: 'submitted'; already_submitted: boolean; submitted_at: string; picks?: number }>('submit_quiniela', { p_round_id: roundId, p_items: items, p_client_seq: seq }),
   myPayment: () => rpc<MyPayment>('get_my_payment'),
+  pool: () => rpc<PoolData>('get_pool', { p_days_back: 10 }),
+  savePool: (items: QuinielaPickInput[]) => rpc<{ saved: number; closed: number; already_submitted: number; saved_at: string }>('save_pool_picks', { p_items: items }),
+  submitPool: (items: QuinielaPickInput[]) => rpc<{ submitted: number; closed: number; already_submitted: number; submitted_at: string }>('submit_pool_picks', { p_items: items }),
+  poolLeaderboard: () => rpc<LeaderboardRow[]>('get_pool_leaderboard'),
   claimFirstAdmin: () => rpc<boolean>('claim_first_admin'),
 }

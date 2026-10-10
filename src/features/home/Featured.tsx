@@ -13,7 +13,7 @@ const hasScore = (m: FeaturedMatch) => (m.status === 'live' || m.status === 'fin
 
 /** Acción real para un destacado: solo se pronostica si el admin lo incluyó en una jornada. */
 function featuredAction(m: FeaturedMatch) {
-  if (m.in_round_id) return { to: `/quinielas/${m.in_round_id}`, label: 'Hacer pronóstico', primary: false }
+  if (m.in_round_id) return { to: '/quinielas', label: 'Hacer pronóstico', primary: false }
   return { to: '/quinielas', label: 'Ir a Mi quiniela', primary: false }
 }
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { CheckCircle2, Clock, Pencil } from 'lucide-react'
 import { adminApi, type AdminMatch } from '@/services/admin'
@@ -14,50 +14,45 @@ import { Input, Select } from '@/components/ui/Field'
 import { CardSkeleton } from '@/components/ui/Skeleton'
 import { EmptyState, ErrorState } from '@/components/ui/States'
 import { useToast } from '@/components/ui/Toast'
-import { ROUND_STATUS } from './AdminRounds'
 
-const done = (m: AdminMatch) => (m.status === 'finished' && m.result_confirmed) || ['cancelled', 'abandoned', 'postponed'].includes(m.status)
+type ResultMatch = Pick<AdminMatch, 'id' | 'kickoff_at' | 'status' | 'home_goals' | 'away_goals' | 'result_confirmed' | 'result_source' | 'home' | 'away'> & {
+  competition: { name: string } | null
+  is_manual?: boolean
+}
+const done = (m: ResultMatch) => (m.status === 'finished' && m.result_confirmed) || ['cancelled', 'abandoned', 'postponed'].includes(m.status)
 
-/** Captura directa de marcadores oficiales de la jornada. */
+/** Captura de marcadores: los partidos de la API se actualizan solos; los manuales los captura el admin. */
 export function AdminResults() {
   const { timezone } = useAppConfig()
-  const rounds = useQuery({ queryKey: qk.admin.rounds, queryFn: adminApi.rounds })
-  const list = useMemo(() => (rounds.data ?? []).filter((r) => r.status !== 'draft'), [rounds.data])
-  const [roundId, setRoundId] = useState('')
-  useEffect(() => { if (!roundId && list[0]) setRoundId(list[0].id) }, [list, roundId])
-  const round = useQuery({ queryKey: qk.admin.round(roundId), queryFn: () => adminApi.round(roundId), enabled: !!roundId })
-  const matches = (round.data?.round_matches ?? []).map((rm) => rm.match)
+  const list = useQuery({ queryKey: ['admin', 'pool'], queryFn: adminApi.poolList })
+  const [showAll, setShowAll] = useState(false)
+  const matches = useMemo<ResultMatch[]>(() => (list.data ?? [])
+    .filter((m) => m.pool_status === 'published' && (Date.parse(m.kickoff_at) <= Date.now() || m.status !== 'scheduled'))
+    .map((m) => ({ ...m, id: m.match_id, is_manual: m.provider === 'manual' }))
+    .sort((a, b) => Number(done(a)) - Number(done(b)) || Date.parse(b.kickoff_at) - Date.parse(a.kickoff_at)), [list.data])
   const pending = matches.filter((m) => !done(m)).length
+  const visible = showAll ? matches : matches.slice(0, Math.max(pending, 10))
 
   return (
     <div>
       <h1 className="display mb-4 text-3xl font-semibold uppercase">Capturar resultados</h1>
-      {rounds.isLoading ? <CardSkeleton /> : rounds.error ? <ErrorState error={rounds.error} onRetry={() => void rounds.refetch()} /> : list.length === 0 ? (
-        <EmptyState title="No hay jornadas publicadas" description="Publica una jornada desde «Jornada» para capturar sus resultados." />
+      {list.isLoading ? <CardSkeleton /> : list.error ? <ErrorState error={list.error} onRetry={() => void list.refetch()} /> : matches.length === 0 ? (
+        <EmptyState title="Aún no empieza ningún partido" description="Aquí aparecerán los partidos publicados en cuanto inicien." />
       ) : (
         <>
-          <label className="mb-3 block">
-            <span className="sr-only">Jornada</span>
-            <Select value={roundId} onChange={(e) => setRoundId(e.target.value)}>
-              {list.map((r) => <option key={r.id} value={r.id}>{r.name} · {ROUND_STATUS[r.status].label}</option>)}
-            </Select>
-          </label>
-          {round.isLoading ? <CardSkeleton lines={5} /> : round.error ? <ErrorState error={round.error} onRetry={() => void round.refetch()} /> : (
-            <>
-              <p className={cn('mb-3 flex items-center gap-2 text-sm font-semibold', pending ? 'text-gold' : 'text-success')}>
-                {pending ? <><Clock className="size-4" /> {pending} {pending === 1 ? 'partido pendiente' : 'partidos pendientes'}</> : <><CheckCircle2 className="size-4" /> Todos los resultados capturados</>}
-              </p>
-              <ul className="space-y-3">{matches.map((m) => <ResultRow key={m.id} m={m} tz={timezone} roundId={roundId} />)}</ul>
-              <p className="mt-4 text-xs text-muted">Al guardar se recalculan los puntos y la clasificación. La sincronización automática sigue activa; un resultado capturado aquí tiene prioridad sobre ella.</p>
-            </>
-          )}
+          <p className={cn('mb-3 flex items-center gap-2 text-sm font-semibold', pending ? 'text-gold' : 'text-success')}>
+            {pending ? <><Clock className="size-4" /> {pending} {pending === 1 ? 'partido pendiente' : 'partidos pendientes'}</> : <><CheckCircle2 className="size-4" /> Todos los resultados capturados</>}
+          </p>
+          <ul className="space-y-3">{visible.map((m) => <ResultRow key={m.id} m={m} tz={timezone} />)}</ul>
+          {visible.length < matches.length && <Button variant="ghost" size="sm" className="mt-3" onClick={() => setShowAll(true)}>Ver todos ({matches.length})</Button>}
+          <p className="mt-4 text-xs text-muted">Los partidos vinculados con API-Football reciben el resultado oficial automáticamente. Al guardar se recalculan los puntos sin duplicarlos.</p>
         </>
       )}
     </div>
   )
 }
 
-function ResultRow({ m, tz, roundId }: { m: AdminMatch; tz: string; roundId: string }) {
+function ResultRow({ m, tz }: { m: ResultMatch; tz: string }) {
   const qc = useQueryClient()
   const toast = useToast()
   const confirmed = m.status === 'finished' && m.result_confirmed
@@ -73,6 +68,8 @@ function ResultRow({ m, tz, roundId }: { m: AdminMatch; tz: string; roundId: str
 
   const save = async () => {
     if (status === 'finished' && !started && !confirm('Este partido aún no ha empezado según su horario. ¿Seguro que ya terminó?')) return
+    const label = status === 'finished' ? `${m.home.name} ${home}-${away} ${m.away.name}` : (status === 'postponed' ? 'Aplazado' : 'Cancelado')
+    if (!confirm(`${confirmed ? 'Corregir' : 'Confirmar'} resultado final: ${label}. Se recalcularán los puntos. ¿Continuar?`)) return
     setBusy(true)
     try {
       await adminApi.recordResult(m.id, status === 'finished' ? Number(home) : null, status === 'finished' ? Number(away) : null, status,
@@ -80,8 +77,9 @@ function ResultRow({ m, tz, roundId }: { m: AdminMatch; tz: string; roundId: str
       toast(status === 'finished' ? `Guardado: ${m.home.short_name} ${home}-${away} ${m.away.short_name}` : 'Estado guardado')
       setEditing(false)
       setReason('')
-      await qc.invalidateQueries({ queryKey: qk.admin.round(roundId) })
-      await qc.invalidateQueries({ queryKey: ['leaderboard'] })
+      await qc.invalidateQueries({ queryKey: ['admin', 'pool'] })
+      await qc.invalidateQueries({ queryKey: qk.pool })
+      await qc.invalidateQueries({ queryKey: qk.poolBoard })
     } catch (e) {
       toast(errorMessage(e), 'error')
     } finally {
@@ -92,7 +90,7 @@ function ResultRow({ m, tz, roundId }: { m: AdminMatch; tz: string; roundId: str
   return (
     <li className={cn('card p-3', confirmed && !editing && 'border-success/25')}>
       <div className="mb-2 flex items-center justify-between text-[11px] text-muted">
-        <span className="truncate">{m.competition?.name}</span>
+        <span className="truncate">{m.is_manual ? 'Añadido por el admin · ' : ''}{m.competition?.name}</span>
         <span className="capitalize">{formatShortDate(m.kickoff_at, tz)} · {formatTime(m.kickoff_at, tz)}</span>
       </div>
       <div className="flex items-center gap-2">

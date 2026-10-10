@@ -3,8 +3,8 @@ import { Link } from 'react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import { KeyRound, LogOut, Pencil, Shield } from 'lucide-react'
 import { useAuth } from '@/features/auth/AuthProvider'
-import { useGroup } from '@/features/groups/GroupProvider'
-import { useRounds } from '@/features/rounds/useRounds'
+import { useQuery } from '@tanstack/react-query'
+import { playerApi } from '@/services/player'
 import { profileApi } from '@/services/profile'
 import { qk } from '@/services/queryKeys'
 import { supabase } from '@/lib/supabase'
@@ -19,12 +19,12 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Field'
 import { InlineError } from '@/components/ui/States'
 import { useToast } from '@/components/ui/Toast'
-import { RoundCard } from '@/components/RoundCard'
+import { TeamCrest } from '@/components/TeamCrest'
+import { formatShortDate } from '@/lib/time'
 import { PaymentCard } from './PaymentCard'
 
 export function ProfilePage() {
   const { profile, session, isAdmin, signOut } = useAuth()
-  const { group } = useGroup()
   const { timezone } = useAppConfig()
   const qc = useQueryClient()
   const toast = useToast()
@@ -32,10 +32,10 @@ export function ProfilePage() {
   const [name, setName] = useState(profile?.display_name ?? '')
   const [error, setError] = useState<unknown>(null)
   const [saving, setSaving] = useState(false)
-  const rounds = useRounds(group?.group_id)
+  const pool = useQuery({ queryKey: qk.pool, queryFn: playerApi.pool })
 
   if (!profile || !session) return null
-  const played = (rounds.data ?? []).filter((r) => r.my_status === 'submitted')
+  const played = (pool.data?.matches ?? []).filter((m) => m.pick).slice().reverse().slice(0, 15)
 
   const saveName = async () => {
     setSaving(true)
@@ -90,7 +90,18 @@ export function ProfilePage() {
       {played.length > 0 && (
         <>
           <SectionTitle>Mis pronósticos</SectionTitle>
-          <div className="space-y-3">{played.map((r) => <RoundCard key={r.round_id} round={r} tz={timezone} hrefOverride={`/quinielas/${r.round_id}`} />)}</div>
+          <ul className="card divide-y divide-line">
+            {played.map((m) => (
+              <li key={m.match_id} className="flex items-center gap-2 px-3 py-2.5 text-sm">
+                <TeamCrest team={m.home} size={20} />
+                <span className="min-w-0 flex-1 truncate">{m.home.short_name} vs {m.away.short_name}
+                  <span className="block text-[11px] capitalize text-muted">{formatShortDate(m.kickoff_at, timezone)} · {m.pick!.status === 'submitted' ? 'enviado' : 'guardado sin enviar'}</span>
+                </span>
+                <span className="scoreline text-base">{m.pick!.home !== null ? `${m.pick!.home}-${m.pick!.away}` : m.pick!.outcome}</span>
+                {m.score && <span className="scoreline w-10 text-right text-base text-aqua">+{m.score.points}</span>}
+              </li>
+            ))}
+          </ul>
         </>
       )}
 

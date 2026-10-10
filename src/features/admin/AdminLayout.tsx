@@ -2,8 +2,9 @@ import { NavLink, Outlet } from 'react-router'
 import { cn } from '@/lib/cn'
 
 const LINKS = [
-  { to: '/admin/jornadas', label: 'Jornada', end: false },
+  { to: '/admin/partidos', label: 'Partidos', end: false },
   { to: '/admin/resultados', label: 'Capturar resultados', end: false },
+  { to: '/admin/equipos', label: 'Equipos', end: false },
   { to: '/admin/participantes', label: 'Participantes y pagos', end: false },
   { to: '/admin/datos-pago', label: 'Datos de pago', end: false },
 ]

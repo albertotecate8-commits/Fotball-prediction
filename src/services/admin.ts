@@ -15,6 +15,28 @@ const MATCH_SELECT = `id, provider, external_id, kickoff_at, status, status_deta
   home:teams!matches_home_team_id_fkey(id, name, short_name, code, logo_url),
   away:teams!matches_away_team_id_fkey(id, name, short_name, code, logo_url)`
 
+export interface PoolAdminMatch {
+  match_id: string
+  kickoff_at: string
+  status: MatchStatus
+  home_goals: number | null
+  away_goals: number | null
+  result_confirmed: boolean
+  result_source: 'provider' | 'admin'
+  provider: string
+  external_id: string | null
+  pool_status: 'published' | 'withdrawn'
+  source: 'auto' | 'admin'
+  open: boolean
+  closes_at: string | null
+  change_reason: string | null
+  competition: { id: string; name: string } | null
+  home: { id: string; name: string; short_name: string; code: string | null; logo_url: string | null }
+  away: { id: string; name: string; short_name: string; code: string | null; logo_url: string | null }
+  picks: number
+}
+export interface CatalogTeam { id: string; name: string; short_name: string; logo_url: string | null; provider: string; external_id: string | null }
+
 export interface ProviderInfo {
   id: string
   is_test_data: boolean
@@ -28,7 +50,7 @@ export type ManualMatchResponse =
   | { kind: 'linked'; match_id: string; already_imported: boolean; is_test_data: boolean; fixture: ManualCandidate }
   | { kind: 'manual'; match_id: string; created: boolean }
   | { kind: 'pending_link'; match_id: string; created: boolean; message: string }
-  | { kind: 'ambiguous' | 'not_found'; candidates: ManualCandidate[] }
+  | { kind: 'ambiguous' | 'not_found' | 'outside_window'; candidates: ManualCandidate[]; message?: string }
 export interface ProviderStatusResponse { default_provider: string; providers: ProviderInfo[] }
 export interface SyncNowResponse {
   reports: { provider: string; status: string; checked: number; updated: number; errors: string[]; quotaStopped?: boolean }[]
@@ -157,6 +179,17 @@ export const adminApi = {
     instructions: string | null; contact: string | null; updated_at: string } | null>(await supabase.from('payment_info').select('*').maybeSingle()),
   savePaymentInfo: (v: { bank: string; holder: string; clabe: string; account: string; amount: number | null; concept: string; instructions: string; contact: string }) =>
     rpc<void>('admin_save_payment_info', { p_bank: v.bank, p_holder: v.holder, p_clabe: v.clabe, p_account: v.account, p_amount: v.amount, p_concept: v.concept, p_instructions: v.instructions, p_contact: v.contact }),
+  poolList: () => rpc<PoolAdminMatch[]>('admin_pool_list', { p_days_back: 14 }),
+  publishMatch: (matchId: string) => rpc<void>('admin_publish_match', { p_match_id: matchId }),
+  setPoolStatus: (matchId: string, status: 'published' | 'withdrawn', reason: string) =>
+    rpc<void>('admin_set_pool_status', { p_match_id: matchId, p_status: status, p_reason: reason }),
+  searchTeams: (q: string) => rpc<CatalogTeam[]>('admin_search_teams', { p_query: q }),
+  createTeam: (name: string, shortName: string, logoUrl: string, providerId: string) =>
+    rpc<{ id: string; created: boolean }>('admin_create_team', { p_name: name, p_short_name: shortName, p_logo_url: logoUrl, p_provider_id: providerId }),
+  createPoolMatch: (home: string, away: string, kickoff: string, competitionId: string | null, competitionName: string | null) =>
+    rpc<{ match_id: string; created: boolean }>('admin_create_pool_match', { p_home: home, p_away: away, p_kickoff: kickoff, p_competition_id: competitionId, p_competition_name: competitionName }),
+  updatePoolMatch: (matchId: string, kickoff: string, reason: string) =>
+    rpc<void>('admin_update_pool_match', { p_match_id: matchId, p_kickoff: kickoff, p_reason: reason }),
   addMemberByEmail: (groupId: string, email: string) => rpc<string>('admin_add_member_by_email', { p_group_id: groupId, p_email: email }),
 
   rounds: async () =>
@@ -206,7 +239,7 @@ export const adminApi = {
     invokeFunction<{ provider: string; is_test_data: boolean; competitions: { external_id: string; name: string; country: string | null; season: string | null }[] }>(
       'provider-fixtures', { action: 'competitions', provider }),
   matchById: async (id: string) => unwrap<AdminMatch>(await supabase.from('matches').select(MATCH_SELECT).eq('id', id).single()),
-  addManualMatch: (provider: string, manual: { home: string; away: string; kickoff_at: string; competitionId?: string; competitionName?: string; pick_external_id?: string; create_unlinked?: boolean }) =>
+  addManualMatch: (provider: string, manual: { home: string; away: string; kickoff_at: string; competitionId?: string; competitionName?: string; pick_external_id?: string; create_unlinked?: boolean; no_create?: boolean }) =>
     invokeFunction<ManualMatchResponse>('provider-fixtures', { action: 'manual', provider, manual }),
   providerStatus: () => invokeFunction<ProviderStatusResponse>('provider-fixtures', { action: 'status' }),
 

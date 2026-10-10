@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import type { Session } from '@supabase/supabase-js'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { rpc } from '@/services/rpc'
 import { profileApi } from '@/services/profile'
 import { qk } from '@/services/queryKeys'
 import type { Profile } from '@/types/domain'
@@ -45,20 +46,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     enabled: !!uid,
     staleTime: 60_000,
   })
+  // El servidor decide quién administra (correo autorizado + rol); la UI solo lo refleja.
+  const adminQuery = useQuery({
+    queryKey: ['amIAdmin', uid ?? 'anon'],
+    queryFn: () => rpc<boolean>('am_i_admin'),
+    enabled: !!uid,
+    staleTime: 60_000,
+  })
 
   const value = useMemo<AuthState>(() => ({
     session,
     loading,
     profile: profileQuery.data ?? null,
-    profileLoading: !!uid && profileQuery.isLoading,
+    profileLoading: !!uid && (profileQuery.isLoading || adminQuery.isLoading),
     // Solo controla qué se MUESTRA; los permisos reales los valida el servidor.
-    isAdmin: profileQuery.data?.role === 'admin' && profileQuery.data.status === 'active',
+    isAdmin: adminQuery.data === true,
     recoveryMode,
     clearRecovery: () => setRecoveryMode(false),
     signOut: async () => {
       await supabase.auth.signOut()
     },
-  }), [session, loading, profileQuery.data, profileQuery.isLoading, uid, recoveryMode])
+  }), [session, loading, profileQuery.data, profileQuery.isLoading, adminQuery.data, adminQuery.isLoading, uid, recoveryMode])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

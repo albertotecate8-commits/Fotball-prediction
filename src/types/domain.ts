@@ -223,3 +223,26 @@ export interface QuinielaPickInput {
   home?: number | null
   away?: number | null
 }
+
+/** Partido de la quiniela continua (importado o añadido por el administrador). */
+export interface PoolMatch {
+  match_id: string
+  kickoff_at: string
+  status: MatchStatus
+  elapsed: number | null
+  home_goals: number | null
+  away_goals: number | null
+  result_confirmed: boolean
+  is_manual: boolean
+  source: 'auto' | 'admin'
+  is_test_data: boolean
+  open: boolean
+  can_submit: boolean
+  competition: { name: string; logo_url: string | null } | null
+  home: Team
+  away: Team
+  pick: { outcome: Outcome; home: number | null; away: number | null; status: 'draft' | 'submitted'; submitted_at: string | null; updated_at: string } | null
+  score: { points: number; exact_hit: boolean; outcome_hit: boolean; is_final: boolean } | null
+}
+
+export interface PoolData { server_time: string; max_goals: number; can_submit: boolean; matches: PoolMatch[] }

@@ -10,6 +10,8 @@ export const qk = {
   upcoming: (g: string) => ['upcoming', g] as const,
   featured: ['featured'] as const,
   myPayment: ['myPayment'] as const,
+  pool: ['pool'] as const,
+  poolBoard: ['poolBoard'] as const,
   participation: (r: string | null) => ['participation', r] as const,
   admin: {
     stats: ['admin', 'stats'] as const,

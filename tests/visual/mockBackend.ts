@@ -89,6 +89,24 @@ const featured = (n: number, status = 'scheduled', offsetH = 4) => ({
 })
 export const FEATURED = [featured(1), featured(2), featured(3), featured(4, 'live', -2)]
 
+// Quiniela continua FICTICIA: abiertos primero, luego terminados.
+const poolOf = (paid: boolean) => ({
+  server_time: new Date().toISOString(), max_goals: 15, can_submit: paid,
+  matches: [
+    ...finishedMatches.slice(0, 4).map((m, i) => ({ ...m, is_manual: i === 3, source: i === 3 ? 'admin' : 'auto', open: false, can_submit: false,
+      pick: { ...m.pick, status: 'submitted', submitted_at: iso(-7 * 24 * H), updated_at: iso(-7 * 24 * H) } })),
+    ...openMatches.map((m, i) => ({ ...m, is_manual: i === 9, source: i === 9 ? 'admin' : 'auto', open: true, can_submit: paid,
+      pick: m.pick ? { ...m.pick, status: 'draft', submitted_at: null, updated_at: iso(-H) } : null })),
+  ],
+})
+const adminPool = [...finishedMatches.slice(0, 2), ...openMatches.slice(0, 3)].map((m, i) => ({
+  match_id: m.match_id, kickoff_at: m.kickoff_at, status: m.status, home_goals: m.home_goals, away_goals: m.away_goals, result_confirmed: i !== 1,
+  result_source: i === 1 ? 'admin' : 'provider', provider: i === 1 || i === 4 ? 'manual' : 'mock', external_id: i === 1 || i === 4 ? null : `9000${i}`,
+  pool_status: i === 3 ? 'withdrawn' : 'published', source: i === 1 || i === 4 ? 'admin' : 'auto', open: i >= 2 && i !== 3, closes_at: null, change_reason: null,
+  competition: { id: 'c1', name: 'Liga de Prueba (datos ficticios)' }, home: { id: `t${i}`, ...m.home }, away: { id: `t${i + 5}`, ...m.away }, picks: 3 - (i % 3),
+}))
+adminPool[1]!.status = 'scheduled'; adminPool[1]!.home_goals = null; adminPool[1]!.away_goals = null; adminPool[1]!.result_confirmed = false
+
 const RPC: Record<string, (body: Record<string, unknown>) => unknown> = {
   get_server_time: () => JSON.stringify(new Date().toISOString()),
   get_app_config: () => ({ timezone: 'America/Mexico_City', max_goals: 15, payments_enabled: false, server_time: new Date().toISOString() }),
@@ -96,6 +114,9 @@ const RPC: Record<string, (body: Record<string, unknown>) => unknown> = {
   get_my_rounds: () => rounds,
   get_round_detail: (b) => detail(String(b.p_round_id)),
   get_leaderboard: () => leaderboard,
+  get_pool_leaderboard: () => leaderboard,
+  admin_pool_list: () => adminPool,
+  admin_search_teams: () => T.slice(0, 3).map((t, i) => ({ id: `t${i}`, name: t.name, short_name: t.short_name, logo_url: null, provider: 'manual', external_id: null })),
   get_position_history: () => [
     { round_id: 'r-9', round_name: 'Jornada 9', deadline_at: iso(-20 * 24 * H), round_points: 18, round_position: 5, cumulative_points: 18, cumulative_position: 5, players: 8, is_official: true },
     { round_id: 'r-old', round_name: 'Jornada 10', deadline_at: iso(-13 * 24 * H), round_points: 21, round_position: 4, cumulative_points: 39, cumulative_position: 3, players: 8, is_official: true },
@@ -156,6 +177,16 @@ export async function mockBackend(page: Page, opts: { admin?: boolean; featured?
         return json({ requires_payment: true, payment_status: paid ? 'authorized' : 'not_applicable', valid_until: null, can_participate: paid })
       }
       if (fn === 'get_my_groups' && opts.noGroup) return json([])
+      if (fn === 'am_i_admin') return json(!!opts.admin)
+      if (fn === 'get_pool') {
+        const d = poolOf(opts.paid ?? true)
+        return json(opts.noGroup ? { ...d, matches: [] } : d)
+      }
+      if (fn === 'save_pool_picks') return json({ saved: ((body.p_items as unknown[]) ?? []).length, closed: 0, already_submitted: 0, saved_at: new Date().toISOString() })
+      if (fn === 'submit_pool_picks') {
+        if (!(opts.paid ?? true)) return json({ code: 'P0001', message: 'PAYMENT_REQUIRED' }, 400)
+        return json({ submitted: ((body.p_items as unknown[]) ?? []).length, closed: 0, already_submitted: 0 })
+      }
       const h = RPC[fn]
       return h ? json(h(body)) : json({ message: `mock: ${fn} no simulado` }, 400)
     }

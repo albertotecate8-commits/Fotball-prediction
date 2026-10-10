@@ -1,14 +1,29 @@
 import { useState } from 'react'
-import { CheckCircle2, Circle, CircleDot } from 'lucide-react'
+import { CheckCircle2, Circle, CircleDot, Lock } from 'lucide-react'
 import { TeamCrest } from '@/components/TeamCrest'
 import { MatchStatusBadge } from '@/components/StatusBadge'
 import { formatShortDate, formatTime } from '@/lib/time'
 import { cn } from '@/lib/cn'
-import type { Outcome, RoundMatch } from '@/types/domain'
+import type { MatchStatus, Outcome, Team } from '@/types/domain'
+
+/** Lo mínimo que necesita la tarjeta (sirve para jornadas y para la quiniela continua). */
+export interface PickMatch {
+  kickoff_at: string
+  status: MatchStatus
+  elapsed: number | null
+  home_goals: number | null
+  away_goals: number | null
+  result_confirmed: boolean
+  competition: { name: string } | null
+  home: Team
+  away: Team
+  score: { points: number } | null
+  is_manual?: boolean
+}
 
 export interface PickValue { outcome: Outcome | null; home: number | null; away: number | null }
 
-const OPTIONS: { v: Outcome; label: (m: RoundMatch) => string; short: string }[] = [
+const OPTIONS: { v: Outcome; label: (m: PickMatch) => string; short: string }[] = [
   { v: '1', short: 'Local', label: (m) => m.home.short_name },
   { v: 'X', short: 'Empate', label: () => 'Empate' },
   { v: '2', short: 'Visita', label: (m) => m.away.short_name },
@@ -18,12 +33,12 @@ const outcomeOf = (h: number, a: number): Outcome => (h > a ? '1' : h < a ? '2' 
 
 /** Un partido: tres opciones grandes (local, empate, visitante) y marcador exacto opcional. */
 export function PickCard({ match: m, tz, value, disabled, saved, submitted, maxGoals, onChange }: {
-  match: RoundMatch; tz: string; value: PickValue; disabled: boolean; saved: boolean; submitted: boolean; maxGoals: number
+  match: PickMatch; tz: string; value: PickValue; disabled: boolean; saved: boolean; submitted: boolean; maxGoals: number
   onChange: (v: PickValue) => void
 }) {
   const [showScore, setShowScore] = useState(value.home !== null)
   const hasResult = (m.status === 'live' || m.status === 'finished') && m.home_goals !== null
-  const state = submitted ? 'Enviado' : !value.outcome ? 'Pendiente' : saved ? 'Guardado' : 'Sin guardar'
+  const state = submitted ? 'Enviado' : disabled ? (value.outcome ? 'Cerrado' : 'Sin pronóstico') : !value.outcome ? 'Pendiente' : saved ? 'Guardado' : 'Sin guardar'
 
   const pickOutcome = (o: Outcome) => {
     // Si había marcador y ya no coincide con la opción elegida, se quita el marcador.
@@ -40,7 +55,7 @@ export function PickCard({ match: m, tz, value, disabled, saved, submitted, maxG
   return (
     <article className={cn('card p-3', value.outcome && 'border-aqua/25')}>
       <div className="mb-2 flex items-center justify-between gap-2 text-[11px] text-muted">
-        <span className="truncate">{m.competition?.name ?? 'Partido'}</span>
+        <span className="flex min-w-0 items-center gap-1.5 truncate">{m.competition?.name ?? 'Partido'}{m.is_manual && <span className="shrink-0 rounded-full border border-gold/40 px-1.5 text-[9px] font-bold uppercase text-gold">Añadido por el admin</span>}</span>
         <span className="flex shrink-0 items-center gap-2">
           <MatchStatusBadge status={m.status} elapsed={m.elapsed} confirmed={m.result_confirmed} />
           <span className="capitalize">{formatShortDate(m.kickoff_at, tz)} · {formatTime(m.kickoff_at, tz)}</span>
@@ -70,7 +85,7 @@ export function PickCard({ match: m, tz, value, disabled, saved, submitted, maxG
       <div className="mt-2.5 flex items-center justify-between gap-2">
         <span className={cn('inline-flex items-center gap-1 text-[11px] font-semibold',
           state === 'Enviado' ? 'text-success' : state === 'Guardado' ? 'text-aqua' : state === 'Sin guardar' ? 'text-gold' : 'text-muted')}>
-          {state === 'Pendiente' ? <Circle className="size-3.5" /> : state === 'Sin guardar' ? <CircleDot className="size-3.5" /> : <CheckCircle2 className="size-3.5" />} {state}
+          {state === 'Pendiente' || state === 'Sin pronóstico' ? <Circle className="size-3.5" /> : state === 'Sin guardar' ? <CircleDot className="size-3.5" /> : state === 'Cerrado' ? <Lock className="size-3.5" /> : <CheckCircle2 className="size-3.5" />} {state}
         </span>
         {m.score ? (
           <span className={cn('scoreline text-base', m.score.points === 5 ? 'text-aqua' : m.score.points === 3 ? 'text-success' : 'text-muted')}>+{m.score.points} pts</span>
