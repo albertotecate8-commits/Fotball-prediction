@@ -28,7 +28,7 @@ Deno.serve(async (req) => {
     return data as T
   }
 
-  let body: { diagnose?: boolean; league?: string } = {}
+  let body: { diagnose?: boolean; league?: string; date?: string } = {}
   try { body = await req.json() } catch { /* cuerpo vacío */ }
 
   // Diagnóstico acotado (solo cron/servidor o admin): estado de la cuenta
@@ -40,6 +40,20 @@ Deno.serve(async (req) => {
     if (!p) return json(req, { api_football_configured: false })
     const league = /^\d{1,6}$/.test(body.league ?? '') ? body.league! : '262'
     const out: Record<string, unknown> = { api_football_configured: true, status: await p.status() }
+    if (/^\d{4}-\d{2}-\d{2}$/.test(body.date ?? '')) {
+      // Un día concreto, todas las ligas: 1 solicitud.
+      try {
+        const fx = await p.searchFixtures({ from: body.date })
+        const inLeague = fx.filter((f) => f.competition?.external_id === league)
+        out.date = body.date
+        out.fixtures_on_date = fx.length
+        out.league_fixtures_on_date = inLeague.length
+        out.sample = (inLeague.length ? inLeague : fx).slice(0, 5).map((f) => ({ id: f.external_id, league: f.competition?.name, status: f.status, match: `${f.home.name} vs ${f.away.name}` }))
+      } catch (e) {
+        out.error = `${(e as { code?: string }).code ?? 'ERROR'}: ${(e as Error).message}`
+      }
+      return json(req, out)
+    }
     try {
       const { data: cached } = await db.rpc('provider_cache_get', { p_provider: p.id, p_key: 'competitions' })
       const comps = (cached as { external_id: string; name: string; country: string | null; season: string | null }[] | null) ?? await p.listCompetitions()
