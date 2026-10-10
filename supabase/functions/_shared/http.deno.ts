@@ -31,7 +31,14 @@ export async function requireAdmin(req: Request, admin: SupabaseClient): Promise
   const { data, error } = await admin.auth.getUser(token)
   if (error || !data.user) return null
   const { data: profile } = await admin.from('profiles').select('role, status').eq('id', data.user.id).maybeSingle()
-  return profile?.role === 'admin' && profile?.status === 'active' ? data.user.id : null
+  if (profile?.role !== 'admin' || profile?.status !== 'active') return null
+  // Misma regla que la base de datos: además del rol, el correo debe estar autorizado.
+  const url = Deno.env.get('SUPABASE_URL')
+  const anon = Deno.env.get('SUPABASE_ANON_KEY')
+  if (!url || !anon) return null
+  const asUser = createClient(url, anon, { auth: { persistSession: false, autoRefreshToken: false }, global: { headers: { Authorization: `Bearer ${token}` } } })
+  const { data: allowed } = await asUser.rpc('am_i_admin')
+  return allowed === true ? data.user.id : null
 }
 
 /** Comparación en tiempo constante para el secreto del cron. */
