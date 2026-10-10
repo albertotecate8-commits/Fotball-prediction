@@ -176,3 +176,16 @@ describe('admin frente a jugador', () => {
     await expectDbError(asUser(admin, `select public.admin_update_setting('payments_enabled', 'true')`), 'SETTING_LOCKED')
   })
 })
+
+describe('secreto del cron (Vault)', () => {
+  it('solo el rol de servicio lo verifica y exige coincidencia exacta', async () => {
+    const secret = 'a'.repeat(64)
+    await sql(`insert into vault.secrets (name, secret) values ('sync_secret', $1) on conflict (name) do update set secret = excluded.secret`, [secret])
+    const [ok] = await asService(`select public.verify_sync_secret($1) as v`, [secret])
+    const [bad] = await asService(`select public.verify_sync_secret($1) as v`, ['b'.repeat(64)])
+    const [short] = await asService(`select public.verify_sync_secret('') as v`)
+    expect([ok!.v, bad!.v, short!.v]).toEqual([true, false, false])
+    const u = await createUser()
+    await expectDbError(asUser(u, `select public.verify_sync_secret($1)`, [secret]), 'permission denied')
+  })
+})

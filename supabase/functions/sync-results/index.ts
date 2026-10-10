@@ -9,8 +9,13 @@ Deno.serve(async (req) => {
   if (req.method !== 'POST') return json(req, { error: 'METHOD_NOT_ALLOWED' }, 405)
 
   const db = serviceClient()
-  const secret = Deno.env.get('SYNC_SECRET') ?? ''
-  const viaCron = safeEqual(req.headers.get('x-sync-secret') ?? '', secret)
+  // El cron envía el secreto guardado en Vault; también se acepta SYNC_SECRET del entorno.
+  const presented = req.headers.get('x-sync-secret') ?? ''
+  let viaCron = safeEqual(presented, Deno.env.get('SYNC_SECRET') ?? '')
+  if (!viaCron && presented.length >= 32) {
+    const { data } = await db.rpc('verify_sync_secret', { p_secret: presented })
+    viaCron = data === true
+  }
   const adminId = viaCron ? null : await requireAdmin(req, db)
   if (!viaCron && !adminId) return json(req, { error: 'FORBIDDEN' }, 403)
 
@@ -38,7 +43,12 @@ Deno.serve(async (req) => {
     runMaintenance: () => rpc('run_maintenance', {}),
   }
 
-  const report = await runSync(store, provider, viaCron ? 'cron' : 'manual')
+  let report
+  try {
+    report = await runSync(store, provider, viaCron ? 'cron' : 'manual')
+  } catch (e) {
+    return json(req, { error: 'SYNC_FAILED', message: (e as Error).message }, 500)
+  }
   if (adminId) {
     await db.from('audit_logs').insert({ actor_id: adminId, action: 'sync.manual_run', entity_type: 'sync_run', entity_id: String(report.runId), details: { status: report.status } })
   }

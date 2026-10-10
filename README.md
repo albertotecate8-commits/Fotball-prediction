@@ -102,22 +102,9 @@ npm run dev
 
 **Auth → URL Configuration:** la *Site URL* es el dominio de Vercel. En *Redirect URLs* van `https://TU-DOMINIO/restablecer` y `https://TU-DOMINIO/`.
 
-**Sincronización programada:** se puede activar después de definir `SYNC_SECRET`, desde el SQL Editor:
+**Sincronización programada (ya activa en este proyecto):** `supabase/setup/schedule_sync.sql` crea un secreto aleatorio **dentro de Supabase Vault**, que nunca sale de la base, y programa con pg_cron una llamada a `sync-results` cada 10 minutos. La función valida ese secreto con `public.verify_sync_secret`, que solo puede ejecutar el rol de servicio. `SYNC_SECRET` en el entorno es opcional. Si no hay partidos pendientes, la sincronización no llama a la API; así se cuida el límite del plan gratuito de API-Football (100 solicitudes al día).
 
-```sql
-create extension if not exists pg_cron;
-create extension if not exists pg_net;
-select vault.create_secret('<SYNC_SECRET>', 'sync_secret');
-select cron.schedule('sync-results', '*/10 * * * *', $$
-  select net.http_post(
-    url := 'https://tmkxvhjynbhwrhvzrsfv.supabase.co/functions/v1/sync-results',
-    headers := jsonb_build_object('Content-Type', 'application/json',
-      'x-sync-secret', (select decrypted_secret from vault.decrypted_secrets where name = 'sync_secret')),
-    body := '{}'::jsonb);
-$$);
-```
-
-Si la sincronización no encuentra partidos pendientes, no llama a la API. Así se cuida el límite del plan gratuito de API-Football (100 solicitudes al día).
+**Configuración pública:** la URL y la clave publicable de Supabase están en `src/config/supabase.public.ts`, así que el build funciona sin variables de entorno. Si se definen `VITE_SUPABASE_*`, tienen prioridad.
 
 **Primer administrador:** regístrate en la app y, desde *Inicio → «Activar administración»*, reclama el rol. Solo funciona si todavía no hay ningún administrador.
 
