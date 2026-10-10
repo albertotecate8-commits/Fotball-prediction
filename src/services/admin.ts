@@ -23,6 +23,11 @@ export interface ProviderInfo {
   usage: { requests: number; reported_remaining: number | null; reported_limit: number | null; last_request_at: string | null; last_error: string | null } | null
   status: { ok: boolean; plan?: string | null; active?: boolean | null; requests_today?: number | null; requests_limit?: number | null; error?: string | null } | null
 }
+export interface ManualCandidate { external_id: string; kickoff_at: string; home: string; away: string; competition: string | null }
+export type ManualMatchResponse =
+  | { kind: 'linked'; match_id: string; already_imported: boolean; is_test_data: boolean; fixture: ManualCandidate }
+  | { kind: 'manual'; match_id: string; created: boolean }
+  | { kind: 'ambiguous' | 'not_found'; candidates: ManualCandidate[] }
 export interface ProviderStatusResponse { default_provider: string; providers: ProviderInfo[] }
 export interface SyncNowResponse {
   reports: { provider: string; status: string; checked: number; updated: number; errors: string[]; quotaStopped?: boolean }[]
@@ -184,6 +189,9 @@ export const adminApi = {
   providerCompetitions: (provider: string) =>
     invokeFunction<{ provider: string; is_test_data: boolean; competitions: { external_id: string; name: string; country: string | null; season: string | null }[] }>(
       'provider-fixtures', { action: 'competitions', provider }),
+  matchById: async (id: string) => unwrap<AdminMatch>(await supabase.from('matches').select(MATCH_SELECT).eq('id', id).single()),
+  addManualMatch: (provider: string, manual: { home: string; away: string; kickoff_at: string; competitionId?: string; competitionName?: string; pick_external_id?: string; create_unlinked?: boolean }) =>
+    invokeFunction<ManualMatchResponse>('provider-fixtures', { action: 'manual', provider, manual }),
   providerStatus: () => invokeFunction<ProviderStatusResponse>('provider-fixtures', { action: 'status' }),
 
   resultsBoard: async () =>

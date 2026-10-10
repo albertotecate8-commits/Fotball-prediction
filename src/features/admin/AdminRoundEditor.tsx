@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowDown, ArrowUp, CloudDownload, Lock, Plus, Search, Trash2, X } from 'lucide-react'
-import { adminApi, type AdminMatch, type AdminRound } from '@/services/admin'
+import { adminApi, type AdminMatch, type AdminRound, type ManualCandidate } from '@/services/admin'
 import { qk } from '@/services/queryKeys'
 import { useAppConfig } from '@/hooks/useAppConfig'
 import { dayKey, formatDateTime, formatShortDate, formatTime, fromLocalInput, toLocalInput } from '@/lib/time'
@@ -331,6 +331,13 @@ function MatchPicker({ selected, onClose, onAdd }: { selected: AdminMatch[]; onC
           </div>
         </details>
 
+        <ManualMatchForm providerId={providerId} disabled={!providerId || providerInfo?.configured === false}
+          competitionId={providerCompetition} tz={timezone}
+          onAdded={async (id) => {
+            if (selectedIds.has(id)) { toast('Ese partido ya está en la jornada'); return }
+            onAdd([await adminApi.matchById(id)])
+          }} />
+
         {results.isLoading ? <CardSkeleton lines={4} /> : results.error ? <ErrorState error={results.error} /> : list.length === 0 ? (
           <EmptyState title="Sin partidos" description="Ajusta los filtros o tráelos del proveedor deportivo." />
         ) : (
@@ -375,5 +382,69 @@ function ParticipantsPicker({ round, disabled, onSave }: { round: AdminRound; di
         <Button className="mt-4" disabled={disabled} onClick={() => void onSave(() => adminApi.setRoundParticipants(round.id, [...sel]), 'Participantes guardados')}>Guardar participantes</Button>
       </div>
     </>
+  )
+}
+
+/** Partido capturado por equipos y fecha: se vincula con el proveedor si hay un candidato claro. */
+function ManualMatchForm({ providerId, disabled, competitionId, tz, onAdded }: {
+  providerId: string; disabled: boolean; competitionId: string; tz: string; onAdded: (matchId: string) => Promise<void>
+}) {
+  const toast = useToast()
+  const [home, setHome] = useState('')
+  const [away, setAway] = useState('')
+  const [kickoff, setKickoff] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<unknown>(null)
+  const [candidates, setCandidates] = useState<ManualCandidate[] | null>(null)
+
+  const send = async (extra: { pick_external_id?: string; create_unlinked?: boolean } = {}) => {
+    const kickoff_at = fromLocalInput(kickoff, tz)
+    if (!home.trim() || !away.trim() || !kickoff_at) { setError(new Error('INVALID_MATCH')); return }
+    setBusy(true)
+    setError(null)
+    try {
+      const r = await adminApi.addManualMatch(providerId, { home, away, kickoff_at, competitionId: competitionId || undefined, ...extra })
+      if (r.kind === 'linked') {
+        toast(`Vinculado: ${r.fixture.home} vs ${r.fixture.away}${r.already_imported ? ' (ya estaba importado)' : ''}`)
+        setCandidates(null)
+        await onAdded(r.match_id)
+      } else if (r.kind === 'manual') {
+        toast(r.created ? 'Partido creado sin proveedor: registrarás su resultado a mano' : 'Ese partido manual ya existía')
+        setCandidates(null)
+        await onAdded(r.match_id)
+      } else {
+        setCandidates(r.candidates)
+        if (r.kind === 'not_found' && r.candidates.length === 0) toast('El proveedor no tiene ese partido en esa fecha', 'error')
+      }
+    } catch (e) { setError(e) } finally { setBusy(false) }
+  }
+
+  return (
+    <details className="card-flat p-3">
+      <summary className="cursor-pointer text-sm font-semibold">Agregar partido por equipos</summary>
+      <div className="mt-3 space-y-3">
+        <p className="text-xs text-muted">Se busca en el proveedor por equipos, fecha y competición (si elegiste una arriba). Si ya estaba importado, se reutiliza.</p>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Local">{(id) => <Input id={id} value={home} onChange={(e) => setHome(e.target.value)} placeholder="Real Madrid" />}</Field>
+          <Field label="Visitante">{(id) => <Input id={id} value={away} onChange={(e) => setAway(e.target.value)} placeholder="Barcelona" />}</Field>
+        </div>
+        <Field label="Fecha y hora">{(id) => <Input id={id} type="datetime-local" value={kickoff} onChange={(e) => setKickoff(e.target.value)} />}</Field>
+        <InlineError error={error} />
+        <Button variant="secondary" block loading={busy} disabled={disabled} icon={<Plus className="size-4" />} onClick={() => void send()}>Buscar y agregar</Button>
+        {candidates && (
+          <div className="space-y-2">
+            <p className="text-xs text-muted">{candidates.length ? 'No hay una coincidencia única. Elige el partido correcto:' : 'Sin coincidencias en el proveedor.'}</p>
+            {candidates.map((c) => (
+              <button key={c.external_id} type="button" className="card-flat flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm hover:border-lime/30"
+                onClick={() => void send({ pick_external_id: c.external_id })}>
+                <span className="min-w-0 truncate"><span className="font-semibold">{c.home} vs {c.away}</span> <span className="text-muted">· {formatDateTime(c.kickoff_at, tz)}{c.competition ? ` · ${c.competition}` : ''}</span></span>
+                <span className="text-lime">Usar</span>
+              </button>
+            ))}
+            <Button variant="ghost" size="sm" disabled={busy} onClick={() => void send({ create_unlinked: true })}>Crear sin proveedor (resultado manual)</Button>
+          </div>
+        )}
+      </div>
+    </details>
   )
 }

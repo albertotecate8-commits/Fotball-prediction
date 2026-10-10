@@ -135,3 +135,23 @@ describe('historial de resultados al importar', () => {
     expect(rows).toEqual([{ status: 'finished', home_goals: 2, away_goals: 0, is_final: true, source: 'provider' }])
   })
 })
+
+describe('partidos manuales sin proveedor', () => {
+  it('se crean solo vía servicio, sin duplicados y auditados', async () => {
+    const k = '2026-11-01T02:00:00Z'
+    const [a] = await asService(`select public.create_manual_match('Alacranes de Durango', 'Club Prueba Manual', $1, 'Liga Premier', null) as r`, [k])
+    const [b] = await asService(`select public.create_manual_match('alacranes  de DURANGO', 'Club Prueba Manual', $1::timestamptz + interval '2 hours', 'Liga Premier', null) as r`, [k])
+    expect(a!.r.created).toBe(true)
+    expect(b!.r).toEqual({ match_id: a!.r.match_id, created: false })
+    const [m] = await sql(`select provider, result_source, is_test_data from public.matches where id = $1`, [a!.r.match_id])
+    expect(m).toEqual({ provider: 'manual', result_source: 'admin', is_test_data: false })
+    const logs = await sql(`select 1 from public.audit_logs where action = 'match.manual_created' and entity_id = $1`, [a!.r.match_id])
+    expect(logs).toHaveLength(1)
+    // El sincronizador nunca los consulta al proveedor.
+    const targets = await asService(`select match_id from public.get_sync_targets(60)`)
+    expect(targets.map((t) => t.match_id)).not.toContain(a!.r.match_id)
+    const u = await createUser()
+    await expectDbError(asUser(u, `select public.create_manual_match('A1', 'B1', now(), null, null)`), 'permission denied')
+    await expectDbError(asService(`select public.create_manual_match('Mismo', 'mismo', now(), null, null)`), 'INVALID_MATCH')
+  })
+})

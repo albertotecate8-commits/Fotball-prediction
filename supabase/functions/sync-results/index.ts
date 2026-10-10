@@ -2,6 +2,8 @@
 // Invocación: pg_cron (cabecera x-sync-secret) o un admin desde el panel.
 // Un candado impide dos sincronizaciones simultáneas (cron + botón).
 import { corsHeaders, json, requireAdmin, safeEqual, serviceClient } from '../_shared/http.deno.ts'
+import { linkManualMatch, type ManualInput } from '../_shared/manualLink.deno.ts'
+import type { ApiFootballProvider } from '../_shared/football/index.ts'
 import { loadPlanFlags, providerEnv, realProviderConfigured, resolveProvider, savePlanFlags } from '../_shared/providers.deno.ts'
 import { runAllProviders, type SyncStore } from '../_shared/football/sync.ts'
 
@@ -28,7 +30,7 @@ Deno.serve(async (req) => {
     return data as T
   }
 
-  let body: { diagnose?: boolean; league?: string; date?: string; ids?: string; import?: boolean } = {}
+  let body: { diagnose?: boolean; league?: string; date?: string; ids?: string; import?: boolean; teams?: string[]; next?: boolean; link?: ManualInput } = {}
   try { body = await req.json() } catch { /* cuerpo vacío */ }
 
   // Diagnóstico acotado (solo cron/servidor o admin): estado de la cuenta
@@ -41,6 +43,38 @@ Deno.serve(async (req) => {
     await loadPlanFlags(db, p)
     const league = /^\d{1,6}$/.test(body.league ?? '') ? body.league! : '262'
     const out: Record<string, unknown> = { api_football_configured: true, status: await p.status() }
+    if (body.link) {
+      // Misma vinculación que usa el admin al capturar un partido a mano.
+      try {
+        out.link = await linkManualMatch(db, p, { ...body.link, create_unlinked: false }, null)
+      } catch (e) {
+        out.error = `${(e as { code?: string }).code ?? 'ERROR'}: ${(e as Error).message}`
+      }
+      return json(req, out)
+    }
+    if (Array.isArray(body.teams) && body.teams.length) {
+      // Cobertura por equipo: 1 solicitud por nombre (máx. 3) y, si se pide, sus próximos partidos.
+      const api = p as unknown as ApiFootballProvider
+      const teams: Record<string, unknown> = {}
+      for (const name of body.teams.slice(0, 3).map((t) => String(t).slice(0, 40))) {
+        try {
+          const found = await api.searchTeams(name)
+          const entry: Record<string, unknown> = { found: found.slice(0, 6) }
+          if (body.next && found[0]) {
+            try {
+              entry.next = (await api.nextFixturesForTeam(found[0].external_id, 3)).map((f) => ({ id: f.external_id, kickoff_at: f.kickoff_at, league: f.competition?.name, match: `${f.home.name} vs ${f.away.name}` }))
+            } catch (e) {
+              entry.next_error = `${(e as { code?: string }).code ?? 'ERROR'}: ${(e as Error).message}`
+            }
+          }
+          teams[name] = entry
+        } catch (e) {
+          teams[name] = { error: `${(e as { code?: string }).code ?? 'ERROR'}: ${(e as Error).message}` }
+        }
+      }
+      out.teams = teams
+      return json(req, out)
+    }
     if (/^\d{1,10}(-\d{1,10}){0,4}$/.test(body.ids ?? '')) {
       // Consulta por id (lo que usa la sincronización): 1 solicitud, o la de la fecha si el plan no lo permite.
       try {

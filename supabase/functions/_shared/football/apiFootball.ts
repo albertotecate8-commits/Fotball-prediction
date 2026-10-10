@@ -299,6 +299,18 @@ export class ApiFootballProvider implements FootballProvider {
     }))
   }
 
+  /** Equipos por nombre (mín. 3 letras). 1 solicitud. */
+  async searchTeams(name: string): Promise<{ external_id: string; name: string; country: string | null; national: boolean }[]> {
+    const rows = await this.request<{ team: { id: number; name: string; country: string | null; national: boolean } }[]>('/teams', { search: name })
+    return (rows ?? []).map((r) => ({ external_id: String(r.team.id), name: r.team.name, country: r.team.country, national: r.team.national }))
+  }
+
+  /** Próximos partidos de un equipo (puede estar restringido por el plan). 1 solicitud. */
+  async nextFixturesForTeam(teamId: string, next = 3): Promise<NormalizedFixture[]> {
+    const rows = await this.request<ApiFixture[]>('/fixtures', { team: teamId, next: String(next), timezone: 'UTC' })
+    return (rows ?? []).map(normalizeApiFootballFixture)
+  }
+
   /** /status no consume la cuota diaria según la documentación del proveedor. */
   async status(): Promise<ProviderStatus> {
     try {

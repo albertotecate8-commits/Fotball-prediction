@@ -4,6 +4,7 @@
 // Acciones: status · competitions · search. Nunca devuelve la clave.
 import { corsHeaders, json, requireAdmin, serviceClient } from '../_shared/http.deno.ts'
 import { ProviderError, type FixtureSearch, type NormalizedFixture } from '../_shared/football/index.ts'
+import { linkManualMatch, type ManualInput } from '../_shared/manualLink.deno.ts'
 import { defaultProviderId, loadPlanFlags, providerEnv, QUOTA, realProviderConfigured, resolveProvider, savePlanFlags } from '../_shared/providers.deno.ts'
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/
@@ -19,7 +20,10 @@ Deno.serve(async (req) => {
   const adminId = await requireAdmin(req, db)
   if (!adminId) return json(req, { error: 'FORBIDDEN' }, 403)
 
-  let body: { action?: string; provider?: string; filters?: FixtureSearch }
+  let body: {
+    action?: string; provider?: string; filters?: FixtureSearch
+    manual?: ManualInput
+  }
   try {
     body = await req.json()
   } catch {
@@ -68,6 +72,11 @@ Deno.serve(async (req) => {
         if (!provider.isTestData) await cachePut('competitions', competitions, 24 * 3600)
       }
       return json(req, { provider: provider.id, is_test_data: provider.isTestData, cached, competitions })
+    }
+
+    if (body.action === 'manual') {
+      const r = await linkManualMatch(db, provider, body.manual ?? {}, adminId)
+      return json(req, r, r.kind === 'invalid' ? 400 : 200)
     }
 
     const f = body.filters ?? {}
