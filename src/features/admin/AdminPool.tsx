@@ -14,6 +14,7 @@ import { CardSkeleton } from '@/components/ui/Skeleton'
 import { EmptyState, ErrorState } from '@/components/ui/States'
 import { useToast } from '@/components/ui/Toast'
 import { TeamPicker } from './TeamPicker'
+import { WeekPlanCard } from './WeekPlanCard'
 
 const POOL_KEY = ['admin', 'pool'] as const
 
@@ -35,6 +36,7 @@ export function AdminPool() {
     <div>
       <h1 className="display mb-1 text-3xl font-semibold uppercase">Partidos</h1>
       <p className="mb-4 text-sm text-muted">Los partidos de las ligas configuradas se importan solos. Cada uno cierra a su hora de inicio.</p>
+      <WeekPlanCard tz={timezone} />
       <Button className="mb-5 w-full" icon={<Plus className="size-5" />} onClick={() => setAdding(true)}>Añadir partido</Button>
       {list.isLoading ? <CardSkeleton lines={4} /> : list.error ? <ErrorState error={list.error} onRetry={() => void list.refetch()} /> : days.length === 0 ? (
         <EmptyState title="Aún no hay partidos" description="Se importarán automáticamente o puedes añadir uno." />

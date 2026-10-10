@@ -163,6 +163,7 @@ function Form({ data, tz }: { data: PoolData; tz: string }) {
         </section>
       )}
       {data.matches.some((m) => m.is_test_data) && <div className="mb-3"><TestDataBadge /></div>}
+      <WeekBanner />
       <Freshness show={data.matches.some((m) => m.status === 'live' || (Date.parse(m.kickoff_at) <= Date.now() && !m.result_confirmed && m.status !== 'cancelled'))} tz={tz} />
 
       {active.map(renderDay)}
@@ -220,6 +221,18 @@ function Freshness({ show, tz }: { show: boolean; tz: string }) {
   return (
     <p className={`mb-3 text-xs ${f.data.delayed ? 'text-gold' : 'text-muted'}`}>
       {f.data.delayed ? 'Actualización en pausa para cuidar la cuota del proveedor. ' : ''}Resultados actualizados a las {formatTime(f.data.updated_at, tz)}.
+    </p>
+  )
+}
+
+/** Avance de la quiniela de la semana (los partidos llegan conforme el proveedor los publica). */
+function WeekBanner() {
+  const w = useQuery({ queryKey: ['pool', 'week'], queryFn: playerApi.week, staleTime: 300_000 })
+  if (!w.data) return null
+  return (
+    <p className="mb-3 text-xs text-muted">
+      <span className="font-semibold text-ink">Quiniela de la semana</span> · {w.data.filled} de {w.data.max_matches} partidos
+      {w.data.filled < w.data.max_matches ? ' · los demás aparecerán en cuanto se confirmen' : ''}
     </p>
   )
 }

@@ -146,6 +146,19 @@ test.describe('pantallas', () => {
     await page.screenshot({ path: shot('08-admin', info.project.name), fullPage: true })
   })
 
+  test('admin: quiniela de la próxima semana con 12 partidos', async ({ page }, info) => {
+    const calls: string[] = []
+    await mockBackend(page, { admin: true, calls })
+    await page.goto('/admin/partidos')
+    await expect(page.getByRole('heading', { name: 'Quiniela de la semana' })).toBeVisible()
+    await expect(page.getByText('/12')).toBeVisible()
+    await expect(page.getByText(/Barcelona, Real Madrid \(fin de semana\) y Liga MX/)).toBeVisible()
+    page.on('dialog', (d) => void d.accept())
+    await page.getByRole('button', { name: 'Volver a armar / actualizar' }).click()
+    await expect.poll(() => calls.includes('admin_plan_week')).toBe(true)
+    await page.screenshot({ path: shot('08e-quiniela-semana', info.project.name) })
+  })
+
   test('admin: añadir partido con equipos del catálogo', async ({ page }, info) => {
     const calls: string[] = []
     await mockBackend(page, { admin: true, calls })

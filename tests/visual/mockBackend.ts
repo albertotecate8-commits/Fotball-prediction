@@ -116,6 +116,11 @@ const RPC: Record<string, (body: Record<string, unknown>) => unknown> = {
   get_leaderboard: () => leaderboard,
   get_pool_leaderboard: () => leaderboard,
   admin_pool_list: () => adminPool,
+  // Plan semanal FICTICIO.
+  admin_week_plans: () => [{ id: 'w1', week_start: iso(2 * 24 * H).slice(0, 10), week_end: iso(8 * 24 * H).slice(0, 10), label: 'Semana', max_matches: 12,
+    team_ids: ['529', '541'], league_ids: ['262'], team_weekend_only: true, filled: 5, teams_found: ['529'] }],
+  admin_plan_week: () => ({ id: 'w1', week_start: iso(2 * 24 * H).slice(0, 10), added_now: 0 }),
+  get_pool_week: () => ({ label: 'Semana', week_start: iso(2 * 24 * H).slice(0, 10), week_end: iso(8 * 24 * H).slice(0, 10), max_matches: 12, filled: 5 }),
   get_results_freshness: () => ({ updated_at: iso(-4 * 60e3), delayed: false }),
   // Consumo FICTICIO para la prueba visual del panel.
   admin_api_usage: () => ({

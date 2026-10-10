@@ -35,6 +35,10 @@ export interface PoolAdminMatch {
   away: { id: string; name: string; short_name: string; code: string | null; logo_url: string | null }
   picks: number
 }
+export interface WeekPlan {
+  id: string; week_start: string; week_end: string; label: string; max_matches: number
+  team_ids: string[]; league_ids: string[]; team_weekend_only: boolean; filled: number; teams_found: string[]
+}
 export interface CatalogTeam { id: string; name: string; short_name: string; logo_url: string | null; provider: string; external_id: string | null }
 
 export interface ApiUsageRequest {
@@ -195,6 +199,9 @@ export const adminApi = {
     instructions: string | null; contact: string | null; updated_at: string } | null>(await supabase.from('payment_info').select('*').maybeSingle()),
   savePaymentInfo: (v: { bank: string; holder: string; clabe: string; account: string; amount: number | null; concept: string; instructions: string; contact: string }) =>
     rpc<void>('admin_save_payment_info', { p_bank: v.bank, p_holder: v.holder, p_clabe: v.clabe, p_account: v.account, p_amount: v.amount, p_concept: v.concept, p_instructions: v.instructions, p_contact: v.contact }),
+  weekPlans: () => rpc<WeekPlan[]>('admin_week_plans'),
+  /** Pide a la app la quiniela de la próxima semana: 12 partidos (Barcelona y Real Madrid el fin de semana + Liga MX). */
+  planNextWeek: () => rpc<{ id: string; week_start: string; added_now: number }>('admin_plan_week', {}),
   poolList: () => rpc<PoolAdminMatch[]>('admin_pool_list', { p_days_back: 14 }),
   publishMatch: (matchId: string) => rpc<void>('admin_publish_match', { p_match_id: matchId }),
   setPoolStatus: (matchId: string, status: 'published' | 'withdrawn', reason: string) =>
