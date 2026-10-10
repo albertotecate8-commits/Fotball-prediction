@@ -1,8 +1,11 @@
 // Sincroniza estados y resultados de los partidos incluidos en jornadas.
 // Invocación: pg_cron (cabecera x-sync-secret) o un admin desde el panel.
+// Un candado impide dos sincronizaciones simultáneas (cron + botón).
 import { corsHeaders, json, requireAdmin, safeEqual, serviceClient } from '../_shared/http.deno.ts'
-import { createProvider } from '../_shared/football/index.ts'
-import { runSync, type SyncStore } from '../_shared/football/sync.ts'
+import { resolveProvider } from '../_shared/providers.deno.ts'
+import { runAllProviders, type SyncStore } from '../_shared/football/sync.ts'
+
+const LEASE = 'sync-results'
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) })
@@ -19,18 +22,15 @@ Deno.serve(async (req) => {
   const adminId = viaCron ? null : await requireAdmin(req, db)
   if (!viaCron && !adminId) return json(req, { error: 'FORBIDDEN' }, 403)
 
-  let provider
-  try {
-    provider = createProvider({ FOOTBALL_PROVIDER: Deno.env.get('FOOTBALL_PROVIDER'), API_FOOTBALL_KEY: Deno.env.get('API_FOOTBALL_KEY') })
-  } catch (e) {
-    return json(req, { error: 'PROVIDER_NOT_CONFIGURED', message: (e as Error).message }, 500)
-  }
-
   const rpc = async <T>(fn: string, args: Record<string, unknown>) => {
     const { data, error } = await db.rpc(fn, args)
     if (error) throw new Error(`${fn}: ${error.message}`)
     return data as T
   }
+
+  const holder = crypto.randomUUID()
+  const got = await rpc<boolean>('acquire_sync_lease', { p_name: LEASE, p_holder: holder, p_seconds: 120 }).catch(() => false)
+  if (!got) return json(req, { status: 'skipped', reason: 'SYNC_IN_PROGRESS' }, 409)
 
   const store: SyncStore = {
     getTargets: () => rpc('get_sync_targets', { p_horizon_minutes: 15 }),
@@ -43,14 +43,20 @@ Deno.serve(async (req) => {
     runMaintenance: () => rpc('run_maintenance', {}),
   }
 
-  let report
+  let result
   try {
-    report = await runSync(store, provider, viaCron ? 'cron' : 'manual')
+    result = await runAllProviders(store, (id) => resolveProvider(db, id), viaCron ? 'cron' : 'manual')
   } catch (e) {
     return json(req, { error: 'SYNC_FAILED', message: (e as Error).message }, 500)
+  } finally {
+    await db.rpc('release_sync_lease', { p_name: LEASE, p_holder: holder })
   }
   if (adminId) {
-    await db.from('audit_logs').insert({ actor_id: adminId, action: 'sync.manual_run', entity_type: 'sync_run', entity_id: String(report.runId), details: { status: report.status } })
+    await db.from('audit_logs').insert({
+      actor_id: adminId, action: 'sync.manual_run', entity_type: 'sync_run', entity_id: result.reports.map((r) => r.runId).join(',') || null,
+      details: { statuses: result.reports.map((r) => `${r.provider}:${r.status}`), unconfigured: result.unconfigured },
+    })
   }
-  return json(req, report, report.status === 'error' ? 502 : 200)
+  const failed = result.reports.length > 0 && result.reports.every((r) => r.status === 'error')
+  return json(req, result, failed ? 502 : 200)
 })

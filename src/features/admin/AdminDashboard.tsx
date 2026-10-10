@@ -1,6 +1,6 @@
 import { Link } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
-import { Activity, AlertTriangle, CalendarPlus, ClipboardCheck, RefreshCw, Trophy, Users, ListChecks } from 'lucide-react'
+import { Activity, AlertTriangle, CalendarPlus, ClipboardCheck, Database, RefreshCw, Trophy, Users, ListChecks } from 'lucide-react'
 import { adminApi } from '@/services/admin'
 import { qk } from '@/services/queryKeys'
 import { useAppConfig } from '@/hooks/useAppConfig'
@@ -55,6 +55,9 @@ export function AdminDashboard() {
         <Link to="/admin/resultados" className="text-sm font-semibold text-lime">Ver</Link>
       </div>
 
+      <SectionTitle>Proveedor deportivo</SectionTitle>
+      <ProviderCard />
+
       <SectionTitle>Accesos rápidos</SectionTitle>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {QUICK.map(({ to, label, icon: Icon }) => (
@@ -65,6 +68,33 @@ export function AdminDashboard() {
         ))}
       </div>
       <p className="mt-6 flex items-center gap-2 text-xs text-faint"><Activity className="size-3.5" /> Cobros, premios y pasarelas de pago están desactivados en esta versión.</p>
+    </div>
+  )
+}
+
+function ProviderCard() {
+  const q = useQuery({ queryKey: ['admin', 'providerStatus'], queryFn: adminApi.providerStatus, retry: 0, staleTime: 300_000 })
+  const real = q.data?.providers?.find((p) => p.id === 'api-football')
+  return (
+    <div className="card flex items-center gap-3 p-4">
+      <Database className="size-5 text-olive" />
+      <div className="min-w-0 flex-1 text-sm">
+        {q.isLoading ? <Skeleton className="h-10" /> : q.error ? <span className="text-muted">No se pudo consultar el proveedor.</span> : real && (
+          <>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-semibold">API-Football</span>
+              {!real.configured ? <Badge tone="neutral">Sin clave · se usan datos de prueba</Badge>
+                : real.status?.ok ? <Badge tone="success">Conectado{real.status.plan ? ` · ${real.status.plan}` : ''}</Badge>
+                : <Badge tone="danger">Error de conexión</Badge>}
+            </div>
+            <p className="mt-1 text-xs text-muted">
+              {real.configured
+                ? <>Consultas hoy: {real.usage?.requests ?? 0} / {real.budget_daily} (presupuesto propio){real.status?.requests_limit ? ` · cuenta: ${real.status.requests_today ?? 0} / ${real.status.requests_limit}` : ''}{real.status?.error ? ` · ${real.status.error}` : ''}</>
+                : 'Configura el secreto API_FOOTBALL_KEY en Supabase para usar resultados reales.'}
+            </p>
+          </>
+        )}
+      </div>
     </div>
   )
 }

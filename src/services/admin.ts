@@ -15,6 +15,22 @@ const MATCH_SELECT = `id, provider, external_id, kickoff_at, status, status_deta
   home:teams!matches_home_team_id_fkey(id, name, short_name, code, logo_url),
   away:teams!matches_away_team_id_fkey(id, name, short_name, code, logo_url)`
 
+export interface ProviderInfo {
+  id: string
+  is_test_data: boolean
+  configured: boolean
+  budget_daily: number | null
+  usage: { requests: number; reported_remaining: number | null; reported_limit: number | null; last_request_at: string | null; last_error: string | null } | null
+  status: { ok: boolean; plan?: string | null; active?: boolean | null; requests_today?: number | null; requests_limit?: number | null; error?: string | null } | null
+}
+export interface ProviderStatusResponse { default_provider: string; providers: ProviderInfo[] }
+export interface SyncNowResponse {
+  reports: { provider: string; status: string; checked: number; updated: number; errors: string[]; quotaStopped?: boolean }[]
+  unconfigured: Record<string, number>
+  maintained: number
+  errors: string[]
+}
+
 export interface AdminMatch {
   id: string
   provider: string
@@ -163,11 +179,12 @@ export const adminApi = {
     const team = f.team?.trim().toLowerCase()
     return team ? rows.filter((m) => m.home.name.toLowerCase().includes(team) || m.away.name.toLowerCase().includes(team)) : rows
   },
-  importFromProvider: (filters: { competitionId?: string; season?: string; from?: string; to?: string; team?: string; status?: string }) =>
-    invokeFunction<{ provider: string; is_test_data: boolean; match_ids: string[]; inserted: number }>('provider-fixtures', { action: 'search', filters }),
-  providerCompetitions: () =>
+  importFromProvider: (provider: string, filters: { competitionId?: string; season?: string; from?: string; to?: string; team?: string; status?: string }) =>
+    invokeFunction<{ provider: string; is_test_data: boolean; cached: boolean; match_ids: string[]; inserted: number }>('provider-fixtures', { action: 'search', provider, filters }),
+  providerCompetitions: (provider: string) =>
     invokeFunction<{ provider: string; is_test_data: boolean; competitions: { external_id: string; name: string; country: string | null; season: string | null }[] }>(
-      'provider-fixtures', { action: 'competitions' }),
+      'provider-fixtures', { action: 'competitions', provider }),
+  providerStatus: () => invokeFunction<ProviderStatusResponse>('provider-fixtures', { action: 'status' }),
 
   resultsBoard: async () =>
     unwrap<(AdminMatch & { round_matches: { round: { id: string; name: string; status: RoundStatus } }[] })[]>(
@@ -181,7 +198,7 @@ export const adminApi = {
   recordResult: (matchId: string, home: number | null, away: number | null, status: MatchStatus, reason: string) =>
     rpc<void>('admin_record_result', { p_match_id: matchId, p_home: home, p_away: away, p_status: status, p_reason: reason }),
   releaseOverride: (matchId: string) => rpc<void>('admin_release_result_override', { p_match_id: matchId }),
-  syncNow: () => invokeFunction<{ status: string; checked: number; updated: number; errors: string[] }>('sync-results', {}),
+  syncNow: () => invokeFunction<SyncNowResponse>('sync-results', {}),
 
   audit: async (page: number, pageSize = 30) =>
     unwrap<{ id: number; action: string; entity_type: string; entity_id: string | null; details: Record<string, unknown>; created_at: string; actor: { display_name: string } | null }[]>(

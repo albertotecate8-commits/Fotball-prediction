@@ -21,23 +21,35 @@ export type SyncStatus = 'success' | 'partial' | 'error'
 
 export interface SyncReport {
   runId: number
+  provider: string
   status: SyncStatus
   checked: number
   updated: number
   errors: string[]
   skippedOtherProvider: number
+  quotaStopped?: boolean
 }
 
-export async function runSync(store: SyncStore, provider: FootballProvider, trigger: 'cron' | 'manual' | 'test'): Promise<SyncReport> {
+/** Errores que afectan a todo el proveedor (no a un partido concreto). */
+const isProviderWide = (e: unknown) =>
+  e instanceof ProviderError && ['INVALID_KEY', 'PLAN_RESTRICTED', 'QUOTA_EXHAUSTED', 'NOT_CONFIGURED', 'RATE_LIMITED', 'UNAVAILABLE'].includes(e.code)
+
+/**
+ * Sincroniza los partidos de UN proveedor. Si la cuota se agota o el
+ * proveedor falla, los últimos datos válidos se conservan intactos: no se
+ * inventa ni se marca nada como finalizado.
+ */
+export async function runSync(store: SyncStore, provider: FootballProvider, trigger: 'cron' | 'manual' | 'test', targetsIn?: SyncTarget[]): Promise<SyncReport> {
   const runId = await store.startRun(provider.id, trigger)
   const errors: string[] = []
   let checked = 0
   let updated = 0
   let skipped = 0
   let fatal: string | null = null
+  let quotaStopped = false
 
   try {
-    const all = await store.getTargets()
+    const all = targetsIn ?? (await store.getTargets())
     const targets = all.filter((t) => t.provider === provider.id)
     skipped = all.length - targets.length
 
@@ -62,22 +74,52 @@ export async function runSync(store: SyncStore, provider: FootballProvider, trig
       }
     }
   } catch (e) {
-    fatal = e instanceof ProviderError ? e.message : `Error inesperado: ${(e as Error).message}`
+    if (e instanceof ProviderError && e.code === 'QUOTA_EXHAUSTED') quotaStopped = true
+    fatal = e instanceof ProviderError ? `${e.code}: ${e.message}` : `Error inesperado: ${(e as Error).message}`
+    if (!isProviderWide(e)) fatal = `Error inesperado: ${(e as Error).message}`
   }
 
-  // El cierre por fecha límite debe ocurrir aunque el proveedor falle.
+  const status: SyncStatus = fatal ? (quotaStopped ? 'partial' : 'error') : errors.length ? 'partial' : 'success'
+  await store.finishRun(runId, {
+    status, checked, updated,
+    error: fatal ?? (errors.length ? errors.slice(0, 5).join(' | ') : null),
+    details: { errors: errors.slice(0, 50), skipped_other_provider: skipped, quota_stopped: quotaStopped },
+  })
+  return { runId, provider: provider.id, status, checked, updated, errors: fatal ? [fatal, ...errors] : errors, skippedOtherProvider: skipped, quotaStopped }
+}
+
+/**
+ * Una pasada completa: obtiene los partidos que toca consultar, los agrupa
+ * por proveedor y sincroniza cada grupo con su proveedor. Los de un
+ * proveedor no configurado se reportan pero no se tocan.
+ */
+export async function runAllProviders(
+  store: SyncStore,
+  resolve: (providerId: string) => FootballProvider | null,
+  trigger: 'cron' | 'manual' | 'test',
+): Promise<{ reports: SyncReport[]; unconfigured: Record<string, number>; maintained: number; errors: string[] }> {
+  const targets = await store.getTargets()
+  const byProvider = new Map<string, SyncTarget[]>()
+  for (const t of targets) byProvider.set(t.provider, [...(byProvider.get(t.provider) ?? []), t])
+
+  const reports: SyncReport[] = []
+  const unconfigured: Record<string, number> = {}
+  for (const [id, list] of byProvider) {
+    const provider = resolve(id)
+    if (!provider) {
+      unconfigured[id] = list.length
+      continue
+    }
+    reports.push(await runSync(store, provider, trigger, list))
+  }
+
+  // El cierre por fecha límite y la finalización ocurren aunque el proveedor falle.
+  const errors: string[] = []
   let maintained = 0
   try {
     maintained = await store.runMaintenance()
   } catch (e) {
     errors.push(`mantenimiento: ${(e as Error).message}`)
   }
-
-  const status: SyncStatus = fatal ? 'error' : errors.length ? 'partial' : 'success'
-  await store.finishRun(runId, {
-    status, checked, updated,
-    error: fatal ?? (errors.length ? errors.slice(0, 5).join(' | ') : null),
-    details: { errors: errors.slice(0, 50), skipped_other_provider: skipped, rounds_maintained: maintained },
-  })
-  return { runId, status, checked, updated, errors: fatal ? [fatal, ...errors] : errors, skippedOtherProvider: skipped }
+  return { reports, unconfigured, maintained, errors }
 }

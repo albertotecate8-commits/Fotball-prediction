@@ -114,6 +114,12 @@ export async function mockBackend(page: Page, opts: { admin?: boolean } = {}) {
     const url = new URL(route.request().url())
     const json = (body: unknown, status = 200) => route.fulfill({ status, contentType: 'application/json', body: typeof body === 'string' ? body : JSON.stringify(body) })
     if (url.pathname.startsWith('/auth/v1/user')) return json(session.user)
+    if (url.pathname === '/functions/v1/provider-fixtures') {
+      return json({ default_provider: 'mock', providers: [
+        { id: 'api-football', is_test_data: false, configured: false, budget_daily: 90, usage: null, status: null },
+        { id: 'mock', is_test_data: true, configured: true, budget_daily: null, usage: null, status: null },
+      ] })
+    }
     if (url.pathname.startsWith('/rest/v1/rpc/')) {
       const fn = url.pathname.split('/').pop()!
       const body = route.request().postDataJSON() ?? {}

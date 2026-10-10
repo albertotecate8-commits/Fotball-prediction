@@ -235,7 +235,14 @@ function MatchPicker({ selected, onClose, onAdd }: { selected: AdminMatch[]; onC
   }), [competitionId, from, to, status, team, timezone])
   const competitions = useQuery({ queryKey: ['admin', 'competitions'], queryFn: adminApi.competitions })
   const results = useQuery({ queryKey: qk.admin.matches(filters), queryFn: () => adminApi.searchMatches(filters) })
-  const providerComps = useQuery({ queryKey: ['admin', 'providerCompetitions'], queryFn: adminApi.providerCompetitions, retry: 0, staleTime: 3600_000 })
+  const providerStatus = useQuery({ queryKey: ['admin', 'providerStatus'], queryFn: adminApi.providerStatus, retry: 0, staleTime: 300_000 })
+  const [providerChoice, setProviderChoice] = useState('')
+  const providerId = providerChoice || providerStatus.data?.default_provider || ''
+  const providerInfo = providerStatus.data?.providers?.find((p) => p.id === providerId)
+  const providerComps = useQuery({
+    queryKey: ['admin', 'providerCompetitions', providerId], queryFn: () => adminApi.providerCompetitions(providerId),
+    enabled: !!providerId && providerInfo?.configured !== false, retry: 0, staleTime: 3600_000,
+  })
   const selectedIds = new Set(selected.map((m) => m.id))
 
   useEffect(() => { setPicked(new Set()) }, [filters])
@@ -244,8 +251,12 @@ function MatchPicker({ selected, onClose, onAdd }: { selected: AdminMatch[]; onC
     setImporting(true)
     setImportError(null)
     try {
-      const r = await adminApi.importFromProvider({ competitionId: providerCompetition || undefined, season: season || undefined, from, to, team: team || undefined })
-      toast(`${r.match_ids.length} partidos del proveedor (${r.inserted} nuevos)${r.is_test_data ? ' · datos de prueba' : ''}`)
+      const r = await adminApi.importFromProvider(providerId, {
+        competitionId: providerCompetition || undefined, season: season || undefined,
+        // Sin competición, el proveedor real busca un solo día (una solicitud).
+        from, to: providerCompetition || providerInfo?.is_test_data ? to : from, team: team || undefined,
+      })
+      toast(`${r.match_ids.length} partidos del proveedor (${r.inserted} nuevos)${r.cached ? ' · desde caché' : ''}${r.is_test_data ? ' · datos de prueba' : ''}`)
       await results.refetch()
       await competitions.refetch()
     } catch (e) { setImportError(e) } finally { setImporting(false) }
@@ -282,9 +293,25 @@ function MatchPicker({ selected, onClose, onAdd }: { selected: AdminMatch[]; onC
         <details className="card-flat p-3">
           <summary className="cursor-pointer text-sm font-semibold">Traer partidos del proveedor deportivo</summary>
           <div className="mt-3 space-y-3">
-            {providerComps.data && (
-              <p className="text-xs text-muted">Proveedor: <span className="font-semibold text-ink">{providerComps.data.provider}</span>{providerComps.data.is_test_data && <> · <TestDataBadge /></>}</p>
+            {providerStatus.data?.providers && (
+              <Field label="Fuente de datos">{(id) => (
+                <Select id={id} value={providerId} onChange={(e) => { setProviderChoice(e.target.value); setProviderCompetition('') }}>
+                  {providerStatus.data.providers.map((p) => (
+                    <option key={p.id} value={p.id} disabled={!p.configured}>
+                      {p.id === 'api-football' ? 'API-Football · datos reales' : 'Demostración · datos de prueba'}{p.configured ? '' : ' (sin clave)'}
+                    </option>
+                  ))}
+                </Select>
+              )}</Field>
             )}
+            {providerInfo && (
+              <p className="text-xs text-muted">
+                {providerInfo.is_test_data ? <TestDataBadge /> : <>Consultas hoy: <span className="font-semibold text-ink">{providerInfo.usage?.requests ?? 0} / {providerInfo.budget_daily}</span>
+                  {providerInfo.usage?.reported_remaining != null && <> · el proveedor informa {providerInfo.usage.reported_remaining} restantes</>}
+                  {!providerCompetition && <> · sin competición se busca solo el día «Desde»</>}</>}
+              </p>
+            )}
+            {providerStatus.error ? <InlineError error={providerStatus.error} /> : null}
             {providerComps.error ? <InlineError error={providerComps.error} /> : null}
             <div className="grid grid-cols-2 gap-3">
               <Field label="Competición del proveedor">{(id) => (
@@ -300,7 +327,7 @@ function MatchPicker({ selected, onClose, onAdd }: { selected: AdminMatch[]; onC
               <Field label="Temporada">{(id) => <Input id={id} inputMode="numeric" placeholder="2026" value={season} onChange={(e) => setSeason(e.target.value)} />}</Field>
             </div>
             <InlineError error={importError} />
-            <Button variant="secondary" block loading={importing} icon={<CloudDownload className="size-4" />} onClick={() => void importFromProvider()}>Buscar en el proveedor</Button>
+            <Button variant="secondary" block loading={importing} disabled={!providerId || providerInfo?.configured === false} icon={<CloudDownload className="size-4" />} onClick={() => void importFromProvider()}>Buscar en el proveedor</Button>
           </div>
         </details>
 

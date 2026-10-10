@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { runSync, type SyncStore } from './sync.ts'
+import { runAllProviders, runSync, type SyncStore } from './sync.ts'
 import { ProviderError, type FootballProvider, type NormalizedFixture } from './types.ts'
 
 const fx = (id: string, home: number | null, away: number | null, status: NormalizedFixture['status'] = 'finished'): NormalizedFixture => ({
@@ -32,6 +32,7 @@ function memoryStore(targets: { match_id: string; provider: string; external_id:
 const provider = (impl: (ids: string[]) => Promise<NormalizedFixture[]>): FootballProvider => ({
   id: 'api-football', isTestData: false,
   searchFixtures: async () => [], listCompetitions: async () => [], getFixturesByIds: impl,
+  status: async () => ({ provider: 'api-football', is_test_data: false, ok: true }),
 })
 
 describe('runSync', () => {
@@ -58,14 +59,24 @@ describe('runSync', () => {
     expect(m.state.get('m1')).toBe('finished:2-2')
   })
 
-  it('proveedor no disponible: marca error pero ejecuta el mantenimiento', async () => {
+  it('proveedor no disponible: marca error, no toca los datos y ejecuta el mantenimiento', async () => {
     const m = memoryStore([{ match_id: 'm1', provider: 'api-football', external_id: '1' }])
+    m.state.set('m1', 'finished:2-1')
     let maintained = false
     m.store.runMaintenance = async () => { maintained = true; return 0 }
-    const r = await runSync(m.store, provider(async () => { throw new ProviderError('API caída', true) }), 'cron')
-    expect(r.status).toBe('error')
+    const out = await runAllProviders(m.store, () => provider(async () => { throw new ProviderError('API caída', true) }), 'cron')
+    expect(out.reports[0]!.status).toBe('error')
     expect(maintained).toBe(true)
-    expect(m.runs[0]).toMatchObject({ status: 'error', error: 'API caída' })
+    expect(m.runs[0]).toMatchObject({ status: 'error', error: 'UNAVAILABLE: API caída' })
+    expect(m.state.get('m1')).toBe('finished:2-1')
+  })
+
+  it('cuota agotada: ejecución parcial, conserva los últimos datos válidos', async () => {
+    const m = memoryStore([{ match_id: 'm1', provider: 'api-football', external_id: '1' }])
+    m.state.set('m1', 'live:1-0')
+    const r = await runSync(m.store, provider(async () => { throw new ProviderError('sin cupo', false, undefined, 'QUOTA_EXHAUSTED') }), 'cron')
+    expect(r).toMatchObject({ status: 'partial', quotaStopped: true, updated: 0 })
+    expect(m.state.get('m1')).toBe('live:1-0')
   })
 
   it('partido no devuelto: ejecución parcial y error registrado en el partido', async () => {
@@ -89,5 +100,40 @@ describe('runSync', () => {
     m.store.applyUpdate = async (id, f) => { if (id === 'm1') throw new Error('db'); return orig(id, f) }
     const r = await runSync(m.store, provider(async () => [fx('1', 1, 0), fx('2', 1, 0)]), 'cron')
     expect(r).toMatchObject({ status: 'partial', updated: 1 })
+  })
+})
+
+describe('runAllProviders', () => {
+  it('agrupa por proveedor: una consulta por proveedor y no mezcla datos', async () => {
+    const m = memoryStore([
+      { match_id: 'r1', provider: 'api-football', external_id: '1' },
+      { match_id: 'r2', provider: 'api-football', external_id: '2' },
+      { match_id: 'd1', provider: 'mock', external_id: 'mock-1' },
+    ])
+    const calls: Record<string, string[][]> = { 'api-football': [], mock: [] }
+    const make = (id: string): FootballProvider => ({
+      ...provider(async (ids) => { calls[id]!.push(ids); return ids.map((x) => fx(x, 1, 0)) }), id, isTestData: id === 'mock',
+    })
+    const out = await runAllProviders(m.store, make, 'cron')
+    expect(calls['api-football']).toEqual([['1', '2']])
+    expect(calls.mock).toEqual([['mock-1']])
+    expect(out.reports.map((r) => [r.provider, r.checked])).toEqual([['api-football', 2], ['mock', 1]])
+  })
+
+  it('proveedor sin configurar: no se consulta ni se rellena con datos ficticios', async () => {
+    const m = memoryStore([{ match_id: 'r1', provider: 'api-football', external_id: '1' }])
+    const out = await runAllProviders(m.store, () => null, 'cron')
+    expect(out.unconfigured).toEqual({ 'api-football': 1 })
+    expect(out.reports).toEqual([])
+    expect(m.state.size).toBe(0)
+    expect(out.maintained).toBe(1)
+  })
+
+  it('sin partidos pendientes no se llama a la API', async () => {
+    const m = memoryStore([])
+    let resolved = 0
+    const out = await runAllProviders(m.store, () => { resolved++; return null }, 'cron')
+    expect(resolved).toBe(0)
+    expect(out.reports).toEqual([])
   })
 })

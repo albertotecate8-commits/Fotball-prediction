@@ -1,6 +1,6 @@
 // Proveedor de DEMOSTRACIÓN. Todos sus datos son ficticios y se guardan con
 // is_test_data = true; la interfaz los marca como «Datos de prueba».
-import type { FixtureSearch, FootballProvider, NormalizedCompetition, NormalizedFixture, NormalizedTeam } from './types.ts'
+import type { FixtureSearch, FootballProvider, NormalizedCompetition, NormalizedFixture, NormalizedTeam, ProviderStatus } from './types.ts'
 
 const TEAMS: NormalizedTeam[] = [
   ['Atlético Prueba', 'Atl. Prueba', 'ATP'],
@@ -79,5 +79,9 @@ export class MockProvider implements FootballProvider {
 
   async listCompetitions() {
     return [COMPETITION]
+  }
+
+  async status(): Promise<ProviderStatus> {
+    return { provider: this.id, is_test_data: true, ok: true, plan: 'demostración', active: true, requests_today: null, requests_limit: null }
   }
 }

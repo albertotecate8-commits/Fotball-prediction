@@ -45,7 +45,15 @@ export function AdminResults() {
     setSyncing(true)
     try {
       const r = await adminApi.syncNow()
-      toast(`Sincronización ${r.status}: ${r.checked} revisados, ${r.updated} actualizados`, r.status === 'error' ? 'error' : 'success')
+      const checked = r.reports.reduce((n, x) => n + x.checked, 0)
+      const updated = r.reports.reduce((n, x) => n + x.updated, 0)
+      const failed = r.reports.some((x) => x.status === 'error')
+      const quota = r.reports.some((x) => x.quotaStopped)
+      const pending = Object.values(r.unconfigured).reduce((n, x) => n + x, 0)
+      toast(
+        `${checked} revisados, ${updated} actualizados${quota ? ' · cuota del día agotada, se conservan los últimos datos' : ''}${pending ? ` · ${pending} pendientes: proveedor sin configurar` : ''}`,
+        failed ? 'error' : 'success',
+      )
       await qc.invalidateQueries({ queryKey: ['admin'] })
     } catch (e) { toast(errorMessage(e), 'error') } finally { setSyncing(false) }
   }

@@ -65,7 +65,7 @@ tests/visual/     Playwright con backend simulado (datos ficticios)
 ### Resultados automáticos
 
 1. El admin busca partidos en el proveedor (`provider-fixtures`). Los partidos se guardan con un id externo estable.
-2. `sync-results` (lo invoca pg_cron o el botón «Sincronizar» del admin) consulta **solo** los partidos pertinentes: los que están en juego, los que ya empezaron sin resultado y los futuros (cada 12 h, para detectar aplazamientos).
+2. `sync-results` (lo invoca pg_cron cada 10 min o el botón «Sincronizar» del admin) consulta **solo** los partidos cuyo turno llegó (`matches.next_sync_at`): en vivo cada 10 min, a menos de 24 h cada 3 h, futuros una vez al día, finales confirmados cada 6 h hasta que cierra la ventana de correcciones, y con espera progresiva (10→20→40 min… máx. 6 h) tras errores. Todos los partidos pendientes de un proveedor van **en una sola solicitud** (lotes de 20 ids). Un candado (`sync_leases`) impide dos sincronizaciones a la vez.
 3. `apply_provider_update` es idempotente. Guarda el historial en `match_results`, **nunca da un partido por finalizado sin marcador** ni por su horario, no degrada un estado conocido a uno desconocido, respeta las correcciones manuales del admin y acepta correcciones del proveedor durante 72 h, dejándolas auditadas.
 4. Las jornadas se cierran solas al llegar la fecha límite y se finalizan cuando todos sus partidos tienen resultado oficial. Los puntos se marcan como *provisionales* hasta ese momento.
 
@@ -109,6 +109,18 @@ npm run dev
 **Primer administrador:** regístrate en la app y, desde *Inicio → «Activar administración»*, reclama el rol. Solo funciona si todavía no hay ningún administrador.
 
 ## Proveedor deportivo: API-Football
+
+### Protección de la cuota gratuita (100 solicitudes/día)
+
+- `provider_take_quota` reserva cada solicitud **antes** de hacerla: presupuesto propio de 90/día (`API_FOOTBALL_DAILY_BUDGET`), 8 por minuto, y se detiene si el proveedor informa (cabeceras `x-ratelimit-requests-*`) que quedan 5 o menos. Lo consumido queda en `provider_usage` (visible solo para admins).
+- Reintentos con espera progresiva solo ante errores temporales (5xx, 429); cada reintento también consume cupo, así que un error en bucle no puede agotar la cuota. Clave inválida, plan insuficiente o cuota agotada **no** se reintentan.
+- Búsquedas del admin y lista de competiciones se guardan en caché (`provider_cache`: 24 h competiciones, 30 min si el rango incluye hoy, 6 h si no).
+- Si la cuota se agota, la ejecución queda «parcial» y se conservan los últimos datos válidos; nada se marca como finalizado por horario.
+- Consumo estimado: 1 solicitud por ejecución con partidos pendientes. Día con partidos en vivo: ~12–30; sin partidos en vivo: 1–8.
+
+### Datos reales y de prueba
+
+Cada partido guarda su proveedor (`api-football` o `mock`) y `is_test_data`. Una jornada **no puede mezclar** ambos (`MIXED_TEST_DATA`). Si falta la clave, los partidos reales quedan pendientes: nunca se rellenan con datos ficticios. El admin elige la fuente en «Traer partidos del proveedor»; importar un partido no lo agrega a ninguna jornada.
 
 - **Cobertura:** más de 1,000 ligas, entre ellas Liga MX, Premier, LaLiga y la Champions. Cada partido tiene un id estable (`fixture.id`), con estados detallados (NS, 1H, HT, FT, AET, PEN, PST, CANC, ABD…) y marcador de 90 minutos.
 - **Límites y costos:** el plan gratuito permite 100 solicitudes al día. Los planes de pago empiezan en unos 19 USD al mes (7,500 al día). **Verifica los precios vigentes antes de contratar.**
