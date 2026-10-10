@@ -2,7 +2,7 @@ import { useSearchParams } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import { ArrowDown, ArrowUp, Minus, Trophy } from 'lucide-react'
 import { useGroup } from '@/features/groups/GroupProvider'
-import { JoinGroupCard } from '@/features/groups/JoinGroup'
+import { NoGroupNotice } from '@/features/groups/NoGroupNotice'
 import { useRounds } from '@/features/rounds/useRounds'
 import { playerApi } from '@/services/player'
 import { qk } from '@/services/queryKeys'
@@ -33,7 +33,7 @@ export function LeaderboardPage() {
   const history = useQuery({ queryKey: qk.history(gid ?? ''), queryFn: () => playerApi.history(gid!), enabled: !!gid })
 
   if (loading) return <FullPageSpinner />
-  if (!group) return <><PageHeader title="Clasificación" /><JoinGroupCard /></>
+  if (!group) return <><PageHeader title="Clasificación" /><NoGroupNotice what="la clasificación" /></>
 
   const scoredRounds = (rounds.data ?? []).filter((r) => ['in_progress', 'closed', 'finished', 'under_review'].includes(r.phase))
   const rows = board.data ?? []

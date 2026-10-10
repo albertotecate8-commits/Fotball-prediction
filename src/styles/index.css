@@ -6,33 +6,34 @@
 
 /* Tokens del sistema de diseño (referencia: imagen del cliente). */
 @theme {
-  --color-bg: #080a05;
-  --color-surface: #151810;
-  --color-surface-2: #20231a;
-  --color-surface-3: #2a2e22;
-  --color-lime: #d9ff43;
-  --color-lime-strong: #c8f02b;
-  --color-olive: #65752b;
-  --color-olive-deep: #2b3314;
-  --color-ink: #f5f6f0;
-  --color-muted: #a5a89a;
-  --color-faint: #6f7366;
-  --color-line: rgb(255 255 255 / 0.08);
-  --color-line-strong: rgb(255 255 255 / 0.16);
-  --color-success: #3ddc97;
-  --color-danger: #ff5a5f;
-  --color-live: #ff3b3b;
-  --color-silver: #d4d8dd;
-  --color-bronze: #c99a6b;
+  /* SHABEX — identidad sobria: rojo y azul agua como acentos diferenciados. */
+  --color-bg: #090b10;
+  --color-surface: #121720;
+  --color-surface-2: #19202b;
+  --color-surface-3: #222a37;
+  --color-red: #e52b3a;
+  --color-red-strong: #c91f2d;
+  --color-aqua: #00bfea;
+  --color-gold: #c8a45d;
+  --color-silver: #dce2ea;
+  --color-ink: #eef1f5;
+  --color-muted: #929baa;
+  --color-faint: #636c7b;
+  --color-line: rgb(220 226 234 / 0.08);
+  --color-line-strong: rgb(220 226 234 / 0.15);
+  --color-success: #2fd18b;
+  --color-danger: #ff5c68;
+  --color-live: #e52b3a;
+  --color-bronze: #b9875c;
 
   --font-sans: 'Manrope Variable', ui-sans-serif, system-ui, sans-serif;
   --font-display: 'Oswald', 'Arial Narrow', ui-sans-serif, sans-serif;
 
-  --radius-card: 1.25rem;
-  --radius-xl2: 1.75rem;
+  --radius-card: 1rem;
+  --radius-xl2: 1.4rem;
 
-  --shadow-card: 0 1px 0 rgb(255 255 255 / 0.04) inset, 0 12px 32px -16px rgb(0 0 0 / 0.8);
-  --shadow-lime: 0 10px 30px -10px rgb(217 255 67 / 0.45);
+  --shadow-card: 0 1px 0 rgb(255 255 255 / 0.03) inset, 0 10px 28px -18px rgb(0 0 0 / 0.9);
+  --shadow-red: 0 8px 22px -12px rgb(229 43 58 / 0.55);
 
   --animate-fade-up: fade-up 0.35s cubic-bezier(0.2, 0.7, 0.2, 1) both;
   --animate-pulse-soft: pulse-soft 1.6s ease-in-out infinite;
@@ -58,16 +59,15 @@
   body {
     min-height: 100dvh;
     background:
-      radial-gradient(110% 55% at 50% -12%, rgb(101 117 43 / 0.42), transparent 62%),
-      radial-gradient(60% 40% at 100% 0%, rgb(217 255 67 / 0.06), transparent 70%),
+      radial-gradient(90% 40% at 50% -10%, rgb(0 191 234 / 0.07), transparent 65%),
       var(--color-bg);
     background-attachment: fixed;
     color: var(--color-ink);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
   }
-  ::selection { background: rgb(217 255 67 / 0.3); }
-  :focus-visible { outline: 2px solid var(--color-lime); outline-offset: 2px; border-radius: 6px; }
+  ::selection { background: rgb(0 191 234 / 0.3); }
+  :focus-visible { outline: 2px solid var(--color-aqua); outline-offset: 2px; border-radius: 6px; }
   input[type='number']::-webkit-inner-spin-button,
   input[type='number']::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
   input[type='number'] { -moz-appearance: textfield; }
@@ -77,11 +77,11 @@
 }
 
 @layer components {
-  /* Tarjeta con degradado oliva → negro, como en la referencia. */
+  /* Tarjeta compacta y plana: el contenido manda, no el efecto. */
   .card {
     border-radius: var(--radius-card);
     border: 1px solid var(--color-line);
-    background: linear-gradient(180deg, rgb(101 117 43 / 0.16), rgb(21 24 16 / 0.92) 55%), var(--color-surface);
+    background: linear-gradient(180deg, rgb(220 226 234 / 0.025), transparent 40%), var(--color-surface);
     box-shadow: var(--shadow-card);
   }
   .card-flat {
@@ -90,11 +90,18 @@
     background: var(--color-surface);
   }
   .glass {
-    background: rgb(21 24 16 / 0.72);
+    background: rgb(18 23 32 / 0.82);
     backdrop-filter: blur(18px) saturate(140%);
     -webkit-backdrop-filter: blur(18px) saturate(140%);
   }
   .display { font-family: var(--font-display); letter-spacing: 0.01em; }
+  /* «X» de la marca: mitad azul agua, mitad rojo. */
+  .brand-x {
+    background: linear-gradient(115deg, var(--color-aqua) 0 48%, var(--color-red) 52% 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
   .scoreline { font-family: var(--font-display); font-variant-numeric: tabular-nums; font-weight: 700; line-height: 1; }
   .skeleton {
     background: linear-gradient(90deg, var(--color-surface-2) 25%, var(--color-surface-3) 37%, var(--color-surface-2) 63%);
@@ -103,10 +110,10 @@
   }
   .pitch-lines {
     background-image:
-      radial-gradient(circle at 50% 50%, transparent 58px, rgb(217 255 67 / 0.09) 59px, rgb(217 255 67 / 0.09) 60px, transparent 61px),
-      linear-gradient(90deg, transparent calc(50% - 0.5px), rgb(217 255 67 / 0.09) calc(50% - 0.5px), rgb(217 255 67 / 0.09) calc(50% + 0.5px), transparent calc(50% + 0.5px));
+      radial-gradient(circle at 50% 50%, transparent 58px, rgb(220 226 234 / 0.06) 59px, rgb(220 226 234 / 0.06) 60px, transparent 61px),
+      linear-gradient(90deg, transparent calc(50% - 0.5px), rgb(220 226 234 / 0.06) calc(50% - 0.5px), rgb(220 226 234 / 0.06) calc(50% + 0.5px), transparent calc(50% + 0.5px));
   }
-  .safe-bottom { padding-bottom: calc(env(safe-area-inset-bottom) + 6.5rem); }
+  .safe-bottom { padding-bottom: calc(env(safe-area-inset-bottom) + 5.5rem); }
   @media (min-width: 1024px) { .safe-bottom { padding-bottom: 3rem; } }
 }
 

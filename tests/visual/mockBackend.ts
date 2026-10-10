@@ -79,6 +79,16 @@ const detail = (id: string) => {
   }
 }
 
+// Destacados FICTICIOS (solo pruebas visuales): misma forma que get_featured_matches.
+const featured = (n: number, status = 'scheduled', offsetH = 4) => ({
+  provider: 'mock', external_id: `f-${n}`, kickoff_at: iso(offsetH * H + n * H), status, priority: 100 - n, reason: 'Liga de Prueba',
+  refreshed_at: iso(-5 * 60e3), in_round_id: n === 1 ? 'r-open' : null, in_round_name: n === 1 ? 'Jornada 12' : null,
+  data: { status_detail: status === 'live' ? '2H' : 'NS', elapsed: status === 'live' ? 63 : null, home_goals: status === 'live' ? 1 : null, away_goals: status === 'live' ? 0 : null,
+    competition: { name: 'Liga de Prueba (datos ficticios)', country: null, logo_url: null },
+    home: { name: `Local Ficticio ${n}`, short_name: `Local ${n}`, logo_url: null }, away: { name: `Visita Ficticia ${n}`, short_name: `Visita ${n}`, logo_url: null } },
+})
+export const FEATURED = [featured(1), featured(2), featured(3), featured(4, 'live', -2)]
+
 const RPC: Record<string, (body: Record<string, unknown>) => unknown> = {
   get_server_time: () => JSON.stringify(new Date().toISOString()),
   get_app_config: () => ({ timezone: 'America/Mexico_City', max_goals: 15, payments_enabled: false, server_time: new Date().toISOString() }),
@@ -100,7 +110,7 @@ const RPC: Record<string, (body: Record<string, unknown>) => unknown> = {
     last_sync: { id: 12, provider: 'mock', status: 'success', started_at: iso(-10 * 60e3), finished_at: iso(-10 * 60e3 + 3000), matches_checked: 10, matches_updated: 2, error_message: null } }),
 }
 
-export async function mockBackend(page: Page, opts: { admin?: boolean } = {}) {
+export async function mockBackend(page: Page, opts: { admin?: boolean; featured?: unknown[]; noGroup?: boolean } = {}) {
   await page.emulateMedia({ reducedMotion: 'reduce' })
   const session = {
     access_token: 'mock.jwt.token', token_type: 'bearer', expires_in: 3600 * 24 * 365, expires_at: Math.floor(now / 1000) + 3600 * 24 * 365,
@@ -123,6 +133,8 @@ export async function mockBackend(page: Page, opts: { admin?: boolean } = {}) {
     if (url.pathname.startsWith('/rest/v1/rpc/')) {
       const fn = url.pathname.split('/').pop()!
       const body = route.request().postDataJSON() ?? {}
+      if (fn === 'get_featured_matches') return json(opts.featured ?? FEATURED)
+      if (fn === 'get_my_groups' && opts.noGroup) return json([])
       const h = RPC[fn]
       return h ? json(h(body)) : json({ message: `mock: ${fn} no simulado` }, 400)
     }

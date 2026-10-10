@@ -166,3 +166,26 @@ export interface PredictionItemInput {
   home: number | null
   away: number | null
 }
+
+/** Partido destacado del proveedor real (no forma parte de una jornada por sí mismo). */
+export interface FeaturedMatch {
+  provider: string
+  external_id: string
+  kickoff_at: string
+  status: MatchStatus
+  priority: number
+  reason: string | null
+  refreshed_at: string
+  /** Jornada visible para el jugador que incluye este partido, si existe. */
+  in_round_id: string | null
+  in_round_name: string | null
+  data: {
+    status_detail: string | null
+    elapsed: number | null
+    home_goals: number | null
+    away_goals: number | null
+    competition: { name: string; country: string | null; logo_url: string | null } | null
+    home: { name: string; short_name: string; logo_url: string | null }
+    away: { name: string; short_name: string; logo_url: string | null }
+  }
+}

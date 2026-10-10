@@ -1,10 +1,11 @@
 import type { ReactNode } from 'react'
 import { cn } from '@/lib/cn'
 
-export type Tone = 'lime' | 'olive' | 'neutral' | 'success' | 'danger' | 'live' | 'warning'
+export type Tone = 'accent' | 'gold' | 'red' | 'neutral' | 'success' | 'danger' | 'live' | 'warning'
 const tones: Record<Tone, string> = {
-  lime: 'bg-lime/15 text-lime border-lime/30',
-  olive: 'bg-olive/25 text-[#cfe07f] border-olive/50',
+  accent: 'bg-aqua/12 text-aqua border-aqua/30',
+  gold: 'bg-gold/12 text-gold border-gold/35',
+  red: 'bg-red/12 text-[#ff6b77] border-red/35',
   neutral: 'bg-white/5 text-muted border-line',
   success: 'bg-success/12 text-success border-success/30',
   danger: 'bg-danger/12 text-danger border-danger/30',

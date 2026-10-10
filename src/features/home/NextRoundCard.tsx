@@ -28,15 +28,15 @@ export function NextRoundCard({ round, tz }: { round: RoundListItem; tz: string 
       <HeroArt />
       <div className="relative">
         <div className="mb-3 flex items-center justify-between gap-2">
-          <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-lime">
+          <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-aqua">
             {round.phase === 'open' ? 'Jornada abierta' : round.phase === 'upcoming' ? 'Próxima jornada' : 'Jornada actual'}
           </span>
           <RoundPhaseBadge phase={round.phase} />
         </div>
         <h2 id="next-round" className="display text-3xl font-semibold uppercase leading-none sm:text-4xl">{round.name}</h2>
         <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-sm text-muted">
-          <span className="inline-flex items-center gap-1.5"><CalendarClock className="size-4 text-olive" /> Cierre: <span className="capitalize text-ink">{formatDateTime(round.deadline_at, tz)}</span></span>
-          <span className="inline-flex items-center gap-1.5"><ListChecks className="size-4 text-olive" /> {round.match_count} partidos</span>
+          <span className="inline-flex items-center gap-1.5"><CalendarClock className="size-4 text-muted" /> Cierre: <span className="capitalize text-ink">{formatDateTime(round.deadline_at, tz)}</span></span>
+          <span className="inline-flex items-center gap-1.5"><ListChecks className="size-4 text-muted" /> {round.match_count} partidos</span>
         </div>
 
         {showCountdown && (
@@ -52,7 +52,7 @@ export function NextRoundCard({ round, tz }: { round: RoundListItem; tz: string 
               <span>Tu quiniela</span><span className="font-semibold text-ink">{round.my_items} de {round.match_count}</span>
             </div>
             <div className="h-2 overflow-hidden rounded-full bg-surface-3" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}>
-              <div className="h-full rounded-full bg-lime transition-[width] duration-500" style={{ width: `${progress}%` }} />
+              <div className="h-full rounded-full bg-red transition-[width] duration-500" style={{ width: `${progress}%` }} />
             </div>
           </div>
         )}

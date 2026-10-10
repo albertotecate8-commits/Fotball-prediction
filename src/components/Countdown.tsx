@@ -23,7 +23,7 @@ export function Countdown({ target, className, compact }: { target: string; clas
     <div className={cn('flex items-end gap-2', className)} role="timer" aria-label={`Faltan ${units.map((u) => `${u.v} ${u.l}`).join(' ')}`}>
       {units.map((u, i) => (
         <div key={u.l} className="flex items-end gap-2">
-          {i > 0 && <span className="scoreline pb-3 text-2xl text-olive">:</span>}
+          {i > 0 && <span className="scoreline pb-3 text-2xl text-muted">:</span>}
           <div className="flex flex-col items-center">
             <span className={cn('scoreline text-4xl tabular-nums sm:text-5xl', urgent ? 'text-danger' : 'text-ink')}>{pad(u.v)}</span>
             <span className="mt-1 text-[10px] font-bold uppercase tracking-widest text-muted">{u.l}</span>

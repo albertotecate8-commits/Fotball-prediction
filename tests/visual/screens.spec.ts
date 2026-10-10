@@ -10,7 +10,36 @@ test.describe('pantallas', () => {
     await expect(page.getByRole('heading', { name: 'Jornada 12' })).toBeVisible()
     await expect(page.getByRole('link', { name: /Continuar borrador/ })).toBeVisible()
     await expect(page.getByRole('timer').first()).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Partidos destacados' })).toBeVisible()
+    await expect(page.getByText('Partido destacado')).toBeVisible()
+    // El destacado incluido en la jornada lleva a pronosticar; los demás no se agregan solos.
+    await expect(page.getByRole('link', { name: 'Hacer pronóstico' })).toHaveAttribute('href', /\/quinielas\/r-open$/)
+    await expect(page.getByRole('heading', { name: 'En vivo' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Próximos partidos' })).toBeVisible()
+    await expect(page.getByLabel('Código de invitación')).toHaveCount(0)
+    await expect(page.getByRole('img', { name: 'SHABEX — La Quiniela' }).first()).toBeVisible()
     await page.screenshot({ path: shot('01-inicio', info.project.name), fullPage: true })
+  })
+
+  test('inicio sin destacados ni grupo: estados vacíos con acciones reales', async ({ page }, info) => {
+    await mockBackend(page, { featured: [], noGroup: true })
+    await page.goto('/')
+    await expect(page.getByText('Sin partidos destacados por ahora')).toBeVisible()
+    await expect(page.getByText('Únete a un grupo para jugar la quiniela')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'En vivo' })).toHaveCount(0)
+    await page.getByRole('link', { name: 'Grupos', exact: true }).first().click()
+    await expect(page).toHaveURL(/\/grupos$/)
+    await expect(page.getByLabel('Código de invitación')).toBeVisible()
+    await page.screenshot({ path: shot('01b-inicio-vacio', info.project.name), fullPage: true })
+  })
+
+  test('grupos', async ({ page }, info) => {
+    await mockBackend(page)
+    await page.goto('/grupos')
+    await expect(page.getByRole('heading', { name: 'Grupos' })).toBeVisible()
+    await expect(page.getByRole('listitem').filter({ hasText: 'Los del Barrio' })).toContainText('8 jugadores')
+    await expect(page.getByText('Unirme a otro grupo')).toBeVisible()
+    await page.screenshot({ path: shot('09-grupos', info.project.name), fullPage: true })
   })
 
   test('quinielas', async ({ page }, info) => {
@@ -92,9 +121,11 @@ test.describe('pantallas', () => {
     await mockBackend(page)
     await page.goto('/')
     const nav = page.getByRole('navigation', { name: 'Navegación principal' })
-    await nav.getByRole('link', { name: 'Clasificación' }).click()
-    await expect(page).toHaveURL(/clasificacion/)
-    await expect(nav.getByRole('link', { name: 'Clasificación' })).toHaveAttribute('aria-current', 'page')
+    for (const [name, url] of [['Quiniela', /quinielas$/], ['Clasificación', /clasificacion$/], ['Grupos', /grupos$/], ['Perfil', /perfil$/], ['Inicio', /\/$/]] as const) {
+      await nav.getByRole('link', { name }).click()
+      await expect(page).toHaveURL(url)
+      await expect(nav.getByRole('link', { name })).toHaveAttribute('aria-current', 'page')
+    }
     // sin desplazamiento horizontal
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
     expect(overflow).toBeLessThanOrEqual(0)
@@ -103,6 +134,7 @@ test.describe('pantallas', () => {
   test('login sin sesión', async ({ page }, info) => {
     await page.goto('/entrar')
     await expect(page.getByRole('heading', { name: 'Entrar' })).toBeVisible()
+    await expect(page.getByRole('img', { name: 'SHABEX — La Quiniela' }).first()).toBeVisible()
     await page.screenshot({ path: shot('00-login', info.project.name), fullPage: true })
   })
 })

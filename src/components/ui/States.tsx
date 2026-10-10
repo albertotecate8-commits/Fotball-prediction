@@ -7,7 +7,7 @@ import { Button } from './Button'
 export function EmptyState({ icon, title, description, action, className }: { icon?: ReactNode; title: string; description?: ReactNode; action?: ReactNode; className?: string }) {
   return (
     <div className={cn('card-flat pitch-lines flex flex-col items-center gap-3 px-6 py-10 text-center animate-fade-up', className)}>
-      {icon && <div className="grid size-14 place-items-center rounded-full border border-line bg-surface-2 text-lime">{icon}</div>}
+      {icon && <div className="grid size-14 place-items-center rounded-full border border-line bg-surface-2 text-aqua">{icon}</div>}
       <h3 className="display text-xl font-semibold uppercase">{title}</h3>
       {description && <p className="max-w-sm text-sm text-muted">{description}</p>}
       {action}

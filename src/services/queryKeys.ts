@@ -8,6 +8,7 @@ export const qk = {
   history: (g: string) => ['history', g] as const,
   summary: (g: string) => ['summary', g] as const,
   upcoming: (g: string) => ['upcoming', g] as const,
+  featured: ['featured'] as const,
   admin: {
     stats: ['admin', 'stats'] as const,
     participants: ['admin', 'participants'] as const,

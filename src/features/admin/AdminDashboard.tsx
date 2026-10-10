@@ -41,7 +41,7 @@ export function AdminDashboard() {
 
       <SectionTitle>Última sincronización</SectionTitle>
       <div className="card flex items-center gap-3 p-4">
-        <RefreshCw className="size-5 text-olive" />
+        <RefreshCw className="size-5 text-muted" />
         {s?.last_sync ? (
           <div className="min-w-0 flex-1 text-sm">
             <div className="flex flex-wrap items-center gap-2">
@@ -52,7 +52,7 @@ export function AdminDashboard() {
             <p className="mt-1 text-xs text-muted">{s.last_sync.matches_checked} revisados · {s.last_sync.matches_updated} actualizados{s.last_sync.error_message ? ` · ${s.last_sync.error_message}` : ''}</p>
           </div>
         ) : <span className="text-sm text-muted">Aún no se ha ejecutado ninguna sincronización.</span>}
-        <Link to="/admin/resultados" className="text-sm font-semibold text-lime">Ver</Link>
+        <Link to="/admin/resultados" className="text-sm font-semibold text-aqua">Ver</Link>
       </div>
 
       <SectionTitle>Proveedor deportivo</SectionTitle>
@@ -61,8 +61,8 @@ export function AdminDashboard() {
       <SectionTitle>Accesos rápidos</SectionTitle>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {QUICK.map(({ to, label, icon: Icon }) => (
-          <Link key={label} to={to} className="card flex items-center gap-3 p-4 transition hover:border-lime/40">
-            <span className="grid size-10 place-items-center rounded-full bg-lime/15 text-lime"><Icon className="size-5" /></span>
+          <Link key={label} to={to} className="card flex items-center gap-3 p-4 transition hover:border-aqua/40">
+            <span className="grid size-10 place-items-center rounded-full bg-aqua/12 text-aqua"><Icon className="size-5" /></span>
             <span className="text-sm font-semibold">{label}</span>
           </Link>
         ))}
@@ -77,7 +77,7 @@ function ProviderCard() {
   const real = q.data?.providers?.find((p) => p.id === 'api-football')
   return (
     <div className="card flex items-center gap-3 p-4">
-      <Database className="size-5 text-olive" />
+      <Database className="size-5 text-muted" />
       <div className="min-w-0 flex-1 text-sm">
         {q.isLoading ? <Skeleton className="h-10" /> : q.error ? <span className="text-muted">No se pudo consultar el proveedor.</span> : real && (
           <>

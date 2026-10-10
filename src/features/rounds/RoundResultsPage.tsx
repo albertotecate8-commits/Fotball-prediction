@@ -25,10 +25,10 @@ function PointsChip({ m }: { m: RoundMatch }) {
   const { points, exact_hit, outcome_hit } = m.score
   return (
     <div className="flex items-center gap-2">
-      {exact_hit ? <Badge tone="lime" icon={<Crosshair className="size-3" />}>Exacto</Badge>
+      {exact_hit ? <Badge tone="accent" icon={<Crosshair className="size-3" />}>Exacto</Badge>
         : outcome_hit ? <Badge tone="success" icon={<CheckCircle2 className="size-3" />}>1X2</Badge>
         : <Badge tone="danger" icon={<XCircle className="size-3" />}>Fallo</Badge>}
-      <span className={cn('scoreline text-2xl', points === 5 ? 'text-lime' : points === 3 ? 'text-success' : 'text-muted')}>+{points}</span>
+      <span className={cn('scoreline text-2xl', points === 5 ? 'text-aqua' : points === 3 ? 'text-success' : 'text-muted')}>+{points}</span>
     </div>
   )
 }
@@ -66,7 +66,7 @@ export function RoundResultsPage() {
 
       {submitted && prediction?.submitted_at && (
         <p className="mb-5 flex items-center gap-2 text-sm text-muted">
-          <Lock className="size-4 text-lime" /> Enviada el <span className="capitalize text-ink">{formatDateTime(prediction.submitted_at, timezone)}</span>. Ya no puede modificarse.
+          <Lock className="size-4 text-aqua" /> Enviada el <span className="capitalize text-ink">{formatDateTime(prediction.submitted_at, timezone)}</span>. Ya no puede modificarse.
         </p>
       )}
 
@@ -81,7 +81,7 @@ export function RoundResultsPage() {
 
       {!official && scoring && (
         <p className="mb-4 flex items-start gap-2 rounded-2xl border border-line bg-surface/60 p-3 text-xs text-muted">
-          <Info className="mt-0.5 size-3.5 shrink-0 text-lime" /> Los puntos se actualizan con resultados en vivo y quedan oficiales cuando el proveedor confirma el resultado final de todos los partidos.
+          <Info className="mt-0.5 size-3.5 shrink-0 text-aqua" /> Los puntos se actualizan con resultados en vivo y quedan oficiales cuando el proveedor confirma el resultado final de todos los partidos.
         </p>
       )}
 
@@ -92,7 +92,7 @@ export function RoundResultsPage() {
         {d.matches.map((m) => {
           const hasReal = m.home_goals !== null && (m.status === 'live' || m.status === 'finished')
           return (
-            <li key={m.match_id} className={cn('card p-4', m.score?.exact_hit && 'border-lime/40')}>
+            <li key={m.match_id} className={cn('card p-4', m.score?.exact_hit && 'border-aqua/40')}>
               <div className="mb-3 flex items-center justify-between gap-2 text-xs text-muted">
                 <span className="capitalize">{formatShortDate(m.kickoff_at, timezone)} · {formatTime(m.kickoff_at, timezone)}</span>
                 <MatchStatusBadge status={m.status} elapsed={m.elapsed} confirmed={m.result_confirmed} />
@@ -104,7 +104,7 @@ export function RoundResultsPage() {
                 </div>
                 <div className="flex w-32 shrink-0 flex-col items-center gap-1">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-muted">{hasReal ? (m.result_confirmed ? 'Resultado oficial' : 'Marcador actual') : 'Por jugar'}</span>
-                  <span className="scoreline text-4xl">{hasReal ? <>{m.home_goals}<span className="text-olive">:</span>{m.away_goals}</> : <span className="text-faint">– : –</span>}</span>
+                  <span className="scoreline text-4xl">{hasReal ? <>{m.home_goals}<span className="text-muted">:</span>{m.away_goals}</> : <span className="text-faint">– : –</span>}</span>
                 </div>
                 <div className="flex min-w-0 flex-1 flex-col items-center gap-1.5 text-center">
                   <TeamCrest team={m.away} size={44} />
@@ -122,7 +122,7 @@ export function RoundResultsPage() {
 
       {scoring && (
         <div className="mt-6 text-center">
-          <Link to={`/clasificacion?jornada=${round.id}`} className="text-sm font-semibold text-lime">Ver clasificación de la jornada →</Link>
+          <Link to={`/clasificacion?jornada=${round.id}`} className="text-sm font-semibold text-aqua">Ver clasificación de la jornada →</Link>
         </div>
       )}
     </div>

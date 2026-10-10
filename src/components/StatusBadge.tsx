@@ -6,14 +6,14 @@ export const PHASE_LABEL: Record<RoundPhase, string> = {
   in_progress: 'En proceso', finished: 'Finalizada', under_review: 'En revisión',
 }
 const PHASE_TONE: Record<RoundPhase, Tone> = {
-  draft: 'neutral', upcoming: 'olive', open: 'lime', closed: 'neutral', in_progress: 'warning', finished: 'success', under_review: 'warning',
+  draft: 'neutral', upcoming: 'gold', open: 'accent', closed: 'neutral', in_progress: 'warning', finished: 'success', under_review: 'warning',
 }
 export const RoundPhaseBadge = ({ phase }: { phase: RoundPhase }) => <Badge tone={PHASE_TONE[phase]}>{PHASE_LABEL[phase]}</Badge>
 
 export function MyPredictionBadge({ status, phase }: { status: PredictionStatus; phase: RoundPhase }) {
   if (status === 'submitted') return <Badge tone="success">Enviada</Badge>
-  if (status === 'draft' && phase === 'open') return <Badge tone="olive">Borrador</Badge>
-  if (phase === 'open') return <Badge tone="lime">Pendiente</Badge>
+  if (status === 'draft' && phase === 'open') return <Badge tone="gold">Borrador</Badge>
+  if (phase === 'open') return <Badge tone="accent">Pendiente</Badge>
   if (phase === 'upcoming') return null
   return <Badge tone="neutral">Sin quiniela</Badge>
 }

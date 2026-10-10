@@ -16,7 +16,7 @@ export function ScoreInput({ value, onChange, max, label, disabled }: {
     <div className="flex flex-col items-center gap-1.5">
       <button type="button" aria-label={`Sumar gol: ${label}`} disabled={disabled || (value ?? -1) >= max}
         onClick={() => set((value ?? -1) + 1)}
-        className="grid h-8 w-14 place-items-center rounded-full border border-line bg-surface-2 text-muted transition hover:text-lime active:scale-95 disabled:opacity-30">
+        className="grid h-8 w-14 place-items-center rounded-full border border-line bg-surface-2 text-muted transition hover:text-aqua active:scale-95 disabled:opacity-30">
         <Plus className="size-4" />
       </button>
       <input
@@ -36,13 +36,13 @@ export function ScoreInput({ value, onChange, max, label, disabled }: {
           set(Number(digits))
         }}
         className={cn(
-          'scoreline h-16 w-14 rounded-2xl border bg-bg/70 text-center text-4xl text-ink transition placeholder:text-faint focus:outline-none focus:ring-2 focus:ring-lime/40',
-          value === null ? 'border-line-strong' : 'border-lime/60',
+          'scoreline h-16 w-14 rounded-2xl border bg-bg/70 text-center text-4xl text-ink transition placeholder:text-faint focus:outline-none focus:ring-2 focus:ring-aqua/40',
+          value === null ? 'border-line-strong' : 'border-aqua/60',
         )}
       />
       <button type="button" aria-label={`Restar gol: ${label}`} disabled={disabled || value === null || value <= 0}
         onClick={() => set((value ?? 0) - 1)}
-        className="grid h-8 w-14 place-items-center rounded-full border border-line bg-surface-2 text-muted transition hover:text-lime active:scale-95 disabled:opacity-30">
+        className="grid h-8 w-14 place-items-center rounded-full border border-line bg-surface-2 text-muted transition hover:text-aqua active:scale-95 disabled:opacity-30">
         <Minus className="size-4" />
       </button>
     </div>

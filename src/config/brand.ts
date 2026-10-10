@@ -1,10 +1,11 @@
-// Todos los textos de marca en un solo lugar. Cambiar el nombre final de la
-// app = editar este archivo (y <title> en index.html).
+// Todos los textos de marca en un solo lugar (y <title> en index.html).
 export const brand = {
-  name: 'Football Predictions',
-  shortName: 'Predictions',
-  tagline: 'Pronostica. Compite. Gana el grupo.',
-  description: 'Quinielas de fútbol entre amigos: pronósticos, puntos y clasificación en tiempo real.',
+  name: 'SHABEX',
+  fullName: 'SHABEX — La Quiniela',
+  shortName: 'SHABEX',
+  subline: 'La Quiniela',
+  tagline: 'Pronostica. Compite. Gana la quiniela.',
+  description: 'Quiniela de fútbol entre amigos: pronósticos, puntos y clasificación con resultados reales.',
   /** Fotografías de portada opcionales (archivos locales con licencia en /public/images). */
   heroImage: null as string | null,
   supportEmail: null as string | null,

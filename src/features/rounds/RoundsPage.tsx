@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Ticket } from 'lucide-react'
 import { useGroup } from '@/features/groups/GroupProvider'
-import { JoinGroupCard } from '@/features/groups/JoinGroup'
+import { NoGroupNotice } from '@/features/groups/NoGroupNotice'
 import { useAppConfig } from '@/hooks/useAppConfig'
 import { PageHeader } from '@/components/PageHeader'
 import { RoundCard } from '@/components/RoundCard'
@@ -40,14 +40,26 @@ export function RoundsPage() {
   }, [rounds.data])
 
   if (loading) return <FullPageSpinner />
-  if (!group) return <><PageHeader title="Quinielas" /><JoinGroupCard /></>
+  if (!group) return <><PageHeader title="Quiniela" /><NoGroupNotice what="la quiniela" /></>
 
   const list = (rounds.data ?? []).filter(FILTERS[tab])
   if (tab === 'available') list.sort((a, b) => +new Date(a.deadline_at) - +new Date(b.deadline_at))
 
   return (
     <div>
-      <PageHeader title="Quinielas" subtitle={group.name} />
+      <PageHeader title="Quiniela" subtitle={`Jornadas oficiales · ${group.name}`} />
+      <div className="mb-4 grid grid-cols-3 gap-2" aria-label="Estado de mis pronósticos">
+        {[
+          { label: 'Pendientes', n: (rounds.data ?? []).filter((r) => r.phase === 'open' && r.my_status === 'none').length, tab: 'available' as Tab, tone: 'text-red' },
+          { label: 'Borradores', n: (rounds.data ?? []).filter((r) => r.phase === 'open' && r.my_status === 'draft').length, tab: 'mine' as Tab, tone: 'text-gold' },
+          { label: 'Enviadas', n: (rounds.data ?? []).filter((r) => r.my_status === 'submitted').length, tab: 'mine' as Tab, tone: 'text-aqua' },
+        ].map((c) => (
+          <button key={c.label} type="button" onClick={() => setTab(c.tab)} className="card-flat px-3 py-2.5 text-left transition hover:border-line-strong">
+            <div className={`scoreline text-2xl ${c.tone}`}>{c.n}</div>
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-muted">{c.label}</div>
+          </button>
+        ))}
+      </div>
       <PillTabs label="Filtrar jornadas" value={tab} onChange={setTab} className="mb-5" options={[
         { value: 'available', label: 'Disponibles', count: counts.available },
         { value: 'mine', label: 'Mis quinielas', count: counts.mine },

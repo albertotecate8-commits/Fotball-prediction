@@ -16,7 +16,7 @@ import type { RoundStatus } from '@/types/domain'
 
 export const ROUND_STATUS: Record<RoundStatus, { label: string; tone: Tone }> = {
   draft: { label: 'Borrador', tone: 'neutral' },
-  open: { label: 'Abierta', tone: 'lime' },
+  open: { label: 'Abierta', tone: 'accent' },
   closed: { label: 'Cerrada', tone: 'warning' },
   finished: { label: 'Finalizada', tone: 'success' },
   under_review: { label: 'En revisión', tone: 'warning' },
@@ -41,7 +41,7 @@ export function AdminRounds() {
         <ul className="space-y-3">
           {q.data!.map((r) => (
             <li key={r.id}>
-              <Link to={`/admin/jornadas/${r.id}`} className="card flex items-center gap-3 p-4 transition hover:border-lime/40">
+              <Link to={`/admin/jornadas/${r.id}`} className="card flex items-center gap-3 p-4 transition hover:border-aqua/40">
                 <div className="min-w-0 flex-1">
                   <div className="mb-1 flex flex-wrap items-center gap-2">
                     <Badge tone={ROUND_STATUS[r.status].tone}>{ROUND_STATUS[r.status].label}</Badge>

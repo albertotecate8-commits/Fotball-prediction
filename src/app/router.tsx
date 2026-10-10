@@ -11,6 +11,7 @@ import { RoundResultsPage } from '@/features/rounds/RoundResultsPage'
 import { PredictionPage } from '@/features/predictions/PredictionPage'
 import { LeaderboardPage } from '@/features/leaderboard/LeaderboardPage'
 import { ProfilePage } from '@/features/profile/ProfilePage'
+import { GroupsPage } from '@/features/groups/GroupsPage'
 
 export const router = createBrowserRouter([
   {
@@ -36,6 +37,7 @@ export const router = createBrowserRouter([
               { path: '/quinielas/:roundId', element: <RoundResultsPage /> },
               { path: '/quinielas/:roundId/jugar', element: <PredictionPage /> },
               { path: '/clasificacion', element: <LeaderboardPage /> },
+              { path: '/grupos', element: <GroupsPage /> },
               { path: '/perfil', element: <ProfilePage /> },
               {
                 element: <RequireAdmin />,

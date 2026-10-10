@@ -40,7 +40,7 @@ export function MatchCard({ match, tz, footer, className }: { match: MatchCardDa
           <MatchStatusBadge status={match.status} elapsed={match.elapsed} confirmed={match.result_confirmed} />
           {hasScore ? (
             <span className="scoreline text-4xl" aria-label={`${match.home_goals} a ${match.away_goals}`}>
-              {match.home_goals}<span className="mx-1 text-olive">:</span>{match.away_goals}
+              {match.home_goals}<span className="mx-1 text-muted">:</span>{match.away_goals}
             </span>
           ) : (
             <>

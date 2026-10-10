@@ -78,7 +78,7 @@ function ParticipantRow({ p, isSelf, tz, groups, busy, onRun }: {
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-semibold">{p.display_name}</span>
-            {p.role === 'admin' && <Badge tone="lime">Admin</Badge>}
+            {p.role === 'admin' && <Badge tone="accent">Admin</Badge>}
             {p.status === 'suspended' && <Badge tone="danger">Suspendido</Badge>}
           </div>
           <p className="truncate text-xs text-muted">{p.email} · alta {formatDate(p.created_at, tz)}</p>

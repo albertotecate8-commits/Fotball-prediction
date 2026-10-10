@@ -178,10 +178,10 @@ function Editor({ round }: { round: AdminRound }) {
               {s.prediction_status === 'submitted'
                 ? <span className="text-xs capitalize text-muted">{formatDateTime(s.submitted_at!, timezone)}</span>
                 : <span className="text-xs text-muted">{s.items}/{matches.length}</span>}
-              <Badge tone={s.prediction_status === 'submitted' ? 'success' : s.prediction_status === 'draft' ? 'olive' : 'neutral'}>
+              <Badge tone={s.prediction_status === 'submitted' ? 'success' : s.prediction_status === 'draft' ? 'gold' : 'neutral'}>
                 {s.prediction_status === 'submitted' ? 'Enviada' : s.prediction_status === 'draft' ? 'Borrador' : 'Sin iniciar'}
               </Badge>
-              {s.points !== null && <span className="scoreline w-10 text-right text-lg text-lime">{s.points}</span>}
+              {s.points !== null && <span className="scoreline w-10 text-right text-lg text-aqua">{s.points}</span>}
             </li>
           ))}
           {(submissions.data ?? []).length === 0 && <li className="px-4 py-3 text-sm text-muted">Sin jugadores elegibles.</li>}
@@ -346,8 +346,8 @@ function MatchPicker({ selected, onClose, onAdd }: { selected: AdminMatch[]; onC
               const already = selectedIds.has(m.id)
               return (
                 <li key={m.id}>
-                  <label className={`card-flat flex items-center gap-3 px-3 py-2.5 ${already ? 'opacity-50' : 'cursor-pointer hover:border-lime/30'}`}>
-                    <input type="checkbox" className="size-5 shrink-0 accent-[var(--color-lime)]" disabled={already} checked={already || picked.has(m.id)} onChange={() => toggle(m.id)} />
+                  <label className={`card-flat flex items-center gap-3 px-3 py-2.5 ${already ? 'opacity-50' : 'cursor-pointer hover:border-aqua/30'}`}>
+                    <input type="checkbox" className="size-5 shrink-0 accent-[var(--color-aqua)]" disabled={already} checked={already || picked.has(m.id)} onChange={() => toggle(m.id)} />
                     <MatchLine m={m} tz={timezone} />
                     {already && <Badge tone="neutral">Ya incluido</Badge>}
                   </label>
@@ -372,7 +372,7 @@ function ParticipantsPicker({ round, disabled, onSave }: { round: AdminRound; di
           {(members.data ?? []).filter((m) => m.member_status === 'active').map((m) => (
             <li key={m.user_id}>
               <label className="flex items-center gap-3 text-sm">
-                <input type="checkbox" className="size-5 accent-[var(--color-lime)]" disabled={disabled} checked={sel.has(m.user_id)}
+                <input type="checkbox" className="size-5 accent-[var(--color-aqua)]" disabled={disabled} checked={sel.has(m.user_id)}
                   onChange={() => setSel((s) => { const n = new Set(s); if (n.has(m.user_id)) n.delete(m.user_id); else n.add(m.user_id); return n })} />
                 {m.display_name} <span className="text-xs text-muted">{m.email}</span>
               </label>
@@ -439,10 +439,10 @@ function ManualMatchForm({ providerId, disabled, competitionId, tz, onAdded }: {
           <div className="space-y-2">
             <p className="text-xs text-muted">{candidates.length ? 'No hay una coincidencia única. Elige el partido correcto:' : 'Sin coincidencias en el proveedor.'}</p>
             {candidates.map((c) => (
-              <button key={c.external_id} type="button" className="card-flat flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm hover:border-lime/30"
+              <button key={c.external_id} type="button" className="card-flat flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm hover:border-aqua/30"
                 onClick={() => void send({ pick_external_id: c.external_id })}>
                 <span className="min-w-0 truncate"><span className="font-semibold">{c.home} vs {c.away}</span> <span className="text-muted">· {formatDateTime(c.kickoff_at, tz)}{c.competition ? ` · ${c.competition}` : ''}</span></span>
-                <span className="text-lime">Usar</span>
+                <span className="text-aqua">Usar</span>
               </button>
             ))}
             <Button variant="ghost" size="sm" disabled={busy} onClick={() => void send({ create_unlinked: true })}>Crear sin proveedor (resultado manual)</Button>

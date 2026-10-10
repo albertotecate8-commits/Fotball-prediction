@@ -142,7 +142,7 @@ function PredictionForm({ detail, userId }: { detail: RoundDetail; userId: strin
       <div className="card sticky top-[calc(env(safe-area-inset-top)+0.5rem)] z-30 mb-4 flex items-center justify-between gap-3 p-3 pl-4 glass">
         <div>
           <div className="text-[10px] font-bold uppercase tracking-wider text-muted">Progreso</div>
-          <div className="scoreline text-2xl"><span className={complete ? 'text-lime' : ''}>{done}</span><span className="text-muted"> / {total}</span></div>
+          <div className="scoreline text-2xl"><span className={complete ? 'text-aqua' : ''}>{done}</span><span className="text-muted"> / {total}</span></div>
         </div>
         <div className="flex flex-col items-end gap-1">
           <Countdown target={detail.round.deadline_at} compact className="text-lg" />
@@ -164,7 +164,7 @@ function PredictionForm({ detail, userId }: { detail: RoundDetail; userId: strin
           const p = picks[m.match_id]!
           const filled = p.home != null && p.away != null
           return (
-            <li key={m.match_id} className={cn('card p-4 transition animate-fade-up', filled && 'border-lime/25')} style={{ animationDelay: `${Math.min(i, 8) * 40}ms` }}>
+            <li key={m.match_id} className={cn('card p-4 transition animate-fade-up', filled && 'border-aqua/25')} style={{ animationDelay: `${Math.min(i, 8) * 40}ms` }}>
               <div className="mb-3 flex items-center justify-between text-xs text-muted">
                 <span className="font-semibold">Partido {m.position}{m.competition ? ` · ${m.competition.name}` : ''}</span>
                 <span className="capitalize">{formatShortDate(m.kickoff_at, timezone)} · {formatTime(m.kickoff_at, timezone)}</span>
@@ -175,7 +175,7 @@ function PredictionForm({ detail, userId }: { detail: RoundDetail; userId: strin
                   <span className="line-clamp-2 text-sm font-semibold leading-tight">{m.home.short_name}</span>
                 </div>
                 <ScoreInput label={`Goles de ${m.home.name}`} value={p.home} max={detail.max_goals} disabled={locked} onChange={(v) => update(m.match_id, 'home', v)} />
-                <span className="scoreline px-0.5 text-2xl text-olive" aria-hidden>:</span>
+                <span className="scoreline px-0.5 text-2xl text-muted" aria-hidden>:</span>
                 <ScoreInput label={`Goles de ${m.away.name}`} value={p.away} max={detail.max_goals} disabled={locked} onChange={(v) => update(m.match_id, 'away', v)} />
                 <div className="flex min-w-0 flex-1 flex-col items-center gap-2 text-center">
                   <TeamCrest team={m.away} size={46} />
