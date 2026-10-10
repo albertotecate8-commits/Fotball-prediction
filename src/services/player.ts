@@ -22,6 +22,8 @@ export const playerApi = {
     rpc<{ status: 'submitted'; already_submitted: boolean; submitted_at: string }>(
       'submit_prediction', { p_round_id: roundId, p_items: items, p_client_seq: seq }),
   featured: () => rpc<FeaturedMatch[]>('get_featured_matches', { p_limit: 14 }),
+  /** Cuándo se actualizaron los resultados (los datos siempre vienen de Supabase, nunca del proveedor). */
+  freshness: () => rpc<{ updated_at: string | null; delayed: boolean } | null>('get_results_freshness'),
   participation: (roundId?: string | null) => rpc<Participation>('get_my_participation', { p_round_id: roundId ?? null }),
   saveQuiniela: (roundId: string, items: QuinielaPickInput[], seq: number) =>
     rpc<{ status: 'draft'; saved_at: string; picks: number; total: number; can_submit: boolean; client_seq: number }>('save_quiniela', { p_round_id: roundId, p_items: items, p_client_seq: seq }),

@@ -26,3 +26,5 @@ export function createProvider(id: string, env: ProviderEnv, gate?: RequestGate)
   if (id === 'mock') return new MockProvider()
   throw new ProviderError(`Proveedor desconocido: ${id}`, false, undefined, 'NOT_CONFIGURED')
 }
+export * from './planner.ts'
+export * from './dayCache.ts'

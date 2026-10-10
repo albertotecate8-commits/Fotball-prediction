@@ -116,6 +116,20 @@ const RPC: Record<string, (body: Record<string, unknown>) => unknown> = {
   get_leaderboard: () => leaderboard,
   get_pool_leaderboard: () => leaderboard,
   admin_pool_list: () => adminPool,
+  get_results_freshness: () => ({ updated_at: iso(-4 * 60e3), delayed: false }),
+  // Consumo FICTICIO para la prueba visual del panel.
+  admin_api_usage: () => ({
+    usage_date: iso(0).slice(0, 10), budget: 80, margin: 20, used: 37, remaining_internal: 43, effective_remaining: 43,
+    provider_remaining_estimate: 61, provider_reported_at: iso(-6 * 60e3), provider_limit: 100, provider_current: null, provider_checked_at: null,
+    external_usage: false, paused: false, paused_until: null, pause_reason: null, blocked: 2, succeeded: 35, failed: 2, cache_hits: 140,
+    status: 'normal', last_success_sync: iso(-3 * 60e3), live_matches: 2, live_featured: 1, server_time: new Date().toISOString(),
+    history: [{ usage_date: iso(0).slice(0, 10), requests: 37, blocked: 2, failed: 2, cache_hits: 140 }, { usage_date: iso(-24 * H).slice(0, 10), requests: 71, blocked: 9, failed: 1, cache_hits: 610 }],
+    recent: [
+      { at: iso(-3 * 60e3), priority: 1, purpose: 'en vivo', endpoint: '/fixtures?live=all&timezone=UTC', counted: true, outcome: 'success', reason: null, http: 200, ms: 310, results: 12, error: null },
+      { at: iso(-9 * 60e3), priority: 3, purpose: 'calendario de mañana', endpoint: '/fixtures?date=2026-10-11&timezone=UTC', counted: false, outcome: 'blocked', reason: 'LOW_BUDGET_P3', http: null, ms: null, results: null, error: null },
+      { at: iso(-15 * 60e3), priority: 1, purpose: 'en vivo', endpoint: '/fixtures?live=all&timezone=UTC', counted: true, outcome: 'rate_limited', reason: null, http: 429, ms: 120, results: null, error: 'API-Football: demasiadas solicitudes (HTTP 429)' },
+    ],
+  }),
   admin_search_teams: () => T.slice(0, 3).map((t, i) => ({ id: `t${i}`, name: t.name, short_name: t.short_name, logo_url: null, provider: 'manual', external_id: null })),
   get_position_history: () => [
     { round_id: 'r-9', round_name: 'Jornada 9', deadline_at: iso(-20 * 24 * H), round_points: 18, round_position: 5, cumulative_points: 18, cumulative_position: 5, players: 8, is_official: true },

@@ -7,6 +7,7 @@ const LINKS = [
   { to: '/admin/equipos', label: 'Equipos', end: false },
   { to: '/admin/participantes', label: 'Participantes y pagos', end: false },
   { to: '/admin/datos-pago', label: 'Datos de pago', end: false },
+  { to: '/admin/consumo', label: 'Consumo API', end: false },
 ]
 
 export function AdminLayout() {

@@ -5,12 +5,12 @@
 import { corsHeaders, json, requireAdmin, serviceClient } from '../_shared/http.deno.ts'
 import { ProviderError, type FixtureSearch, type NormalizedFixture } from '../_shared/football/index.ts'
 import { linkManualMatch, type ManualInput } from '../_shared/manualLink.deno.ts'
-import { defaultProviderId, loadPlanFlags, providerEnv, QUOTA, realProviderConfigured, resolveProvider, savePlanFlags } from '../_shared/providers.deno.ts'
+import { defaultProviderId, loadPlanFlags, providerEnv, quotaState, realProviderConfigured, resolveProvider, savePlanFlags } from '../_shared/providers.deno.ts'
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/
 const PROVIDERS = ['api-football', 'mock']
 
-const errorStatus = (code: string) => (code === 'QUOTA_EXHAUSTED' || code === 'RATE_LIMITED' ? 429 : code === 'BAD_REQUEST' ? 400 : 502)
+const errorStatus = (code: string) => (code === 'QUOTA_EXHAUSTED' || code === 'RATE_LIMITED' || code === 'BUDGET_BLOCKED' ? 429 : code === 'BAD_REQUEST' ? 400 : 502)
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) })
@@ -35,17 +35,33 @@ Deno.serve(async (req) => {
 
   if (body.action === 'status') {
     const real = realProviderConfigured(env)
-    const { data: usage } = await db.from('provider_usage').select('provider, requests, reported_remaining, reported_limit, last_request_at, last_error')
-      .eq('usage_date', today)
     const p = real ? resolveProvider(db, 'api-football') : null
+    let status: unknown = null
+    if (p) {
+      // /status no cuenta para la cuota diaria, pero igual se limita: como mucho cada 10 min.
+      const { data: cached } = await db.rpc('provider_cache_get', { p_provider: 'api-football', p_key: 'status' })
+      if (cached) status = { ...cached, cached: true }
+      else {
+        ;(p as unknown as { context: unknown }).context = { priority: 5, purpose: 'contraste /status' }
+        const s = await p.status()
+        status = s
+        if (s.ok) {
+          await db.rpc('provider_cache_put', { p_provider: 'api-football', p_key: 'status', p_payload: s, p_ttl_seconds: 600 })
+          if (s.requests_today !== null && s.requests_today !== undefined) {
+            await db.rpc('provider_record_status', { p_provider: 'api-football', p_current: s.requests_today, p_limit: s.requests_limit ?? null })
+          }
+        }
+      }
+    }
+    const quota = real ? await quotaState(db, 'api-football') : null
     return json(req, {
       default_provider: defaultProviderId(env),
       providers: [
         {
           id: 'api-football', is_test_data: false, configured: real,
-          budget_daily: QUOTA['api-football']!.daily,
-          usage: usage?.find((u) => u.provider === 'api-football') ?? null,
-          status: p ? await p.status() : null,
+          budget_daily: quota?.budget ?? 80,
+          usage: quota ? { requests: quota.used, reported_remaining: (quota as unknown as { provider_remaining_estimate: number | null }).provider_remaining_estimate, reported_limit: null, last_request_at: null, last_error: null } : null,
+          status,
         },
         { id: 'mock', is_test_data: true, configured: true, budget_daily: null, usage: null, status: null },
       ],
@@ -63,6 +79,8 @@ Deno.serve(async (req) => {
   const cachePut = (key: string, payload: unknown, ttl: number) =>
     db.rpc('provider_cache_put', { p_provider: provider.id, p_key: key, p_payload: payload, p_ttl_seconds: ttl })
 
+  // Consultas del panel: prioridad 5 (las primeras en bloquearse cuando queda poca cuota).
+  ;(provider as unknown as { context: unknown }).context = { priority: 5, purpose: `admin:${body.action ?? 'buscar'}` }
   try {
     if (body.action === 'competitions') {
       let competitions = await cacheGet<unknown[]>('competitions')

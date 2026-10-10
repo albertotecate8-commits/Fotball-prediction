@@ -73,13 +73,21 @@ export interface FootballProvider {
   status(): Promise<ProviderStatus>
 }
 
+/** Prioridad de una consulta: 1 en vivo · 2 próximos/finales · 3 calendario · 4 Inicio · 5 panel admin. */
+export interface RequestContext { priority: 1 | 2 | 3 | 4 | 5; purpose: string }
+
+export type RequestOutcome = 'success' | 'empty' | 'error' | 'rate_limited' | 'quota_exhausted'
+
 /**
  * Control de cuota compartido (vive en la base de datos). `take` reserva una
- * solicitud ANTES de hacerla; `report` guarda lo que informa el proveedor.
+ * solicitud ANTES de hacerla (o la bloquea); `finish` registra su resultado.
  */
 export interface RequestGate {
-  take(): Promise<{ allowed: boolean; reason?: string }>
-  report(info: { remainingDaily: number | null; limitDaily: number | null; error?: string | null }): Promise<void>
+  take(info: RequestContext & { endpoint: string; counted: boolean }): Promise<{ allowed: boolean; reason?: string; id?: number | null }>
+  finish(ticket: { id?: number | null }, r: {
+    outcome: RequestOutcome; httpStatus: number | null; remainingDaily: number | null; limitDaily: number | null
+    durationMs: number; results: number | null; error?: string | null
+  }): Promise<void>
 }
 
 export type ProviderErrorCode =
@@ -87,6 +95,8 @@ export type ProviderErrorCode =
   | 'PLAN_RESTRICTED'
   | 'RATE_LIMITED'
   | 'QUOTA_EXHAUSTED'
+  /** Bloqueada por el presupuesto interno de SHABEX (nunca llegó al proveedor). */
+  | 'BUDGET_BLOCKED'
   | 'UNAVAILABLE'
   | 'BAD_REQUEST'
   | 'NOT_CONFIGURED'

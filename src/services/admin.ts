@@ -37,6 +37,22 @@ export interface PoolAdminMatch {
 }
 export interface CatalogTeam { id: string; name: string; short_name: string; logo_url: string | null; provider: string; external_id: string | null }
 
+export interface ApiUsageRequest {
+  at: string; priority: number; purpose: string; endpoint: string; counted: boolean
+  outcome: 'pending' | 'success' | 'empty' | 'error' | 'rate_limited' | 'quota_exhausted' | 'blocked'
+  reason: string | null; http: number | null; ms: number | null; results: number | null; error: string | null
+}
+export interface ApiUsage {
+  usage_date: string; budget: number; margin: number; used: number; remaining_internal: number; effective_remaining: number
+  provider_remaining_estimate: number | null; provider_reported_at: string | null; provider_limit: number | null
+  provider_current: number | null; provider_checked_at: string | null; external_usage: boolean
+  paused: boolean; paused_until: string | null; pause_reason: string | null
+  blocked: number; succeeded: number; failed: number; cache_hits: number
+  status: 'normal' | 'low' | 'paused' | 'error'; last_success_sync: string | null; live_matches: number; live_featured: number
+  history: { usage_date: string; requests: number; blocked: number; failed: number; cache_hits: number }[]
+  recent: ApiUsageRequest[]; server_time: string
+}
+
 export interface ProviderInfo {
   id: string
   is_test_data: boolean
@@ -242,6 +258,7 @@ export const adminApi = {
   addManualMatch: (provider: string, manual: { home: string; away: string; kickoff_at: string; competitionId?: string; competitionName?: string; pick_external_id?: string; create_unlinked?: boolean; no_create?: boolean }) =>
     invokeFunction<ManualMatchResponse>('provider-fixtures', { action: 'manual', provider, manual }),
   providerStatus: () => invokeFunction<ProviderStatusResponse>('provider-fixtures', { action: 'status' }),
+  apiUsage: () => rpc<ApiUsage>('admin_api_usage'),
 
   resultsBoard: async () =>
     unwrap<(AdminMatch & { round_matches: { round: { id: string; name: string; status: RoundStatus } }[] })[]>(

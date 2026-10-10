@@ -55,10 +55,10 @@ describe('cliente HTTP', () => {
     expect((init.headers as Record<string, string>)['x-apisports-key']).toBe('k')
   })
 
-  it('reintenta ante 429/5xx y luego tiene éxito', async () => {
+  it('reintenta ante 5xx y luego tiene éxito', async () => {
     const fetchImpl = vi.fn()
       .mockResolvedValueOnce(new Response('', { status: 503 }))
-      .mockResolvedValueOnce(new Response('', { status: 429 }))
+      .mockResolvedValueOnce(new Response('', { status: 502 }))
       .mockResolvedValueOnce(ok([fixture()]))
     const p = new ApiFootballProvider({ apiKey: 'k', fetchImpl, sleep, retries: 2 })
     const r = await p.getFixturesByIds(['1001'])
@@ -85,15 +85,20 @@ describe('cliente HTTP', () => {
   })
 })
 
-/** Control de cuota en memoria (en producción vive en provider_usage). */
+/** Control de cuota en memoria (en producción vive en provider_reserve / provider_finish). */
 function memoryGate(budget: number) {
   let used = 0
-  const reports: { remainingDaily: number | null; limitDaily: number | null; error?: string | null }[] = []
+  const reports: { remainingDaily: number | null; limitDaily: number | null; error?: string | null; outcome: string; results: number | null }[] = []
+  const takes: { priority: number; purpose: string; endpoint: string; counted: boolean }[] = []
   const gate: RequestGate = {
-    take: async () => (used < budget ? (used++, { allowed: true }) : { allowed: false, reason: 'DAILY_BUDGET' }),
-    report: async (r) => { reports.push(r) },
+    take: async (info) => {
+      takes.push(info)
+      if (!info.counted) return { allowed: true, id: 0 }
+      return used < budget ? (used++, { allowed: true, id: used }) : { allowed: false, reason: 'BUDGET_EXHAUSTED' }
+    },
+    finish: async (_t, r) => { reports.push({ remainingDaily: r.remainingDaily, limitDaily: r.limitDaily, error: r.error, outcome: r.outcome, results: r.results }) },
   }
-  return { gate, reports, used: () => used }
+  return { gate, reports, takes, used: () => used }
 }
 
 const withHeaders = (body: unknown, status = 200, remaining = '57', limit = '100') =>
@@ -102,20 +107,24 @@ const withHeaders = (body: unknown, status = 200, remaining = '57', limit = '100
 describe('protección de la cuota', () => {
   const sleep = () => Promise.resolve()
 
-  it('reserva cupo antes de cada solicitud y guarda lo que informa el proveedor', async () => {
+  it('reserva cupo antes de cada solicitud y registra lo que informa el proveedor', async () => {
     const g = memoryGate(10)
     const fetchImpl = vi.fn(async () => withHeaders({ errors: [], results: 1, response: [fixture()] }))
     const p = new ApiFootballProvider({ apiKey: 'k', fetchImpl: fetchImpl as never, sleep, gate: g.gate })
+    p.context = { priority: 1, purpose: 'en vivo' }
     await p.getFixturesByIds(['1001'])
     expect(g.used()).toBe(1)
-    expect(g.reports[0]).toEqual({ remainingDaily: 57, limitDaily: 100 })
+    expect(g.reports[0]).toMatchObject({ remainingDaily: 57, limitDaily: 100, outcome: 'success', results: 1 })
+    expect(g.takes[0]).toMatchObject({ priority: 1, purpose: 'en vivo', counted: true })
+    // El registro guarda la ruta y los parámetros, nunca la clave.
+    expect(g.takes[0]!.endpoint).toBe('/fixtures?ids=1001&timezone=UTC')
   })
 
-  it('sin cupo no hace la solicitud HTTP y no se reintenta', async () => {
+  it('bloqueada por el presupuesto: no hace la solicitud HTTP y no se reintenta', async () => {
     const g = memoryGate(0)
     const fetchImpl = vi.fn()
     const p = new ApiFootballProvider({ apiKey: 'k', fetchImpl, sleep, gate: g.gate })
-    await expect(p.getFixturesByIds(['1'])).rejects.toMatchObject({ code: 'QUOTA_EXHAUSTED', retryable: false })
+    await expect(p.getFixturesByIds(['1'])).rejects.toMatchObject({ code: 'BUDGET_BLOCKED', retryable: false })
     expect(fetchImpl).not.toHaveBeenCalled()
   })
 
@@ -123,28 +132,76 @@ describe('protección de la cuota', () => {
     const g = memoryGate(2)
     const fetchImpl = vi.fn(async () => new Response('', { status: 503 }))
     const p = new ApiFootballProvider({ apiKey: 'k', fetchImpl: fetchImpl as never, sleep, gate: g.gate, retries: 5 })
-    await expect(p.getFixturesByIds(['1'])).rejects.toMatchObject({ code: 'QUOTA_EXHAUSTED' })
+    await expect(p.getFixturesByIds(['1'])).rejects.toMatchObject({ code: 'BUDGET_BLOCKED' })
+    expect(fetchImpl).toHaveBeenCalledTimes(2)
+    expect(g.reports.map((r) => r.outcome)).toEqual(['error', 'error'])
+  })
+
+  it('error de red: reintentos limitados con espera progresiva (1 s, 3 s)', async () => {
+    const waits: number[] = []
+    const g = memoryGate(10)
+    const fetchImpl = vi.fn(async () => { throw new TypeError('fetch failed') })
+    const p = new ApiFootballProvider({ apiKey: 'k', fetchImpl: fetchImpl as never, sleep: async (ms) => { waits.push(ms) }, gate: g.gate })
+    p.context = { priority: 1, purpose: 'en vivo' }
+    await expect(p.getFixturesByIds(['1'])).rejects.toMatchObject({ code: 'UNAVAILABLE' })
+    expect(fetchImpl).toHaveBeenCalledTimes(3)
+    expect(waits).toEqual([1000, 3000])
+    // Consultas de menor prioridad: un solo reintento.
+    p.context = { priority: 5, purpose: 'admin' }
+    fetchImpl.mockClear()
+    await expect(p.getFixturesByIds(['1'])).rejects.toMatchObject({ code: 'UNAVAILABLE' })
     expect(fetchImpl).toHaveBeenCalledTimes(2)
   })
 
-  it('espera progresiva, más larga ante límite por minuto', async () => {
-    const waits: number[] = []
-    const fetchImpl = vi.fn()
-      .mockResolvedValueOnce(new Response('', { status: 429 }))
-      .mockResolvedValueOnce(new Response('', { status: 429 }))
-      .mockResolvedValueOnce(ok([fixture()]))
-    const p = new ApiFootballProvider({ apiKey: 'k', fetchImpl, sleep: async (ms) => { waits.push(ms) }, retries: 2 })
-    await p.getFixturesByIds(['1'])
-    expect(waits).toEqual([6000, 12000])
+  it('HTTP 429: no reintenta y lo registra como límite de frecuencia', async () => {
+    const g = memoryGate(10)
+    const fetchImpl = vi.fn(async () => new Response('', { status: 429 }))
+    const p = new ApiFootballProvider({ apiKey: 'k', fetchImpl: fetchImpl as never, sleep, gate: g.gate })
+    await expect(p.getFixturesByIds(['1'])).rejects.toMatchObject({ code: 'RATE_LIMITED', retryable: false })
+    expect(fetchImpl).toHaveBeenCalledTimes(1)
+    expect(g.reports[0]!.outcome).toBe('rate_limited')
   })
 
-  it('cuota diaria del proveedor agotada: no reintenta y registra el error', async () => {
+  it('cuota diaria del proveedor agotada: no reintenta y lo registra', async () => {
     const g = memoryGate(10)
     const fetchImpl = vi.fn(async () => withHeaders({ errors: { requests: 'You have reached the request limit for the day' }, response: [] }, 200, '0'))
     const p = new ApiFootballProvider({ apiKey: 'k', fetchImpl: fetchImpl as never, sleep, gate: g.gate })
     await expect(p.getFixturesByIds(['1'])).rejects.toMatchObject({ code: 'QUOTA_EXHAUSTED' })
     expect(fetchImpl).toHaveBeenCalledTimes(1)
+    expect(g.reports.at(-1)).toMatchObject({ outcome: 'quota_exhausted', remainingDaily: 0 })
     expect(g.reports.at(-1)?.error).toMatch(/request limit/)
+  })
+
+  it('respuesta cortada o sin «response»: cuenta como fallo y no se aplica nada', async () => {
+    const g = memoryGate(10)
+    const fetchImpl = vi.fn(async () => new Response('{"errors":[],"resul', { status: 200 }))
+    const p = new ApiFootballProvider({ apiKey: 'k', fetchImpl: fetchImpl as never, sleep, gate: g.gate, retries: 1 })
+    await expect(p.searchFixtures({ from: '2026-10-10' })).rejects.toMatchObject({ code: 'UNAVAILABLE' })
+    expect(g.reports.map((r) => r.outcome)).toEqual(['error', 'error'])
+  })
+
+  it('respuesta vacía se registra como «empty»; partidos incompletos se descartan', async () => {
+    const g = memoryGate(10)
+    const broken = fixture({ fixture: { id: 0, date: '2026-10-12T02:00:00+00:00', status: { short: 'NS', elapsed: null } } })
+    const fetchImpl = vi.fn()
+      .mockResolvedValueOnce(withHeaders({ errors: [], results: 0, response: [] }))
+      .mockResolvedValueOnce(withHeaders({ errors: [], results: 2, response: [fixture(), broken] }))
+    const p = new ApiFootballProvider({ apiKey: 'k', fetchImpl: fetchImpl as never, sleep, gate: g.gate })
+    expect(await p.searchFixtures({ from: '2026-10-10' })).toEqual([])
+    expect(g.reports[0]!.outcome).toBe('empty')
+    const two = await p.searchFixtures({ from: '2026-10-10' })
+    expect(two).toHaveLength(1)
+    expect(p.incomplete).toBe(1)
+  })
+
+  it('en vivo: una sola solicitud para todos los partidos en juego', async () => {
+    const g = memoryGate(10)
+    const fetchImpl = vi.fn(async () => withHeaders({ errors: [], results: 1, response: [fixture({ fixture: { id: 1001, date: '2026-10-12T02:00:00+00:00', status: { short: '2H', elapsed: 63 } }, goals: { home: 1, away: 0 } })] }))
+    const p = new ApiFootballProvider({ apiKey: 'k', fetchImpl: fetchImpl as never, sleep, gate: g.gate })
+    const live = await p.fixturesLive()
+    expect(live[0]!.status).toBe('live')
+    expect(new URL((fetchImpl.mock.calls[0] as unknown as [string])[0]).searchParams.get('live')).toBe('all')
+    expect(g.used()).toBe(1)
   })
 })
 

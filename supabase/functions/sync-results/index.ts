@@ -1,8 +1,11 @@
-// Sincroniza estados y resultados de los partidos incluidos en jornadas.
-// Invocación: pg_cron (cabecera x-sync-secret) o un admin desde el panel.
-// Un candado impide dos sincronizaciones simultáneas (cron + botón).
+// Sincroniza estados y resultados de los partidos de la quiniela.
+// Invocación: pg_cron cada 3 min (cabecera x-sync-secret) o un admin.
+// Un candado impide dos sincronizaciones simultáneas (cron + botón). La
+// mayoría de las pasadas no consultan al proveedor: el planificador solo
+// gasta cuota cuando toca según prioridad y saldo (ver quotaSync.deno.ts).
 import { corsHeaders, json, requireAdmin, safeEqual, serviceClient } from '../_shared/http.deno.ts'
-import { autoImportPool, autoLinkManual, linkManualMatch, refreshFeatured, type ManualInput } from '../_shared/manualLink.deno.ts'
+import { linkManualMatch, type ManualInput } from '../_shared/manualLink.deno.ts'
+import { runPlannedSync } from '../_shared/quotaSync.deno.ts'
 import type { ApiFootballProvider } from '../_shared/football/index.ts'
 import { loadPlanFlags, providerEnv, realProviderConfigured, resolveProvider, savePlanFlags } from '../_shared/providers.deno.ts'
 import { runAllProviders, type SyncStore } from '../_shared/football/sync.ts'
@@ -30,7 +33,7 @@ Deno.serve(async (req) => {
     return data as T
   }
 
-  let body: { diagnose?: boolean; league?: string; date?: string; ids?: string; import?: boolean; teams?: string[]; next?: boolean; link?: ManualInput; refreshFeatured?: boolean; importPool?: boolean } = {}
+  let body: { diagnose?: boolean; league?: string; date?: string; ids?: string; import?: boolean; teams?: string[]; next?: boolean; link?: ManualInput } = {}
   try { body = await req.json() } catch { /* cuerpo vacío */ }
 
   // Diagnóstico acotado (solo cron/servidor o admin): estado de la cuenta
@@ -41,6 +44,8 @@ Deno.serve(async (req) => {
     const p = configured ? resolveProvider(db, 'api-football') : null
     if (!p) return json(req, { api_football_configured: false })
     await loadPlanFlags(db, p)
+    // Diagnóstico = consulta auxiliar: la menor prioridad, se bloquea con poca cuota.
+    ;(p as unknown as ApiFootballProvider).context = { priority: 5, purpose: 'diagnóstico' }
     const league = /^\d{1,6}$/.test(body.league ?? '') ? body.league! : '262'
     const out: Record<string, unknown> = { api_football_configured: true, status: await p.status() }
     if (body.link) {
@@ -133,7 +138,8 @@ Deno.serve(async (req) => {
   if (!got) return json(req, { status: 'skipped', reason: 'SYNC_IN_PROGRESS' }, 409)
 
   const store: SyncStore = {
-    getTargets: () => rpc('get_sync_targets', { p_horizon_minutes: 15 }),
+    // API-Football lo gestiona el planificador; aquí solo quedan otros proveedores (demostración).
+    getTargets: async () => (await rpc<{ provider: string }[]>('get_sync_targets', { p_horizon_minutes: 15 })).filter((t) => t.provider !== 'api-football') as never,
     applyUpdate: (matchId, fixture) => rpc('apply_provider_update', { p_match_id: matchId, p_update: fixture }),
     recordError: async (matchId, message) => { await rpc('record_match_sync_error', { p_match_id: matchId, p_error: message }) },
     startRun: (p, trigger) => rpc('start_sync_run', { p_provider: p, p_trigger: trigger }),
@@ -143,45 +149,21 @@ Deno.serve(async (req) => {
     runMaintenance: () => rpc('run_maintenance', {}),
   }
 
-  let result: (Awaited<ReturnType<typeof runAllProviders>> & { autoLink: Record<string, unknown> | null; featured: Record<string, unknown> | null; poolImport?: Record<string, unknown> | null }) | undefined
+  let result: (Awaited<ReturnType<typeof runAllProviders>> & { planned: Record<string, unknown> | null }) | undefined
   try {
-    const resolved = new Map<string, ReturnType<typeof resolveProvider>>()
-    for (const id of ['api-football', 'mock']) {
-      const p = resolveProvider(db, id)
-      await loadPlanFlags(db, p)
-      resolved.set(id, p)
-    }
-    // Partidos capturados a mano que ya pueden vincularse con el proveedor real.
-    let autoLink: Record<string, unknown> | null = null
-    const featured: Record<string, unknown> | null = null
-    const real = resolved.get('api-football')
+    const real = resolveProvider(db, 'api-football') as ApiFootballProvider | null
+    let planned: Record<string, unknown> | null = null
     if (real) {
+      await loadPlanFlags(db, real)
       try {
-        autoLink = await autoLinkManual(db, real)
+        planned = await runPlannedSync(db, real, viaCron ? 'cron' : 'manual')
       } catch (e) {
-        autoLink = { error: (e as Error).message }
+        planned = { error: (e as Error).message }
       }
+      await savePlanFlags(db, real)
     }
-    result = { ...(await runAllProviders(store, (id) => resolved.get(id) ?? resolveProvider(db, id), viaCron ? 'cron' : 'manual')), autoLink, featured }
-    // Destacados de Inicio: después de la quiniela oficial, con lo que quede de cuota.
-    if (real) {
-      try {
-        result.featured = await refreshFeatured(db, real, body.refreshFeatured === true)
-      } catch (e) {
-        result.featured = { error: (e as Error).message }
-      }
-      // Partidos nuevos de las fuentes configuradas → quiniela. Solo cuando los destacados
-      // acaban de refrescarse: la caché por día está fresca y no se gastan solicitudes extra.
-      const refreshed = result.featured && !('error' in result.featured) && result.featured.skipped === false
-      if (refreshed || body.importPool === true) {
-        try {
-          result.poolImport = await autoImportPool(db, real)
-        } catch (e) {
-          result.poolImport = { error: (e as Error).message }
-        }
-      }
-    }
-    for (const p of resolved.values()) await savePlanFlags(db, p)
+    // Demostración y mantenimiento (cierres y finalización): nunca consultan API-Football.
+    result = { ...(await runAllProviders(store, (id) => (id === 'mock' ? resolveProvider(db, 'mock') : null), viaCron ? 'cron' : 'manual')), planned }
   } catch (e) {
     return json(req, { error: 'SYNC_FAILED', message: (e as Error).message }, 500)
   } finally {
@@ -193,6 +175,6 @@ Deno.serve(async (req) => {
       details: { statuses: result.reports.map((r) => `${r.provider}:${r.status}`), unconfigured: result.unconfigured },
     })
   }
-  const failed = result.reports.length > 0 && result.reports.every((r) => r.status === 'error')
+  const failed = (result.reports.length > 0 && result.reports.every((r) => r.status === 'error')) || (result.planned && 'error' in result.planned)
   return json(req, result, failed ? 502 : 200)
 })

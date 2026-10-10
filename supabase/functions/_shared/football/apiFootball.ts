@@ -3,7 +3,7 @@
 // Plan gratuito: 100 solicitudes/día (reinicio 00:00 UTC) y límite por minuto.
 import {
   ProviderError, type FixtureSearch, type FootballProvider, type MatchStatus, type NormalizedCompetition,
-  type NormalizedFixture, type ProviderErrorCode, type ProviderStatus, type RequestGate,
+  type NormalizedFixture, type ProviderErrorCode, type ProviderStatus, type RequestContext, type RequestGate, type RequestOutcome,
 } from './types.ts'
 
 const BASE_URL = 'https://v3.football.api-sports.io'
@@ -128,6 +128,7 @@ const headerNumber = (h: Headers, name: string) => {
 export interface ApiFootballOptions {
   apiKey: string
   fetchImpl?: typeof fetch
+  /** Reintentos máximos ante errores de red/servidor (por omisión 2 en vivo/próximos, 1 el resto). */
   retries?: number
   timeoutMs?: number
   sleep?: (ms: number) => Promise<void>
@@ -140,7 +141,6 @@ export class ApiFootballProvider implements FootballProvider {
   readonly id = 'api-football'
   readonly isTestData = false
   private readonly fetchImpl: typeof fetch
-  private readonly retries: number
   private readonly timeoutMs: number
   private readonly sleep: (ms: number) => Promise<void>
   /** Solicitudes HTTP realmente enviadas por esta instancia. */
@@ -149,67 +149,121 @@ export class ApiFootballProvider implements FootballProvider {
   constructor(private readonly opts: ApiFootballOptions) {
     if (!opts.apiKey) throw new ProviderError('API_FOOTBALL_KEY no configurada', false, undefined, 'NOT_CONFIGURED')
     this.fetchImpl = opts.fetchImpl ?? fetch
-    this.retries = opts.retries ?? 2
     this.timeoutMs = opts.timeoutMs ?? 10_000
     this.sleep = opts.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms)))
   }
 
+  /** Prioridad y motivo de las próximas consultas; los fija el planificador o el panel. */
+  context: RequestContext = { priority: 5, purpose: 'admin' }
+
+  /**
+   * Única salida hacia API-Football. Cada intento se reserva antes en la base
+   * de datos (puede quedar bloqueado sin salir) y se registra al terminar.
+   * - 429 / límite por minuto o diario: no se reintenta (la base pausa las consultas).
+   * - Red, tiempo agotado o 5xx: pocos reintentos con espera progresiva; cada uno cuenta.
+   */
   private async request<T>(path: string, params: Record<string, string | undefined>, countsQuota = true): Promise<T> {
     const url = new URL(BASE_URL + path)
     for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== '') url.searchParams.set(k, v)
+    // Lo que se registra: ruta y parámetros (la clave va en una cabecera y nunca se guarda).
+    const endpoint = `${path}?${url.searchParams.toString()}`
+    const ctx = { ...this.context }
+    const maxRetries = this.opts.retries ?? (ctx.priority <= 2 ? 2 : 1)
 
     let lastError: ProviderError | null = null
-    for (let attempt = 0; attempt <= this.retries; attempt++) {
-      if (attempt > 0) {
-        // Espera progresiva; más larga si el proveedor pidió frenar.
-        const base = lastError?.code === 'RATE_LIMITED' ? 6000 : 500
-        await this.sleep(base * 2 ** (attempt - 1))
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      if (attempt > 0) await this.sleep(1000 * 3 ** (attempt - 1))
+      const ticket = this.opts.gate ? await this.opts.gate.take({ ...ctx, endpoint, counted: countsQuota }) : { allowed: true, id: null }
+      if (!ticket.allowed) {
+        throw new ProviderError(`Consulta no enviada para proteger la cuota (${ticket.reason ?? 'sin cupo'})`, false, undefined, 'BUDGET_BLOCKED')
       }
-      if (countsQuota && this.opts.gate) {
-        const g = await this.opts.gate.take()
-        if (!g.allowed) throw new ProviderError(`Cuota protegida (${g.reason ?? 'sin cupo'}): se reintentará en el siguiente periodo`, false, undefined, 'QUOTA_EXHAUSTED')
+      const started = Date.now()
+      const finish = async (outcome: RequestOutcome, httpStatus: number | null, remainingDaily: number | null, limitDaily: number | null, results: number | null, error?: string) => {
+        if (this.opts.gate) await this.opts.gate.finish(ticket, { outcome, httpStatus, remainingDaily, limitDaily, durationMs: Date.now() - started, results, error: error ?? null })
       }
       const controller = new AbortController()
       const timer = setTimeout(() => controller.abort(), this.timeoutMs)
+      let res: Response
       try {
         this.requestsMade++
-        const res = await this.fetchImpl(url.toString(), {
-          headers: { 'x-apisports-key': this.opts.apiKey },
-          signal: controller.signal,
-        })
-        const remainingDaily = headerNumber(res.headers, 'x-ratelimit-requests-remaining')
-        const limitDaily = headerNumber(res.headers, 'x-ratelimit-requests-limit')
-        if (this.opts.gate && (remainingDaily !== null || limitDaily !== null)) {
-          await this.opts.gate.report({ remainingDaily, limitDaily })
-        }
-        if (res.status === 429) {
-          lastError = new ProviderError('API-Football: demasiadas solicitudes (HTTP 429)', true, 429, 'RATE_LIMITED')
-          continue
-        }
-        if (res.status >= 500) {
-          lastError = new ProviderError(`API-Football HTTP ${res.status}`, true, res.status, 'UNAVAILABLE')
-          continue
-        }
-        if (res.status === 401 || res.status === 403) throw new ProviderError(`API-Football rechazó la clave (HTTP ${res.status})`, false, res.status, 'INVALID_KEY')
-        if (!res.ok) throw new ProviderError(`API-Football HTTP ${res.status}`, false, res.status, 'BAD_REQUEST')
-
-        const body = (await res.json()) as ApiResponse<T>
-        if (hasErrors(body.errors)) {
-          const c = classifyApiFootballErrors(body.errors)
-          lastError = new ProviderError(`API-Football: ${c.message}`, c.retryable, res.status, c.code)
-          if (this.opts.gate) await this.opts.gate.report({ remainingDaily, limitDaily, error: lastError.message })
-          if (!c.retryable) throw lastError
-          continue
-        }
-        return body.response
+        res = await this.fetchImpl(url.toString(), { headers: { 'x-apisports-key': this.opts.apiKey }, signal: controller.signal })
       } catch (e) {
-        if (e instanceof ProviderError && !e.retryable) throw e
-        lastError = e instanceof ProviderError ? e : new ProviderError(`API-Football no disponible: ${(e as Error).message}`, true, undefined, 'UNAVAILABLE')
-      } finally {
         clearTimeout(timer)
+        lastError = new ProviderError(`API-Football no disponible: ${(e as Error).name === 'AbortError' ? 'tiempo agotado' : (e as Error).message}`, true, undefined, 'UNAVAILABLE')
+        await finish('error', null, null, null, null, lastError.message)
+        continue
       }
+      clearTimeout(timer)
+      const remainingDaily = headerNumber(res.headers, 'x-ratelimit-requests-remaining')
+      const limitDaily = headerNumber(res.headers, 'x-ratelimit-requests-limit')
+      if (res.status === 429) {
+        const err = new ProviderError('API-Football: demasiadas solicitudes (HTTP 429)', false, 429, 'RATE_LIMITED')
+        await finish('rate_limited', 429, remainingDaily, limitDaily, null, err.message)
+        throw err
+      }
+      if (res.status >= 500) {
+        lastError = new ProviderError(`API-Football HTTP ${res.status}`, true, res.status, 'UNAVAILABLE')
+        await finish('error', res.status, remainingDaily, limitDaily, null, lastError.message)
+        continue
+      }
+      if (res.status === 401 || res.status === 403) {
+        const err = new ProviderError(`API-Football rechazó la clave (HTTP ${res.status})`, false, res.status, 'INVALID_KEY')
+        await finish('error', res.status, remainingDaily, limitDaily, null, err.message)
+        throw err
+      }
+      if (!res.ok) {
+        const err = new ProviderError(`API-Football HTTP ${res.status}`, false, res.status, 'BAD_REQUEST')
+        await finish('error', res.status, remainingDaily, limitDaily, null, err.message)
+        throw err
+      }
+
+      let body: ApiResponse<T> | null = null
+      try { body = (await res.json()) as ApiResponse<T> } catch { body = null }
+      if (!body || typeof body !== 'object' || !('response' in body)) {
+        // Respuesta vacía o cortada: cuenta como intento fallido y se reintenta con espera.
+        lastError = new ProviderError('API-Football: respuesta incompleta', true, res.status, 'UNAVAILABLE')
+        await finish('error', res.status, remainingDaily, limitDaily, null, lastError.message)
+        continue
+      }
+      if (hasErrors(body.errors)) {
+        const c = classifyApiFootballErrors(body.errors)
+        const err = new ProviderError(`API-Football: ${c.message}`, false, res.status, c.code)
+        await finish(c.code === 'QUOTA_EXHAUSTED' ? 'quota_exhausted' : c.code === 'RATE_LIMITED' ? 'rate_limited' : 'error', res.status, remainingDaily, limitDaily, null, err.message)
+        throw err
+      }
+      const results = Array.isArray(body.response) ? body.response.length : body.response ? 1 : 0
+      await finish(results === 0 ? 'empty' : 'success', res.status, remainingDaily, limitDaily, results)
+      return body.response
     }
     throw lastError ?? new ProviderError('API-Football no disponible', true, undefined, 'UNAVAILABLE')
+  }
+
+  /** Partidos con datos completos; los incompletos se descartan (nunca se inventan). */
+  private normalizeAll(rows: ApiFixture[] | null | undefined): NormalizedFixture[] {
+    const out: NormalizedFixture[] = []
+    for (const r of rows ?? []) {
+      if (!r?.fixture?.id || !r.fixture.date || !r.teams?.home?.id || !r.teams?.away?.id || Number.isNaN(Date.parse(r.fixture.date))) {
+        this.incomplete++
+        continue
+      }
+      out.push(normalizeApiFootballFixture(r))
+    }
+    return out
+  }
+  /** Partidos descartados por venir incompletos en la respuesta. */
+  incomplete = 0
+
+  /** El plan no permite la consulta de partidos en vivo: se usan los días. */
+  liveRestricted = false
+
+  /** Todos los partidos en juego en UNA solicitud (todas las ligas). */
+  async fixturesLive(): Promise<NormalizedFixture[]> {
+    try {
+      return this.normalizeAll(await this.request<ApiFixture[]>('/fixtures', { live: 'all', timezone: 'UTC' }))
+    } catch (e) {
+      if (e instanceof ProviderError && e.code === 'PLAN_RESTRICTED') this.liveRestricted = true
+      throw e
+    }
   }
 
   /**
@@ -262,7 +316,7 @@ export class ApiFootballProvider implements FootballProvider {
       if (!this.inWindow(date)) continue
       try {
         const rows = await this.request<ApiFixture[]>('/fixtures', { date, status, timezone: 'UTC' })
-        out.push(...(rows ?? []).map(normalizeApiFootballFixture))
+        out.push(...this.normalizeAll(rows))
         consulted++
       } catch (e) {
         if (!(e instanceof ProviderError) || e.code !== 'PLAN_RESTRICTED' || !this.learnDateWindow(e.message)) throw e
@@ -289,7 +343,7 @@ export class ApiFootballProvider implements FootballProvider {
         try {
           // Una sola solicitud para todo el rango de fechas de la competición.
           const rows = await this.request<ApiFixture[]>('/fixtures', { league: q.competitionId, season: q.season, from: q.from, to, status, timezone: 'UTC' })
-          fixtures = (rows ?? []).map(normalizeApiFootballFixture)
+          fixtures = this.normalizeAll(rows)
         } catch (e) {
           if (!(e instanceof ProviderError) || e.code !== 'PLAN_RESTRICTED') throw e
           this.seasonRestricted = true
@@ -315,7 +369,7 @@ export class ApiFootballProvider implements FootballProvider {
       for (let i = 0; i < ids.length; i += MAX_IDS_PER_REQUEST) {
         const chunk = ids.slice(i, i + MAX_IDS_PER_REQUEST)
         const rows = await this.request<ApiFixture[]>('/fixtures', { ids: chunk.join('-'), timezone: 'UTC' })
-        out.push(...(rows ?? []).map(normalizeApiFootballFixture))
+        out.push(...this.normalizeAll(rows))
       }
       return out
     } catch (e) {
@@ -348,7 +402,7 @@ export class ApiFootballProvider implements FootballProvider {
   /** Próximos partidos de un equipo (puede estar restringido por el plan). 1 solicitud. */
   async nextFixturesForTeam(teamId: string, next = 3): Promise<NormalizedFixture[]> {
     const rows = await this.request<ApiFixture[]>('/fixtures', { team: teamId, next: String(next), timezone: 'UTC' })
-    return (rows ?? []).map(normalizeApiFootballFixture)
+    return this.normalizeAll(rows)
   }
 
   /** /status no consume la cuota diaria según la documentación del proveedor. */

@@ -2,10 +2,10 @@
 // competición. Solo con un candidato claro; si no, devuelve candidatos para que
 // el admin elija. Crear un partido SIN proveedor requiere pedirlo explícitamente.
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2'
-import { ProviderError, type FootballProvider, type NormalizedFixture } from './football/index.ts'
+import { getDays, ProviderError, type DayCacheStore, type DayMode, type FootballProvider, type NormalizedFixture } from './football/index.ts'
 import { loadPlanFlags, savePlanFlags } from './providers.deno.ts'
 import { findProviderMatch, utcDaysAround } from './football/matching.ts'
-import { featuredDue, selectFeatured } from './football/featured.ts'
+import { selectFeatured } from './football/featured.ts'
 
 export interface ManualInput {
   home?: string
@@ -19,33 +19,33 @@ export interface ManualInput {
   no_create?: boolean
 }
 
-/** Partidos de varios días (todas las ligas), en caché: 1 solicitud por día UTC. */
-export async function dayFixtures(db: SupabaseClient, provider: FootballProvider, days: string[], today: string): Promise<NormalizedFixture[]> {
-  const fixtures: NormalizedFixture[] = []
-  let lastError: unknown = null
-  for (const date of days) {
-    const key = `day:${date}`
-    let dayFx: NormalizedFixture[] | null = null
-    if (!provider.isTestData) {
-      const { data } = await db.rpc('provider_cache_get', { p_provider: provider.id, p_key: key })
-      dayFx = data ?? null
-    }
-    if (!dayFx) {
-      try {
-        dayFx = (await provider.searchFixtures({ from: date })).map(({ raw: _raw, ...rest }) => rest)
-      } catch (e) {
-        // Un día fuera de la ventana no impide usar los demás.
-        if (e instanceof ProviderError && e.code === 'PLAN_RESTRICTED') { lastError = e; continue }
-        throw e
-      }
-      if (!provider.isTestData) {
-        await db.rpc('provider_cache_put', { p_provider: provider.id, p_key: key, p_payload: dayFx, p_ttl_seconds: date <= today ? 1800 : 6 * 3600 })
-      }
-    }
-    fixtures.push(...dayFx)
+/** Almacén de la caché por día sobre provider_cache (con candado por clave). */
+export function dayStore(db: SupabaseClient, providerId: string): DayCacheStore {
+  return {
+    async get(key) {
+      const { data } = await db.from('provider_cache').select('payload, fetched_at, expires_at').eq('provider', providerId).eq('cache_key', key).maybeSingle()
+      if (!data || Date.parse(data.expires_at) <= Date.now() || !Array.isArray(data.payload)) return null
+      return { payload: data.payload as NormalizedFixture[], fetchedAt: Date.parse(data.fetched_at) }
+    },
+    async put(key, payload, ttl) {
+      await db.rpc('provider_cache_put', { p_provider: providerId, p_key: key, p_payload: payload, p_ttl_seconds: ttl })
+    },
+    async hit(n) {
+      await db.rpc('provider_cache_hit', { p_provider: providerId, p_hits: n })
+    },
+    async lock(key) {
+      const holder = crypto.randomUUID()
+      const { data } = await db.rpc('acquire_sync_lease', { p_name: `fetch:${providerId}:${key}`, p_holder: holder, p_seconds: 30 })
+      if (data !== true) return null
+      return async () => { await db.rpc('release_sync_lease', { p_name: `fetch:${providerId}:${key}`, p_holder: holder }) }
+    },
+    sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
   }
-  if (lastError && fixtures.length === 0) throw lastError
-  return fixtures
+}
+
+/** Partidos de varios días (todas las ligas) desde la caché compartida. */
+export async function dayFixtures(db: SupabaseClient, provider: FootballProvider, days: string[], opts: DayMode): Promise<NormalizedFixture[]> {
+  return (await getDays(dayStore(db, provider.id), provider, days, opts)).fixtures
 }
 
 const summary = (x: NormalizedFixture) => ({
@@ -59,8 +59,6 @@ export async function linkManualMatch(db: SupabaseClient, provider: FootballProv
   if (home.length < 2 || away.length < 2 || Number.isNaN(kickoff)) return { kind: 'invalid' as const, error: 'INVALID_MATCH' }
   const kickoffIso = new Date(kickoff).toISOString()
   const competitionId = m.competitionId?.toString().slice(0, 20) || undefined
-  const today = new Date().toISOString().slice(0, 10)
-
   const createManual = async () => {
     const { data, error } = await db.rpc('create_manual_match', {
       p_home: home, p_away: away, p_kickoff: kickoffIso, p_competition: m.competitionName?.toString().slice(0, 80) ?? null, p_actor: actorId,
@@ -73,7 +71,8 @@ export async function linkManualMatch(db: SupabaseClient, provider: FootballProv
   await loadPlanFlags(db, provider)
   let fixtures: NormalizedFixture[]
   try {
-    fixtures = await dayFixtures(db, provider, utcDaysAround(kickoffIso), today)
+    // Acción del admin: reutiliza el día en caché si tiene menos de 30 min.
+    fixtures = await dayFixtures(db, provider, utcDaysAround(kickoffIso), { mode: 'cache-first', maxAgeMin: 30, context: { priority: 3, purpose: 'admin:vincular' } })
   } catch (e) {
     await savePlanFlags(db, provider)
     if (!(e instanceof ProviderError) || e.code !== 'PLAN_RESTRICTED') throw e
@@ -115,9 +114,9 @@ export async function autoLinkManual(db: SupabaseClient, provider: FootballProvi
   const out = { checked: list.length, linked: 0, pending: 0, conflicts: 0 }
   if (!list.length) return out
 
-  const today = new Date().toISOString().slice(0, 10)
   const days = [...new Set(list.map((c) => new Date(c.kickoff_at).toISOString().slice(0, 10)))]
-  const fixtures = await dayFixtures(db, provider, days, today)
+  // Solo caché: el planificador es quien decide cuándo se descargan los días.
+  const fixtures = await dayFixtures(db, provider, days, { mode: 'cache-only' })
   for (const c of list) {
     const d = findProviderMatch({ home: c.home, away: c.away, kickoff_at: c.kickoff_at }, fixtures)
     if (d.kind === 'linked') {
@@ -137,12 +136,13 @@ export async function autoLinkManual(db: SupabaseClient, provider: FootballProvi
  * Refresca los destacados de Inicio con los partidos de hoy y mañana (en
  * caché por día). No toca jornadas: solo la tabla featured_fixtures.
  */
-export async function refreshFeatured(db: SupabaseClient, provider: FootballProvider, force = false) {
-  const { data: last } = await db.rpc('featured_last_refresh', { p_provider: provider.id })
-  if (!force && !featuredDue(last ?? null)) return { skipped: true }
+/** Destacados de Inicio a partir de la caché de hoy y mañana (no consulta al proveedor). */
+export async function refreshFeatured(db: SupabaseClient, provider: FootballProvider) {
   const today = new Date().toISOString().slice(0, 10)
   const tomorrow = new Date(Date.now() + 86400e3).toISOString().slice(0, 10)
-  const fixtures = await dayFixtures(db, provider, [today, tomorrow], today)
+  const fixtures = await dayFixtures(db, provider, [today, tomorrow], { mode: 'cache-only' })
+  // Sin datos guardados no se tocan los destacados (se conservan los últimos).
+  if (fixtures.length === 0) return { skipped: true, reason: 'NO_CACHE' }
   const items = selectFeatured(fixtures)
   const { error } = await db.rpc('upsert_featured_fixtures', { p_provider: provider.id, p_items: items })
   if (error) throw new Error(`upsert_featured_fixtures: ${error.message}`)
@@ -162,7 +162,7 @@ export async function autoImportPool(db: SupabaseClient, provider: FootballProvi
   if (!leagues.size && !teams.size) return { candidates: 0, added: 0 }
   const today = new Date().toISOString().slice(0, 10)
   const tomorrow = new Date(Date.now() + 86400e3).toISOString().slice(0, 10)
-  const fixtures = await dayFixtures(db, provider, [today, tomorrow], today)
+  const fixtures = await dayFixtures(db, provider, [today, tomorrow], { mode: 'cache-only' })
   const wanted = fixtures.filter((f) => f.status === 'scheduled' && Date.parse(f.kickoff_at) > Date.now() && (
     (f.competition && leagues.has(f.competition.external_id)) || teams.has(f.home.external_id) || teams.has(f.away.external_id)))
   if (!wanted.length) return { candidates: 0, added: 0 }

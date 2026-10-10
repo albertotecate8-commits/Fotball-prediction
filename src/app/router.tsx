@@ -49,6 +49,7 @@ export const router = createBrowserRouter([
                       { path: 'participantes', lazy: async () => ({ Component: (await import('@/features/admin/AdminPayments')).AdminPayments }) },
                       { path: 'datos-pago', lazy: async () => ({ Component: (await import('@/features/admin/AdminPaymentInfo')).AdminPaymentInfo }) },
                       { path: 'partidos', lazy: async () => ({ Component: (await import('@/features/admin/AdminPool')).AdminPool }) },
+                      { path: 'consumo', lazy: async () => ({ Component: (await import('@/features/admin/AdminApiUsage')).AdminApiUsage }) },
                       { path: 'equipos', lazy: async () => ({ Component: (await import('@/features/admin/AdminTeams')).AdminTeams }) },
                       { path: 'jornadas', lazy: async () => ({ Component: (await import('@/features/admin/AdminRounds')).AdminRounds }) },
                       { path: 'jornadas/:roundId', lazy: async () => ({ Component: (await import('@/features/admin/AdminRoundEditor')).AdminRoundEditor }) },

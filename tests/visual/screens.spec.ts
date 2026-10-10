@@ -139,7 +139,7 @@ test.describe('pantallas', () => {
     await page.goto('/admin')
     await expect(page).toHaveURL(/admin\/partidos$/)
     const adminNav = page.getByRole('navigation', { name: 'Secciones de administración' })
-    await expect(adminNav.getByRole('link')).toHaveCount(5)
+    await expect(adminNav.getByRole('link')).toHaveCount(6)
     await expect(page.getByText('Automático').first()).toBeVisible()
     await expect(page.getByText('Añadido por admin').first()).toBeVisible()
     await expect(page.getByText('Retirado').first()).toBeVisible()
@@ -169,6 +169,24 @@ test.describe('pantallas', () => {
     await expect(page.getByText(/partido pendiente/)).toBeVisible()
     await expect(page.getByText(/Añadido por el admin/).first()).toBeVisible()
     await page.screenshot({ path: shot('08c-resultados', info.project.name), fullPage: true })
+  })
+
+  test('admin: consumo API con presupuesto, saldo estimado y registro', async ({ page }, info) => {
+    await mockBackend(page, { admin: true })
+    await page.goto('/admin/consumo')
+    await expect(page.getByRole('heading', { name: 'Consumo API' })).toBeVisible()
+    await expect(page.getByText('consultas de SHABEX hoy · presupuesto interno')).toBeVisible()
+    await expect(page.getByRole('progressbar', { name: 'Consumo del presupuesto' })).toHaveAttribute('aria-valuemax', '80')
+    await expect(page.getByText('estimación')).toBeVisible()
+    await expect(page.getByText('LOW_BUDGET_P3')).toBeVisible()
+    await expect(page.getByText(/apisports-key/i)).toHaveCount(0)
+    await page.screenshot({ path: shot('08d-consumo-api', info.project.name), fullPage: true })
+  })
+
+  test('jugador no ve el panel de consumo', async ({ page }) => {
+    await mockBackend(page)
+    await page.goto('/admin/consumo')
+    await expect(page).toHaveURL(/\/$/)
   })
 
   test('jugador no ve el botón de admin aunque su perfil diga admin', async ({ page }) => {

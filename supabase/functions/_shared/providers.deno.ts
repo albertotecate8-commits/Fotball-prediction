@@ -1,31 +1,43 @@
-// Conecta los proveedores con la base de datos: control de cuota compartido
-// (provider_take_quota / provider_report_quota). La clave nunca sale de aquí.
+// Conecta los proveedores con la base de datos: reserva y registro de cada
+// solicitud (provider_reserve / provider_finish). La clave nunca sale de aquí.
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2'
 import { createProvider, defaultProviderId, realProviderConfigured, type FootballProvider, type ProviderEnv, type RequestGate } from './football/index.ts'
-
-/** Presupuesto propio por debajo del límite del plan gratuito (100/día). */
-export const QUOTA = {
-  'api-football': { daily: Number(Deno.env.get('API_FOOTBALL_DAILY_BUDGET') ?? 90), minute: 8, reserve: 5 },
-} as Record<string, { daily: number; minute: number; reserve: number }>
 
 export const providerEnv = (): ProviderEnv => ({
   FOOTBALL_PROVIDER: Deno.env.get('FOOTBALL_PROVIDER'),
   API_FOOTBALL_KEY: Deno.env.get('API_FOOTBALL_KEY'),
 })
 
+/**
+ * Puerta única hacia el proveedor: el presupuesto (80/día UTC, margen de 20,
+ * límite por minuto y prioridades) se decide en la base de datos de forma
+ * atómica, así ninguna función concurrente puede pasarse.
+ */
 export function dbGate(db: SupabaseClient, provider: string): RequestGate {
-  const q = QUOTA[provider] ?? { daily: 90, minute: 8, reserve: 5 }
   return {
-    async take() {
-      const { data, error } = await db.rpc('provider_take_quota', { p_provider: provider, p_daily_budget: q.daily, p_minute_budget: q.minute, p_reserve: q.reserve })
+    async take(info) {
+      const { data, error } = await db.rpc('provider_reserve', {
+        p_provider: provider, p_priority: info.priority, p_purpose: info.purpose, p_endpoint: info.endpoint, p_counted: info.counted,
+      })
       // Si no se puede comprobar la cuota, no se consulta (falla de forma segura).
       if (error) return { allowed: false, reason: 'QUOTA_CHECK_FAILED' }
-      return { allowed: data?.allowed === true, reason: data?.reason }
+      return { allowed: data?.allowed === true, reason: data?.reason, id: data?.request_id ?? null }
     },
-    async report(info) {
-      await db.rpc('provider_report_quota', { p_provider: provider, p_remaining: info.remainingDaily, p_limit: info.limitDaily, p_error: info.error ?? null })
+    async finish(ticket, r) {
+      if (!ticket.id) return
+      await db.rpc('provider_finish', {
+        p_request_id: ticket.id, p_outcome: r.outcome, p_http_status: r.httpStatus, p_remaining: r.remainingDaily, p_limit: r.limitDaily,
+        p_duration_ms: r.durationMs, p_results: r.results, p_error: r.error ?? null,
+      })
     },
   }
+}
+
+/** Estado de la cuota de hoy (sin consultar al proveedor). */
+export async function quotaState(db: SupabaseClient, provider: string) {
+  const { data, error } = await db.rpc('provider_quota_state', { p_provider: provider })
+  if (error) throw new Error(`provider_quota_state: ${error.message}`)
+  return data as { used: number; budget: number; effective_remaining: number; paused: boolean; paused_until: string | null; pause_reason: string | null }
 }
 
 /**
@@ -36,15 +48,15 @@ export async function loadPlanFlags(db: SupabaseClient, p: FootballProvider | nu
   if (!p || p.isTestData) return
   const { data } = await db.rpc('provider_cache_get', { p_provider: p.id, p_key: 'plan_flags' })
   const w = Array.isArray(data?.dateWindow) && data.dateWindow.length === 2 ? data.dateWindow.map(Number) : null
-  Object.assign(p, { seasonRestricted: data?.seasonRestricted === true, idsRestricted: data?.idsRestricted === true, dateWindow: w })
+  Object.assign(p, { seasonRestricted: data?.seasonRestricted === true, idsRestricted: data?.idsRestricted === true, liveRestricted: data?.liveRestricted === true, dateWindow: w })
 }
 export async function savePlanFlags(db: SupabaseClient, p: FootballProvider | null) {
   if (!p || p.isTestData) return
-  const f = p as unknown as { seasonRestricted?: boolean; idsRestricted?: boolean; dateWindow?: [number, number] | null }
-  if (!f.seasonRestricted && !f.idsRestricted && !f.dateWindow) return
+  const f = p as unknown as { seasonRestricted?: boolean; idsRestricted?: boolean; liveRestricted?: boolean; dateWindow?: [number, number] | null }
+  if (!f.seasonRestricted && !f.idsRestricted && !f.liveRestricted && !f.dateWindow) return
   await db.rpc('provider_cache_put', {
     p_provider: p.id, p_key: 'plan_flags',
-    p_payload: { seasonRestricted: !!f.seasonRestricted, idsRestricted: !!f.idsRestricted, dateWindow: f.dateWindow ?? null }, p_ttl_seconds: 86400,
+    p_payload: { seasonRestricted: !!f.seasonRestricted, idsRestricted: !!f.idsRestricted, liveRestricted: !!f.liveRestricted, dateWindow: f.dateWindow ?? null }, p_ttl_seconds: 86400,
   })
 }
 

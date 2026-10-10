@@ -12,7 +12,7 @@ import { CardSkeleton } from '@/components/ui/Skeleton'
 import { EmptyState, ErrorState, InlineError } from '@/components/ui/States'
 import { TestDataBadge } from '@/components/ui/Badge'
 import { useToast } from '@/components/ui/Toast'
-import { dayKey, formatDate, formatDateTime } from '@/lib/time'
+import { dayKey, formatDate, formatDateTime, formatTime } from '@/lib/time'
 import { toAppError } from '@/lib/errors'
 import { PickCard, type PickValue } from './PickCard'
 import type { PoolData, PoolMatch } from '@/types/domain'
@@ -163,6 +163,7 @@ function Form({ data, tz }: { data: PoolData; tz: string }) {
         </section>
       )}
       {data.matches.some((m) => m.is_test_data) && <div className="mb-3"><TestDataBadge /></div>}
+      <Freshness show={data.matches.some((m) => m.status === 'live' || (Date.parse(m.kickoff_at) <= Date.now() && !m.result_confirmed && m.status !== 'cancelled'))} tz={tz} />
 
       {active.map(renderDay)}
       {past.length > 0 && (
@@ -209,5 +210,16 @@ function Form({ data, tz }: { data: PoolData; tz: string }) {
         </div>
       </Sheet>
     </div>
+  )
+}
+
+/** Con partidos en juego: hora de la última actualización y aviso si está en pausa por cuota. */
+function Freshness({ show, tz }: { show: boolean; tz: string }) {
+  const f = useQuery({ queryKey: ['freshness'], queryFn: playerApi.freshness, enabled: show, refetchInterval: 60_000 })
+  if (!show || !f.data?.updated_at) return null
+  return (
+    <p className={`mb-3 text-xs ${f.data.delayed ? 'text-gold' : 'text-muted'}`}>
+      {f.data.delayed ? 'Actualización en pausa para cuidar la cuota del proveedor. ' : ''}Resultados actualizados a las {formatTime(f.data.updated_at, tz)}.
+    </p>
   )
 }

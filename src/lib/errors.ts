@@ -40,6 +40,7 @@ const MESSAGES: Record<string, string> = {
   PLAN_RESTRICTED: 'El plan gratuito del proveedor no cubre esa temporada o consulta.',
   QUOTA_EXHAUSTED: 'Se alcanzó el límite de consultas del proveedor por hoy. Se conservan los últimos datos válidos.',
   RATE_LIMITED: 'Demasiadas consultas seguidas al proveedor. Espera un minuto.',
+  BUDGET_BLOCKED: 'Consulta pausada para proteger la cuota diaria de API-Football. Se muestran los últimos datos guardados.',
   UNAVAILABLE: 'El proveedor deportivo no está disponible. Intenta más tarde.',
   BAD_REQUEST: 'Con una competición busca por rango; sin competición, un solo día.',
   INVALID_OUTCOME: 'Elige local, empate o visitante.',

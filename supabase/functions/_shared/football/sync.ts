@@ -33,7 +33,7 @@ export interface SyncReport {
 
 /** Errores que afectan a todo el proveedor (no a un partido concreto). */
 const isProviderWide = (e: unknown) =>
-  e instanceof ProviderError && ['INVALID_KEY', 'PLAN_RESTRICTED', 'QUOTA_EXHAUSTED', 'NOT_CONFIGURED', 'RATE_LIMITED', 'UNAVAILABLE'].includes(e.code)
+  e instanceof ProviderError && ['INVALID_KEY', 'PLAN_RESTRICTED', 'QUOTA_EXHAUSTED', 'BUDGET_BLOCKED', 'NOT_CONFIGURED', 'RATE_LIMITED', 'UNAVAILABLE'].includes(e.code)
 
 /**
  * Sincroniza los partidos de UN proveedor. Si la cuota se agota o el
@@ -76,7 +76,7 @@ export async function runSync(store: SyncStore, provider: FootballProvider, trig
       }
     }
   } catch (e) {
-    if (e instanceof ProviderError && e.code === 'QUOTA_EXHAUSTED') quotaStopped = true
+    if (e instanceof ProviderError && (e.code === 'QUOTA_EXHAUSTED' || e.code === 'BUDGET_BLOCKED' || e.code === 'RATE_LIMITED')) quotaStopped = true
     fatal = e instanceof ProviderError ? `${e.code}: ${e.message}` : `Error inesperado: ${(e as Error).message}`
     if (!isProviderWide(e)) fatal = `Error inesperado: ${(e as Error).message}`
   }
