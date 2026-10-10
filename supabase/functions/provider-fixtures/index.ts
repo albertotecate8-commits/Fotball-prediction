@@ -4,7 +4,7 @@
 // Acciones: status · competitions · search. Nunca devuelve la clave.
 import { corsHeaders, json, requireAdmin, serviceClient } from '../_shared/http.deno.ts'
 import { ProviderError, type FixtureSearch, type NormalizedFixture } from '../_shared/football/index.ts'
-import { defaultProviderId, providerEnv, QUOTA, realProviderConfigured, resolveProvider } from '../_shared/providers.deno.ts'
+import { defaultProviderId, loadPlanFlags, providerEnv, QUOTA, realProviderConfigured, resolveProvider, savePlanFlags } from '../_shared/providers.deno.ts'
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/
 const PROVIDERS = ['api-football', 'mock']
@@ -75,10 +75,10 @@ Deno.serve(async (req) => {
     if (!provider.isTestData && !f.competitionId && !f.from) return json(req, { error: 'FILTER_REQUIRED' }, 400)
 
     // Si ya se sabe que el plan no cubre la temporada, se busca por días sin gastar una solicitud.
-    const restricted = !provider.isTestData && (await cacheGet<boolean>('season_restricted')) === true
+    await loadPlanFlags(db, provider)
     const query: FixtureSearch = {
       competitionId: f.competitionId?.toString().slice(0, 20) || undefined,
-      season: restricted ? undefined : f.season?.toString().slice(0, 9) || undefined,
+      season: f.season?.toString().slice(0, 9) || undefined,
       from: f.from, to: f.to,
       status: f.status,
     }
@@ -87,7 +87,7 @@ Deno.serve(async (req) => {
     const cached = fixtures !== null
     if (!fixtures) {
       fixtures = await provider.searchFixtures(query)
-      if (!restricted && (provider as { seasonRestricted?: boolean }).seasonRestricted) await cachePut('season_restricted', true, 24 * 3600)
+      await savePlanFlags(db, provider)
       // Rangos que incluyen hoy cambian más; el futuro lejano casi no.
       const touchesToday = (query.from ?? today) <= today && (query.to ?? query.from ?? today) >= today
       if (!provider.isTestData) await cachePut(key, fixtures.map(({ raw: _raw, ...rest }) => rest), touchesToday ? 1800 : 6 * 3600)

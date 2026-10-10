@@ -217,6 +217,8 @@ export class ApiFootballProvider implements FootballProvider {
    * restringida se recurre a una consulta por día (todas las ligas) y se filtra.
    */
   seasonRestricted = false
+  /** El plan no permite consultar por id: se usan directamente los días. */
+  idsRestricted = false
 
   private statusParam(q: FixtureSearch) {
     return q.status === 'scheduled' ? 'NS-TBD' : q.status === 'live' ? '1H-HT-2H-ET-BT-P-LIVE' : q.status === 'finished' ? 'FT-AET-PEN' : undefined
@@ -266,6 +268,9 @@ export class ApiFootballProvider implements FootballProvider {
 
   async getFixturesByIds(ids: string[], hint?: { dates?: string[] }): Promise<NormalizedFixture[]> {
     const out: NormalizedFixture[] = []
+    const wanted = new Set(ids)
+    const viaDays = async () => (await this.byDays([...new Set(hint!.dates!)].sort().slice(0, MAX_DAYS_BY_DATE))).filter((f) => wanted.has(f.external_id))
+    if (this.idsRestricted && hint?.dates?.length) return viaDays()
     try {
       for (let i = 0; i < ids.length; i += MAX_IDS_PER_REQUEST) {
         const chunk = ids.slice(i, i + MAX_IDS_PER_REQUEST)
@@ -276,9 +281,8 @@ export class ApiFootballProvider implements FootballProvider {
     } catch (e) {
       // Plan sin acceso por id: consultar los días de los partidos pendientes.
       if (!(e instanceof ProviderError) || e.code !== 'PLAN_RESTRICTED' || !hint?.dates?.length) throw e
-      const wanted = new Set(ids)
-      const days = [...new Set(hint.dates)].sort().slice(0, MAX_DAYS_BY_DATE)
-      return (await this.byDays(days)).filter((f) => wanted.has(f.external_id))
+      this.idsRestricted = true
+      return viaDays()
     }
   }
 

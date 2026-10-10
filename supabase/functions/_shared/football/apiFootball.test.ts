@@ -188,7 +188,10 @@ describe('clasificación de errores', () => {
     const r = await p.getFixturesByIds(['1001'], { dates: ['2026-10-12', '2026-10-12'] })
     expect(r.map((f) => f.external_id)).toEqual(['1001'])
     expect(fetchImpl).toHaveBeenCalledTimes(2)
-    await expect(p.getFixturesByIds(['1001'])).rejects.toMatchObject({ code: 'PLAN_RESTRICTED' })
+    // Ya se sabe que el plan no permite ids: la siguiente sincronización gasta 1 sola solicitud.
+    expect(p.idsRestricted).toBe(true)
+    await p.getFixturesByIds(['1001'], { dates: ['2026-10-12'] })
+    expect(fetchImpl).toHaveBeenCalledTimes(3)
   })
 })
 

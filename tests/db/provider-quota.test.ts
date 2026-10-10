@@ -122,3 +122,16 @@ describe('datos reales y de prueba', () => {
     await sql(`insert into public.round_matches (round_id, match_id, position) values ($1, $2, 2)`, [round.roundId, other])
   })
 })
+
+describe('historial de resultados al importar', () => {
+  it('un partido importado ya terminado queda en match_results una sola vez', async () => {
+    const fx = [{
+      external_id: `hist-${Date.now()}`, kickoff_at: new Date(Date.now() - 3 * 3600e3).toISOString(), status: 'finished', home_goals: 2, away_goals: 0,
+      home: { external_id: 'H9', name: 'Local Real', short_name: 'Local' }, away: { external_id: 'A9', name: 'Visita Real', short_name: 'Visita' },
+    }]
+    const [a] = await asService(`select public.upsert_provider_fixtures('api-football', $1::jsonb, false) as r`, [JSON.stringify(fx)])
+    await asService(`select public.upsert_provider_fixtures('api-football', $1::jsonb, false) as r`, [JSON.stringify(fx)])
+    const rows = await sql(`select status, home_goals, away_goals, is_final, source from public.match_results where match_id = $1`, [a!.r.match_ids[0]])
+    expect(rows).toEqual([{ status: 'finished', home_goals: 2, away_goals: 0, is_final: true, source: 'provider' }])
+  })
+})

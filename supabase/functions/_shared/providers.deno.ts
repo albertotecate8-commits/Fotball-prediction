@@ -28,6 +28,22 @@ export function dbGate(db: SupabaseClient, provider: string): RequestGate {
   }
 }
 
+/**
+ * Lo que se sabe del plan (temporadas o ids no disponibles) se recuerda 24 h
+ * en provider_cache para no gastar una solicitud en descubrirlo cada vez.
+ */
+export async function loadPlanFlags(db: SupabaseClient, p: FootballProvider | null) {
+  if (!p || p.isTestData) return
+  const { data } = await db.rpc('provider_cache_get', { p_provider: p.id, p_key: 'plan_flags' })
+  Object.assign(p, { seasonRestricted: data?.seasonRestricted === true, idsRestricted: data?.idsRestricted === true })
+}
+export async function savePlanFlags(db: SupabaseClient, p: FootballProvider | null) {
+  if (!p || p.isTestData) return
+  const f = p as unknown as { seasonRestricted?: boolean; idsRestricted?: boolean }
+  if (!f.seasonRestricted && !f.idsRestricted) return
+  await db.rpc('provider_cache_put', { p_provider: p.id, p_key: 'plan_flags', p_payload: { seasonRestricted: !!f.seasonRestricted, idsRestricted: !!f.idsRestricted }, p_ttl_seconds: 86400 })
+}
+
 /** Proveedor por id o null si no está configurado (los datos reales nunca caen a ficticios). */
 export function resolveProvider(db: SupabaseClient, id: string): FootballProvider | null {
   const env = providerEnv()

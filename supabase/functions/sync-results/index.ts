@@ -2,7 +2,7 @@
 // Invocación: pg_cron (cabecera x-sync-secret) o un admin desde el panel.
 // Un candado impide dos sincronizaciones simultáneas (cron + botón).
 import { corsHeaders, json, requireAdmin, safeEqual, serviceClient } from '../_shared/http.deno.ts'
-import { providerEnv, realProviderConfigured, resolveProvider } from '../_shared/providers.deno.ts'
+import { loadPlanFlags, providerEnv, realProviderConfigured, resolveProvider, savePlanFlags } from '../_shared/providers.deno.ts'
 import { runAllProviders, type SyncStore } from '../_shared/football/sync.ts'
 
 const LEASE = 'sync-results'
@@ -38,6 +38,7 @@ Deno.serve(async (req) => {
     const configured = realProviderConfigured(providerEnv())
     const p = configured ? resolveProvider(db, 'api-football') : null
     if (!p) return json(req, { api_football_configured: false })
+    await loadPlanFlags(db, p)
     const league = /^\d{1,6}$/.test(body.league ?? '') ? body.league! : '262'
     const out: Record<string, unknown> = { api_football_configured: true, status: await p.status() }
     if (/^\d{1,10}(-\d{1,10}){0,4}$/.test(body.ids ?? '')) {
@@ -45,6 +46,7 @@ Deno.serve(async (req) => {
       try {
         const fx = await p.getFixturesByIds(body.ids!.split('-'), { dates: body.date ? [body.date] : [] })
         out.ids_result = fx.map((f) => ({ id: f.external_id, status: f.status, score: [f.home_goals, f.away_goals], match: `${f.home.name} vs ${f.away.name}` }))
+        await savePlanFlags(db, p)
         if (body.import) {
           // Igual que la importación del admin: guarda los partidos reales, sin agregarlos a ninguna jornada.
           const { data, error } = await db.rpc('upsert_provider_fixtures', { p_provider: p.id, p_fixtures: fx.map(({ raw: _raw, ...rest }) => rest), p_is_test_data: false })
@@ -109,7 +111,14 @@ Deno.serve(async (req) => {
 
   let result
   try {
-    result = await runAllProviders(store, (id) => resolveProvider(db, id), viaCron ? 'cron' : 'manual')
+    const resolved = new Map<string, ReturnType<typeof resolveProvider>>()
+    for (const id of ['api-football', 'mock']) {
+      const p = resolveProvider(db, id)
+      await loadPlanFlags(db, p)
+      resolved.set(id, p)
+    }
+    result = await runAllProviders(store, (id) => resolved.get(id) ?? resolveProvider(db, id), viaCron ? 'cron' : 'manual')
+    for (const p of resolved.values()) await savePlanFlags(db, p)
   } catch (e) {
     return json(req, { error: 'SYNC_FAILED', message: (e as Error).message }, 500)
   } finally {
