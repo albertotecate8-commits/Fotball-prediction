@@ -27,6 +27,7 @@ export interface ManualCandidate { external_id: string; kickoff_at: string; home
 export type ManualMatchResponse =
   | { kind: 'linked'; match_id: string; already_imported: boolean; is_test_data: boolean; fixture: ManualCandidate }
   | { kind: 'manual'; match_id: string; created: boolean }
+  | { kind: 'pending_link'; match_id: string; created: boolean; message: string }
   | { kind: 'ambiguous' | 'not_found'; candidates: ManualCandidate[] }
 export interface ProviderStatusResponse { default_provider: string; providers: ProviderInfo[] }
 export interface SyncNowResponse {

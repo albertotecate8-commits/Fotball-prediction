@@ -247,3 +247,31 @@ describe('selección del proveedor', () => {
     expect(createProvider('api-football', { API_FOOTBALL_KEY: 'k' }).isTestData).toBe(false)
   })
 })
+
+describe('ventana de fechas del plan gratuito', () => {
+  const now = () => new Date('2026-10-10T05:00:00Z')
+  const dateRestricted = () => new Response(JSON.stringify({ errors: { plan: 'Free plans do not have access to this date, try from 2026-10-09 to 2026-10-11.' }, response: [] }), { status: 200 })
+
+  it('aprende la ventana y deja de gastar solicitudes en días fuera de ella', async () => {
+    const fetchImpl = vi.fn(async (u: string) => (new URL(u).searchParams.get('date')! > '2026-10-11' ? dateRestricted() : ok([fixture()])))
+    const p = new ApiFootballProvider({ apiKey: 'k', fetchImpl: fetchImpl as never, sleep: async () => {}, now })
+    await expect(p.searchFixtures({ from: '2026-10-17' })).rejects.toMatchObject({ code: 'PLAN_RESTRICTED', message: expect.stringMatching(/ayer a mañana/) })
+    expect(p.dateWindow).toEqual([-1, 1])
+    expect(fetchImpl).toHaveBeenCalledTimes(1)
+    await expect(p.searchFixtures({ from: '2026-10-18' })).rejects.toMatchObject({ code: 'PLAN_RESTRICTED' })
+    expect(fetchImpl).toHaveBeenCalledTimes(1)
+    // Por competición en un rango: solo consulta los días permitidos.
+    await p.searchFixtures({ competitionId: '262', from: '2026-10-10', to: '2026-10-15' })
+    expect(fetchImpl).toHaveBeenCalledTimes(3)
+  })
+
+  it('la sincronización no falla por días fuera de la ventana: los omite', async () => {
+    const fetchImpl = vi.fn()
+    const p = new ApiFootballProvider({ apiKey: 'k', fetchImpl, sleep: async () => {}, now })
+    p.idsRestricted = true
+    p.dateWindow = [-1, 1]
+    expect(await p.getFixturesByIds(['1'], { dates: ['2026-10-05'] })).toEqual([])
+    expect(fetchImpl).not.toHaveBeenCalled()
+  })
+})
+

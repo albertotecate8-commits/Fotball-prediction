@@ -2,7 +2,8 @@
 // competición. Solo con un candidato claro; si no, devuelve candidatos para que
 // el admin elija. Crear un partido SIN proveedor requiere pedirlo explícitamente.
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2'
-import type { FootballProvider, NormalizedFixture } from './football/index.ts'
+import { ProviderError, type FootballProvider, type NormalizedFixture } from './football/index.ts'
+import { loadPlanFlags, savePlanFlags } from './providers.deno.ts'
 import { findProviderMatch, utcDaysAround } from './football/matching.ts'
 
 export interface ManualInput {
@@ -13,6 +14,35 @@ export interface ManualInput {
   competitionName?: string
   pick_external_id?: string
   create_unlinked?: boolean
+}
+
+/** Partidos de varios días (todas las ligas), en caché: 1 solicitud por día UTC. */
+export async function dayFixtures(db: SupabaseClient, provider: FootballProvider, days: string[], today: string): Promise<NormalizedFixture[]> {
+  const fixtures: NormalizedFixture[] = []
+  let lastError: unknown = null
+  for (const date of days) {
+    const key = `day:${date}`
+    let dayFx: NormalizedFixture[] | null = null
+    if (!provider.isTestData) {
+      const { data } = await db.rpc('provider_cache_get', { p_provider: provider.id, p_key: key })
+      dayFx = data ?? null
+    }
+    if (!dayFx) {
+      try {
+        dayFx = (await provider.searchFixtures({ from: date })).map(({ raw: _raw, ...rest }) => rest)
+      } catch (e) {
+        // Un día fuera de la ventana no impide usar los demás.
+        if (e instanceof ProviderError && e.code === 'PLAN_RESTRICTED') { lastError = e; continue }
+        throw e
+      }
+      if (!provider.isTestData) {
+        await db.rpc('provider_cache_put', { p_provider: provider.id, p_key: key, p_payload: dayFx, p_ttl_seconds: date <= today ? 1800 : 6 * 3600 })
+      }
+    }
+    fixtures.push(...dayFx)
+  }
+  if (lastError && fixtures.length === 0) throw lastError
+  return fixtures
 }
 
 const summary = (x: NormalizedFixture) => ({
@@ -28,31 +58,27 @@ export async function linkManualMatch(db: SupabaseClient, provider: FootballProv
   const competitionId = m.competitionId?.toString().slice(0, 20) || undefined
   const today = new Date().toISOString().slice(0, 10)
 
-  if (m.create_unlinked) {
+  const createManual = async () => {
     const { data, error } = await db.rpc('create_manual_match', {
       p_home: home, p_away: away, p_kickoff: kickoffIso, p_competition: m.competitionName?.toString().slice(0, 80) ?? null, p_actor: actorId,
     })
     if (error) throw new Error(error.message)
-    return { kind: 'manual' as const, match_id: data.match_id as string, created: data.created as boolean }
+    return { match_id: data.match_id as string, created: data.created as boolean }
   }
+  if (m.create_unlinked) return { kind: 'manual' as const, ...(await createManual()) }
 
-  // Partidos del día (todas las ligas), en caché: 1 solicitud por día UTC.
-  const fixtures: NormalizedFixture[] = []
-  for (const date of utcDaysAround(kickoffIso)) {
-    const key = `day:${date}`
-    let dayFx: NormalizedFixture[] | null = null
-    if (!provider.isTestData) {
-      const { data } = await db.rpc('provider_cache_get', { p_provider: provider.id, p_key: key })
-      dayFx = data ?? null
-    }
-    if (!dayFx) {
-      dayFx = (await provider.searchFixtures({ from: date })).map(({ raw: _raw, ...rest }) => rest)
-      if (!provider.isTestData) {
-        await db.rpc('provider_cache_put', { p_provider: provider.id, p_key: key, p_payload: dayFx, p_ttl_seconds: date <= today ? 1800 : 6 * 3600 })
-      }
-    }
-    fixtures.push(...dayFx)
+  await loadPlanFlags(db, provider)
+  let fixtures: NormalizedFixture[]
+  try {
+    fixtures = await dayFixtures(db, provider, utcDaysAround(kickoffIso), today)
+  } catch (e) {
+    await savePlanFlags(db, provider)
+    if (!(e instanceof ProviderError) || e.code !== 'PLAN_RESTRICTED') throw e
+    // Fecha aún fuera de la ventana del plan: se guarda como manual y el
+    // sincronizador lo vinculará solo cuando el proveedor permita consultarla.
+    return { kind: 'pending_link' as const, provider: provider.id, message: e.message, ...(await createManual()) }
   }
+  await savePlanFlags(db, provider)
 
   const picked = m.pick_external_id ? fixtures.find((x) => x.external_id === m.pick_external_id) : undefined
   const decision = picked ? { kind: 'linked' as const, fixture: picked } : findProviderMatch({ home, away, kickoff_at: kickoffIso, competitionId }, fixtures)
@@ -71,4 +97,34 @@ export async function linkManualMatch(db: SupabaseClient, provider: FootballProv
     details: { input: { home, away, kickoff_at: kickoffIso, competitionId }, provider: provider.id, external_id: decision.fixture.external_id, already_imported: alreadyImported },
   })
   return { kind: 'linked' as const, provider: provider.id, is_test_data: provider.isTestData, match_id: matchId, already_imported: alreadyImported, fixture: summary(decision.fixture) }
+}
+
+/**
+ * Paso del sincronizador: vincula los partidos manuales de jornadas cuya fecha
+ * ya entra en la ventana del plan. Comparte la caché por día con el panel.
+ */
+export async function autoLinkManual(db: SupabaseClient, provider: FootballProvider) {
+  const w = (provider as unknown as { dateWindow?: [number, number] | null }).dateWindow ?? [-1, 1]
+  const { data: cands, error } = await db.rpc('get_link_candidates', { p_days_back: Math.max(0, -w[0]), p_days_ahead: Math.max(0, w[1]) })
+  if (error) throw new Error(`get_link_candidates: ${error.message}`)
+  const list = (cands ?? []) as { match_id: string; home: string; away: string; kickoff_at: string }[]
+  const out = { checked: list.length, linked: 0, pending: 0, conflicts: 0 }
+  if (!list.length) return out
+
+  const today = new Date().toISOString().slice(0, 10)
+  const days = [...new Set(list.map((c) => new Date(c.kickoff_at).toISOString().slice(0, 10)))]
+  const fixtures = await dayFixtures(db, provider, days, today)
+  for (const c of list) {
+    const d = findProviderMatch({ home: c.home, away: c.away, kickoff_at: c.kickoff_at }, fixtures)
+    if (d.kind === 'linked') {
+      const { data: r, error: e } = await db.rpc('link_manual_match', { p_match_id: c.match_id, p_provider: provider.id, p_fixture: d.fixture })
+      if (e) throw new Error(`link_manual_match: ${e.message}`)
+      if (r?.linked) out.linked++
+      else out.conflicts++
+    } else {
+      await db.rpc('record_link_attempt', { p_match_id: c.match_id })
+      out.pending++
+    }
+  }
+  return out
 }

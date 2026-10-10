@@ -408,6 +408,10 @@ function ManualMatchForm({ providerId, disabled, competitionId, tz, onAdded }: {
         toast(`Vinculado: ${r.fixture.home} vs ${r.fixture.away}${r.already_imported ? ' (ya estaba importado)' : ''}`)
         setCandidates(null)
         await onAdded(r.match_id)
+      } else if (r.kind === 'pending_link') {
+        toast(`${r.message}. Se agregó y se vinculará solo cuando el proveedor permita consultar esa fecha.`)
+        setCandidates(null)
+        await onAdded(r.match_id)
       } else if (r.kind === 'manual') {
         toast(r.created ? 'Partido creado sin proveedor: registrarás su resultado a mano' : 'Ese partido manual ya existía')
         setCandidates(null)
@@ -423,7 +427,7 @@ function ManualMatchForm({ providerId, disabled, competitionId, tz, onAdded }: {
     <details className="card-flat p-3">
       <summary className="cursor-pointer text-sm font-semibold">Agregar partido por equipos</summary>
       <div className="mt-3 space-y-3">
-        <p className="text-xs text-muted">Se busca en el proveedor por equipos, fecha y competición (si elegiste una arriba). Si ya estaba importado, se reutiliza.</p>
+        <p className="text-xs text-muted">Se busca en el proveedor por equipos, fecha y competición (si elegiste una arriba). Si ya estaba importado, se reutiliza. Si la fecha aún no se puede consultar, el partido se vincula solo más adelante.</p>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Local">{(id) => <Input id={id} value={home} onChange={(e) => setHome(e.target.value)} placeholder="Real Madrid" />}</Field>
           <Field label="Visitante">{(id) => <Input id={id} value={away} onChange={(e) => setAway(e.target.value)} placeholder="Barcelona" />}</Field>

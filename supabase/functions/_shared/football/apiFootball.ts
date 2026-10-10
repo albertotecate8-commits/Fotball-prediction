@@ -133,6 +133,7 @@ export interface ApiFootballOptions {
   sleep?: (ms: number) => Promise<void>
   /** Control de cuota compartido. Sin él no hay límite propio (solo pruebas). */
   gate?: RequestGate
+  now?: () => Date
 }
 
 export class ApiFootballProvider implements FootballProvider {
@@ -219,19 +220,58 @@ export class ApiFootballProvider implements FootballProvider {
   seasonRestricted = false
   /** El plan no permite consultar por id: se usan directamente los días. */
   idsRestricted = false
+  /** Días consultables respecto a hoy (UTC), p. ej. [-1, 1] en el plan gratuito. */
+  dateWindow: [number, number] | null = null
+
+  private todayUtc() {
+    return (this.opts.now?.() ?? new Date()).toISOString().slice(0, 10)
+  }
+
+  private offsetOf(date: string) {
+    return Math.round((Date.parse(`${date}T00:00:00Z`) - Date.parse(`${this.todayUtc()}T00:00:00Z`)) / DAY)
+  }
+
+  /** «try from 2026-10-09 to 2026-10-11» → [-1, 1] */
+  private learnDateWindow(message: string) {
+    const m = /from (\d{4}-\d{2}-\d{2}) to (\d{4}-\d{2}-\d{2})/.exec(message)
+    if (m && /date/i.test(message)) this.dateWindow = [this.offsetOf(m[1]!), this.offsetOf(m[2]!)]
+    return !!m
+  }
+
+  private inWindow(date: string) {
+    if (!this.dateWindow) return true
+    const o = this.offsetOf(date)
+    return o >= this.dateWindow[0] && o <= this.dateWindow[1]
+  }
 
   private statusParam(q: FixtureSearch) {
     return q.status === 'scheduled' ? 'NS-TBD' : q.status === 'live' ? '1H-HT-2H-ET-BT-P-LIVE' : q.status === 'finished' ? 'FT-AET-PEN' : undefined
   }
 
-  private async byDays(days: string[], status?: string): Promise<NormalizedFixture[]> {
+  /**
+   * Una consulta por día. Los días fuera de la ventana del plan se omiten sin
+   * gastar solicitudes; `strict` exige que al menos un día sea consultable.
+   */
+  private async byDays(days: string[], status?: string, strict = true): Promise<NormalizedFixture[]> {
     if (days.length > MAX_DAYS_BY_DATE) {
       throw new ProviderError(`Con el plan gratuito busca como máximo ${MAX_DAYS_BY_DATE} días por competición`, false, undefined, 'BAD_REQUEST')
     }
     const out: NormalizedFixture[] = []
+    let consulted = 0
     for (const date of days) {
-      const rows = await this.request<ApiFixture[]>('/fixtures', { date, status, timezone: 'UTC' })
-      out.push(...(rows ?? []).map(normalizeApiFootballFixture))
+      if (!this.inWindow(date)) continue
+      try {
+        const rows = await this.request<ApiFixture[]>('/fixtures', { date, status, timezone: 'UTC' })
+        out.push(...(rows ?? []).map(normalizeApiFootballFixture))
+        consulted++
+      } catch (e) {
+        if (!(e instanceof ProviderError) || e.code !== 'PLAN_RESTRICTED' || !this.learnDateWindow(e.message)) throw e
+      }
+    }
+    if (strict && consulted === 0) {
+      const w = this.dateWindow
+      const range = w ? `${w[0] === -1 ? 'ayer' : `${w[0]} días`} a ${w[1] === 1 ? 'mañana' : `${w[1]} días`}` : 'fechas cercanas'
+      throw new ProviderError(`El plan del proveedor solo consulta partidos de ${range}`, false, undefined, 'PLAN_RESTRICTED')
     }
     return out
   }
@@ -269,7 +309,7 @@ export class ApiFootballProvider implements FootballProvider {
   async getFixturesByIds(ids: string[], hint?: { dates?: string[] }): Promise<NormalizedFixture[]> {
     const out: NormalizedFixture[] = []
     const wanted = new Set(ids)
-    const viaDays = async () => (await this.byDays([...new Set(hint!.dates!)].sort().slice(0, MAX_DAYS_BY_DATE))).filter((f) => wanted.has(f.external_id))
+    const viaDays = async () => (await this.byDays([...new Set(hint!.dates!)].sort().slice(0, MAX_DAYS_BY_DATE), undefined, false)).filter((f) => wanted.has(f.external_id))
     if (this.idsRestricted && hint?.dates?.length) return viaDays()
     try {
       for (let i = 0; i < ids.length; i += MAX_IDS_PER_REQUEST) {

@@ -2,7 +2,7 @@
 // Invocación: pg_cron (cabecera x-sync-secret) o un admin desde el panel.
 // Un candado impide dos sincronizaciones simultáneas (cron + botón).
 import { corsHeaders, json, requireAdmin, safeEqual, serviceClient } from '../_shared/http.deno.ts'
-import { linkManualMatch, type ManualInput } from '../_shared/manualLink.deno.ts'
+import { autoLinkManual, linkManualMatch, type ManualInput } from '../_shared/manualLink.deno.ts'
 import type { ApiFootballProvider } from '../_shared/football/index.ts'
 import { loadPlanFlags, providerEnv, realProviderConfigured, resolveProvider, savePlanFlags } from '../_shared/providers.deno.ts'
 import { runAllProviders, type SyncStore } from '../_shared/football/sync.ts'
@@ -151,7 +151,17 @@ Deno.serve(async (req) => {
       await loadPlanFlags(db, p)
       resolved.set(id, p)
     }
-    result = await runAllProviders(store, (id) => resolved.get(id) ?? resolveProvider(db, id), viaCron ? 'cron' : 'manual')
+    // Partidos capturados a mano que ya pueden vincularse con el proveedor real.
+    let autoLink: Record<string, unknown> | null = null
+    const real = resolved.get('api-football')
+    if (real) {
+      try {
+        autoLink = await autoLinkManual(db, real)
+      } catch (e) {
+        autoLink = { error: (e as Error).message }
+      }
+    }
+    result = { ...(await runAllProviders(store, (id) => resolved.get(id) ?? resolveProvider(db, id), viaCron ? 'cron' : 'manual')), autoLink }
     for (const p of resolved.values()) await savePlanFlags(db, p)
   } catch (e) {
     return json(req, { error: 'SYNC_FAILED', message: (e as Error).message }, 500)

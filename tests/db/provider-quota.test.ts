@@ -155,3 +155,53 @@ describe('partidos manuales sin proveedor', () => {
     await expectDbError(asService(`select public.create_manual_match('Mismo', 'mismo', now(), null, null)`), 'INVALID_MATCH')
   })
 })
+
+describe('vinculación automática de partidos manuales', () => {
+  it('convierte el partido manual en el del proveedor conservando id, jornada y pronósticos', async () => {
+    const kickoff = new Date(Date.now() + 5 * 3600e3).toISOString()
+    const [c] = await asService(`select public.create_manual_match('Querétaro', 'Atlante', $1, 'Liga MX', null) as r`, [kickoff])
+    const id = c!.r.match_id as string
+    const g = await createGroup([])
+    const [r] = await sql(`insert into public.rounds (group_id, name, status, deadline_at) values ($1, 'J manual', 'draft', now() + interval '1 hour') returning id`, [g])
+    await sql(`insert into public.round_matches (round_id, match_id, position) values ($1, $2, 1)`, [r!.id, id])
+
+    const cands = await asService(`select * from public.get_link_candidates(1, 1)`)
+    expect(cands.map((x) => x.match_id)).toContain(id)
+
+    const fx = {
+      external_id: `af-${Date.now()}`, kickoff_at: new Date(Date.parse(kickoff) + 3600e3).toISOString(), status: 'scheduled', status_detail: 'NS',
+      competition: { external_id: '262', name: 'Liga MX' },
+      home: { external_id: '2282', name: 'Club Queretaro' }, away: { external_id: '9999', name: 'Atlante FC' },
+    }
+    const [l] = await asService(`select public.link_manual_match($1, 'api-football', $2::jsonb) as r`, [id, JSON.stringify(fx)])
+    expect(l!.r).toEqual({ linked: true })
+    const [m] = await sql(`select provider, external_id, result_source, kickoff_at from public.matches where id = $1`, [id])
+    expect(m).toMatchObject({ provider: 'api-football', external_id: fx.external_id, result_source: 'provider' })
+    expect(new Date(m!.kickoff_at).toISOString()).toBe(fx.kickoff_at)
+    const [rm] = await sql(`select count(*)::int n from public.round_matches where round_id = $1 and match_id = $2`, [r!.id, id])
+    expect(rm!.n).toBe(1)
+    expect(await sql(`select 1 from public.audit_logs where action = 'match.manual_auto_linked' and entity_id = $1`, [id])).toHaveLength(1)
+
+    // Ya no es candidato y otro manual con el mismo id externo no genera duplicado.
+    expect((await asService(`select * from public.get_link_candidates(1, 1)`)).map((x) => x.match_id)).not.toContain(id)
+    const [c2] = await asService(`select public.create_manual_match('Querétaro FC', 'Atlante', $1, null, null) as r`, [kickoff])
+    const [l2] = await asService(`select public.link_manual_match($1, 'api-football', $2::jsonb) as r`, [c2!.r.match_id, JSON.stringify(fx)])
+    expect(l2!.r).toMatchObject({ linked: false, reason: 'ALREADY_IMPORTED', existing_match_id: id })
+  })
+
+  it('respeta el resultado que el admin ya registró', async () => {
+    const kickoff = new Date(Date.now() - 3 * 3600e3).toISOString()
+    const [c] = await asService(`select public.create_manual_match('Local Admin', 'Visita Admin', $1, null, null) as r`, [kickoff])
+    const id = c!.r.match_id as string
+    await sql(`update public.matches set status = 'finished', home_goals = 2, away_goals = 0, result_confirmed = true, confirmed_at = now() where id = $1`, [id])
+    const fx = { external_id: `af2-${Date.now()}`, kickoff_at: kickoff, status: 'finished', home_goals: 1, away_goals: 1, home: { external_id: 'x1', name: 'Local Admin' }, away: { external_id: 'x2', name: 'Visita Admin' } }
+    await asService(`select public.link_manual_match($1, 'api-football', $2::jsonb)`, [id, JSON.stringify(fx)])
+    const [m] = await sql(`select result_source, home_goals, away_goals from public.matches where id = $1`, [id])
+    expect(m).toEqual({ result_source: 'admin', home_goals: 2, away_goals: 0 })
+  })
+
+  it('los jugadores no pueden vincular', async () => {
+    const u = await createUser()
+    await expectDbError(asUser(u, `select * from public.get_link_candidates(1, 1)`), 'permission denied')
+  })
+})

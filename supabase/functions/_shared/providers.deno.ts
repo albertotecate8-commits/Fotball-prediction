@@ -35,13 +35,17 @@ export function dbGate(db: SupabaseClient, provider: string): RequestGate {
 export async function loadPlanFlags(db: SupabaseClient, p: FootballProvider | null) {
   if (!p || p.isTestData) return
   const { data } = await db.rpc('provider_cache_get', { p_provider: p.id, p_key: 'plan_flags' })
-  Object.assign(p, { seasonRestricted: data?.seasonRestricted === true, idsRestricted: data?.idsRestricted === true })
+  const w = Array.isArray(data?.dateWindow) && data.dateWindow.length === 2 ? data.dateWindow.map(Number) : null
+  Object.assign(p, { seasonRestricted: data?.seasonRestricted === true, idsRestricted: data?.idsRestricted === true, dateWindow: w })
 }
 export async function savePlanFlags(db: SupabaseClient, p: FootballProvider | null) {
   if (!p || p.isTestData) return
-  const f = p as unknown as { seasonRestricted?: boolean; idsRestricted?: boolean }
-  if (!f.seasonRestricted && !f.idsRestricted) return
-  await db.rpc('provider_cache_put', { p_provider: p.id, p_key: 'plan_flags', p_payload: { seasonRestricted: !!f.seasonRestricted, idsRestricted: !!f.idsRestricted }, p_ttl_seconds: 86400 })
+  const f = p as unknown as { seasonRestricted?: boolean; idsRestricted?: boolean; dateWindow?: [number, number] | null }
+  if (!f.seasonRestricted && !f.idsRestricted && !f.dateWindow) return
+  await db.rpc('provider_cache_put', {
+    p_provider: p.id, p_key: 'plan_flags',
+    p_payload: { seasonRestricted: !!f.seasonRestricted, idsRestricted: !!f.idsRestricted, dateWindow: f.dateWindow ?? null }, p_ttl_seconds: 86400,
+  })
 }
 
 /** Proveedor por id o null si no está configurado (los datos reales nunca caen a ficticios). */
