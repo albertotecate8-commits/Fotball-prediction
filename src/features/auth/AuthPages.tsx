@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
 import { MailCheck } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
+import { authEmailClient, supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/Button'
 import { Field, Input } from '@/components/ui/Field'
 import { InlineError } from '@/components/ui/States'
@@ -71,7 +71,7 @@ export function SignupPage() {
     const { data: status, error: statusError } = await supabase.rpc('auth_email_status', { p_email: clean })
     if (statusError) { setLoading(false); return setError(toAppError(statusError)) }
     if (status === 'pending' || status === 'registered') { setLoading(false); return setOutcome(status) }
-    const { data, error } = await supabase.auth.signUp({
+    const { data, error } = await authEmailClient.auth.signUp({
       email: clean, password,
       options: { data: { display_name: name.trim() }, emailRedirectTo: confirmRedirect() },
     })
@@ -133,7 +133,7 @@ export function ForgotPasswordPage() {
     e.preventDefault()
     setLoading(true)
     setError(null)
-    const { error } = await supabase.auth.resetPasswordForEmail(normalizeEmail(email), { redirectTo: appUrl('/restablecer') })
+    const { error } = await authEmailClient.auth.resetPasswordForEmail(normalizeEmail(email), { redirectTo: appUrl('/restablecer') })
     setLoading(false)
     if (error) return setError(toAppError(error))
     setSent(true)

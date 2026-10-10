@@ -7,7 +7,7 @@ import { useQuery } from '@tanstack/react-query'
 import { playerApi } from '@/services/player'
 import { profileApi } from '@/services/profile'
 import { qk } from '@/services/queryKeys'
-import { supabase } from '@/lib/supabase'
+import { authEmailClient } from '@/lib/supabase'
 import { useAppConfig } from '@/hooks/useAppConfig'
 import { formatDate } from '@/lib/time'
 import { brand } from '@/config/brand'
@@ -55,7 +55,7 @@ export function ProfilePage() {
   const resetPassword = async () => {
     const email = session.user.email
     if (!email) return
-    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: appUrl('/restablecer') })
+    const { error } = await authEmailClient.auth.resetPasswordForEmail(email, { redirectTo: appUrl('/restablecer') })
     toast(error ? 'No se pudo enviar el correo' : `Enviamos un enlace a ${email}`, error ? 'error' : 'success')
   }
 

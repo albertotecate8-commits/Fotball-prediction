@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { CheckCircle2, MailWarning, RefreshCw } from 'lucide-react'
 import type { EmailOtpType } from '@supabase/supabase-js'
-import { supabase } from '@/lib/supabase'
+import { authEmailClient, supabase } from '@/lib/supabase'
 import { appUrl } from '@/lib/appUrl'
 import { isValidEmail, normalizeEmail, toAppError } from '@/lib/errors'
 import { Button } from '@/components/ui/Button'
@@ -119,7 +119,7 @@ export function ResendConfirmation({ initialEmail = '' }: { initialEmail?: strin
     e.preventDefault()
     setLoading(true)
     setError(null)
-    const { error } = await supabase.auth.resend({ type: 'signup', email: normalizeEmail(email), options: { emailRedirectTo: confirmRedirect() } })
+    const { error } = await authEmailClient.auth.resend({ type: 'signup', email: normalizeEmail(email), options: { emailRedirectTo: confirmRedirect() } })
     setLoading(false)
     if (error) return setError(toAppError(error))
     setSent(true)

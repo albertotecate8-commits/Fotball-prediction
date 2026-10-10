@@ -349,6 +349,43 @@ test.describe('pantallas', () => {
     await expect(page.getByText('Ocurrió un error inesperado')).toHaveCount(0)
   })
 
+  test('recuperar contraseña: el enlace abierto en otro navegador permite guardar la nueva contraseña', async ({ page }) => {
+    const user = { id: '00000000-0000-4000-8000-0000000000c3', aud: 'authenticated', role: 'authenticated', email: 'persona@example.test', email_confirmed_at: new Date().toISOString(), app_metadata: {}, user_metadata: {}, created_at: new Date().toISOString() }
+    let updated = false
+    await page.route('https://mock-project.supabase.co/**', (route) => {
+      const u = new URL(route.request().url())
+      if (u.pathname === '/auth/v1/user' && route.request().method() === 'PUT') { updated = true; return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(user) }) }
+      if (u.pathname === '/auth/v1/user') return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(user) })
+      if (u.pathname === '/rest/v1/profiles') return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: user.id, display_name: 'Persona', avatar_url: null, role: 'player', status: 'active', created_at: user.created_at }) })
+      return route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+    })
+    const exp = Math.floor(Date.now() / 1000) + 3600
+    const b64 = (o: unknown) => Buffer.from(JSON.stringify(o)).toString('base64url')
+    const jwt = `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64({ sub: user.id, exp, role: 'authenticated' })}.c2lnbmF0dXJl`
+    await page.goto(`/restablecer#access_token=${jwt}&refresh_token=ficticio&expires_at=${exp}&expires_in=3600&token_type=bearer&type=recovery`)
+    await expect(page.getByRole('heading', { name: 'Nueva contraseña' })).toBeVisible()
+    expect(page.url()).not.toContain('access_token')
+    await page.getByLabel('Contraseña', { exact: true }).fill('nueva-ficticia-123')
+    await page.getByLabel('Confirmar').fill('nueva-ficticia-123')
+    await page.getByRole('button', { name: 'Guardar' }).click()
+    await expect.poll(() => updated).toBe(true)
+  })
+
+  test('recuperar contraseña: el correo se pide con un enlace válido en cualquier navegador', async ({ page }) => {
+    let url = ''
+    await page.route('https://mock-project.supabase.co/**', (route) => {
+      const u = new URL(route.request().url())
+      if (u.pathname === '/auth/v1/recover') { url = route.request().url(); return route.fulfill({ status: 200, contentType: 'application/json', body: '{}' }) }
+      return route.fulfill({ status: 200, contentType: 'application/json', body: '{}' })
+    })
+    await page.goto('/recuperar')
+    await page.getByLabel('Correo').fill(' Persona@Example.test ')
+    await page.getByRole('button', { name: 'Enviar enlace' }).click()
+    await expect(page.getByText(/recibirás el enlace/)).toBeVisible()
+    expect(new URL(url).searchParams.get('redirect_to')).toMatch(/\/restablecer$/)
+    expect(url).not.toContain('code_challenge')
+  })
+
   test('login sin sesión', async ({ page }, info) => {
     await page.goto('/entrar')
     await expect(page.getByRole('heading', { name: 'Entrar' })).toBeVisible()

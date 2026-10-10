@@ -1,6 +1,6 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router'
-import { supabase } from '@/lib/supabase'
+import { sessionFromHash, supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/Button'
 import { Field, Input } from '@/components/ui/Field'
 import { InlineError } from '@/components/ui/States'
@@ -18,11 +18,19 @@ export function ResetPasswordPage() {
   const [confirm, setConfirm] = useState('')
   const [error, setError] = useState<unknown>(null)
   const [loading, setLoading] = useState(false)
+  // Enlace con la sesión en el fragmento (funciona en cualquier navegador).
+  const [hashState, setHashState] = useState<'checking' | 'done' | { error: string }>('checking')
+  useEffect(() => {
+    void sessionFromHash().then((r) => {
+      if (r.handled) window.history.replaceState(null, '', window.location.pathname)
+      setHashState(r.error ? { error: r.error } : 'done')
+    })
+  }, [])
 
-  if (authLoading) return <FullPageSpinner />
+  if (authLoading || hashState === 'checking') return <FullPageSpinner />
   if (!session) {
     return (
-      <AuthLayout title="Enlace no válido" subtitle="El enlace expiró o ya se usó. Solicita uno nuevo.">
+      <AuthLayout title="Enlace no válido" subtitle={typeof hashState === 'object' ? 'El enlace caducó o ya se usó. Solicita uno nuevo.' : 'El enlace expiró, ya se usó o se abrió en otro navegador. Solicita uno nuevo.'}>
         <Button size="lg" block onClick={() => navigate('/recuperar')}>Solicitar otro enlace</Button>
       </AuthLayout>
     )
