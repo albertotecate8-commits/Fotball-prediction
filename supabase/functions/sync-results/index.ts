@@ -28,7 +28,7 @@ Deno.serve(async (req) => {
     return data as T
   }
 
-  let body: { diagnose?: boolean; league?: string; date?: string; ids?: string } = {}
+  let body: { diagnose?: boolean; league?: string; date?: string; ids?: string; import?: boolean } = {}
   try { body = await req.json() } catch { /* cuerpo vacío */ }
 
   // Diagnóstico acotado (solo cron/servidor o admin): estado de la cuenta
@@ -45,6 +45,11 @@ Deno.serve(async (req) => {
       try {
         const fx = await p.getFixturesByIds(body.ids!.split('-'), { dates: body.date ? [body.date] : [] })
         out.ids_result = fx.map((f) => ({ id: f.external_id, status: f.status, score: [f.home_goals, f.away_goals], match: `${f.home.name} vs ${f.away.name}` }))
+        if (body.import) {
+          // Igual que la importación del admin: guarda los partidos reales, sin agregarlos a ninguna jornada.
+          const { data, error } = await db.rpc('upsert_provider_fixtures', { p_provider: p.id, p_fixtures: fx.map(({ raw: _raw, ...rest }) => rest), p_is_test_data: false })
+          out.imported = error ? `ERROR: ${error.message}` : data
+        }
       } catch (e) {
         out.error = `${(e as { code?: string }).code ?? 'ERROR'}: ${(e as Error).message}`
       }
