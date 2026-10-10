@@ -13,6 +13,8 @@ describe('RLS y separación entre grupos', () => {
 
   beforeAll(async () => {
     ;[alice, bob, carol] = await Promise.all([createUser('Alice'), createUser('Bob'), createUser('Carol')])
+    // Esta prueba aísla grupos privados: fuera de la quiniela oficial compartida.
+    await sql(`delete from public.group_members where user_id = any($1::uuid[]) and group_id in (select id from public.groups where is_default)`, [[alice, bob, carol]])
     groupA = await createGroup([alice, bob])
     groupB = await createGroup([carol])
     roundA = await createOpenRound(groupA, 2)

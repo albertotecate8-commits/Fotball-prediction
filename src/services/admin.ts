@@ -83,6 +83,7 @@ export interface AdminGroup {
   invite_code: string
   join_requires_approval: boolean
   is_active: boolean
+  is_default?: boolean
   created_at: string
 }
 
@@ -130,7 +131,7 @@ export const adminApi = {
   invite: (email: string, displayName: string, groupId: string | null) =>
     invokeFunction<{ user_id: string }>('admin-invite', { email, display_name: displayName, group_id: groupId }),
 
-  groups: async () => unwrap<AdminGroup[]>(await supabase.from('groups').select('*').order('created_at')),
+  groups: async () => unwrap<AdminGroup[]>(await supabase.from('groups').select('*').order('is_default', { ascending: false }).order('created_at')),
   saveGroup: (g: { id: string | null; name: string; description: string; join_requires_approval: boolean; is_active: boolean }) =>
     rpc<string>('admin_save_group', {
       p_group_id: g.id, p_name: g.name, p_description: g.description,

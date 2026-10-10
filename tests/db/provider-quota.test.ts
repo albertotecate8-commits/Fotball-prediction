@@ -235,3 +235,16 @@ describe('partidos destacados', () => {
     expect(await sql(`select 1 from public.featured_fixtures where provider = $1`, [p])).toHaveLength(2)
   })
 })
+
+describe('quiniela oficial', () => {
+  it('cada usuario nuevo queda activo en la quiniela oficial y ve sus jornadas', async () => {
+    const [g] = await sql(`select id from public.groups where is_default`)
+    expect(g).toBeTruthy()
+    const u = await createUser()
+    const [m] = await sql(`select status from public.group_members where group_id = $1 and user_id = $2`, [g!.id, u])
+    expect(m!.status).toBe('active')
+    const round = await createOpenRound(g!.id, 2)
+    const rounds = await asUser(u, `select round_id from public.get_my_rounds($1)`, [g!.id])
+    expect(rounds.map((r) => r.round_id)).toContain(round.roundId)
+  })
+})

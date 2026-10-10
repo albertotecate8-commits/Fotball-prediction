@@ -96,12 +96,14 @@ export function ProfilePage() {
         </div>
       )}
 
-      <Link to="/grupos" className="card mt-6 flex items-center gap-3 px-4 py-3 transition hover:border-aqua/30">
-        <Users className="size-5 text-aqua" />
-        <span className="flex-1 text-sm font-semibold">Mis grupos</span>
-        <span className="text-xs text-muted">{groups.length ? `${groups.length} · activo: ${group?.name ?? '—'}` : 'Unirme a un grupo'}</span>
-        <ChevronRight className="size-4 text-muted" />
-      </Link>
+      {groups.filter((g) => g.member_status === 'active').length > 1 && (
+        <Link to="/grupos" className="card mt-6 flex items-center gap-3 px-4 py-3 transition hover:border-aqua/30">
+          <Users className="size-5 text-aqua" />
+          <span className="flex-1 text-sm font-semibold">Quinielas privadas</span>
+          <span className="text-xs text-muted">activa: {group?.name}</span>
+          <ChevronRight className="size-4 text-muted" />
+        </Link>
+      )}
 
       {played.length > 0 && (
         <>

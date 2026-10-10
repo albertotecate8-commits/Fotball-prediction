@@ -1,9 +1,8 @@
 import { Link, NavLink, Outlet, useLocation } from 'react-router'
-import { Home, Ticket, Trophy, UserRound, Users, Shield, LogOut } from 'lucide-react'
+import { Home, Ticket, Trophy, UserRound, Shield, LogOut } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { useGroup } from '@/features/groups/GroupProvider'
-import { GroupSwitcher } from '@/features/home/GroupSwitcher'
 import { Avatar } from '@/components/ui/Avatar'
 import { BrandLogo } from '@/components/BrandLogo'
 
@@ -11,7 +10,6 @@ export const NAV = [
   { to: '/', label: 'Inicio', icon: Home, end: true },
   { to: '/quinielas', label: 'Quiniela', icon: Ticket, end: false },
   { to: '/clasificacion', label: 'Clasificación', icon: Trophy, end: false },
-  { to: '/grupos', label: 'Grupos', icon: Users, end: false },
   { to: '/perfil', label: 'Perfil', icon: UserRound, end: false },
 ]
 
@@ -47,7 +45,6 @@ function TopBar() {
   return (
     <header className="glass sticky top-0 z-30 -mx-4 mb-4 flex items-center gap-3 border-b border-line px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)] lg:hidden">
       <Link to="/" aria-label="Inicio" className="min-w-0 flex-1"><BrandLogo size="sm" /></Link>
-      <GroupSwitcher />
       <Link to="/perfil" aria-label="Mi perfil" className="rounded-full"><Avatar name={profile?.display_name ?? '?'} url={profile?.avatar_url} size={36} /></Link>
     </header>
   )
@@ -78,7 +75,7 @@ function Sidebar() {
         <Avatar name={profile?.display_name ?? '?'} url={profile?.avatar_url} size={38} />
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-semibold">{profile?.display_name}</div>
-          <div className="truncate text-xs text-muted">{group?.name ?? 'Sin grupo'}</div>
+          <div className="truncate text-xs text-muted">{group?.name ?? 'Quiniela oficial'}</div>
         </div>
         <button type="button" onClick={() => void signOut()} aria-label="Cerrar sesión" className="grid size-9 place-items-center rounded-full text-muted hover:bg-white/5 hover:text-ink">
           <LogOut className="size-4" />

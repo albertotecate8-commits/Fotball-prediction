@@ -21,15 +21,16 @@ test.describe('pantallas', () => {
     await page.screenshot({ path: shot('01-inicio', info.project.name), fullPage: true })
   })
 
-  test('inicio sin destacados ni grupo: estados vacíos con acciones reales', async ({ page }, info) => {
+  test('inicio sin destacados ni jornada: estados vacíos con acciones reales', async ({ page }, info) => {
     await mockBackend(page, { featured: [], noGroup: true })
     await page.goto('/')
     await expect(page.getByText('Sin partidos destacados por ahora')).toBeVisible()
-    await expect(page.getByText('Únete a un grupo para jugar la quiniela')).toBeVisible()
+    await expect(page.getByText('La quiniela oficial aún no tiene jornada')).toBeVisible()
+    await expect(page.getByText(/grupo/i)).toHaveCount(0)
     await expect(page.getByRole('heading', { name: 'En vivo' })).toHaveCount(0)
-    await page.getByRole('link', { name: 'Grupos', exact: true }).first().click()
-    await expect(page).toHaveURL(/\/grupos$/)
-    await expect(page.getByLabel('Código de invitación')).toBeVisible()
+    await page.getByRole('main').getByRole('link', { name: 'Quiniela', exact: true }).click()
+    await expect(page).toHaveURL(/\/quinielas$/)
+    await expect(page.getByText('Aún no hay partidos en la quiniela')).toBeVisible()
     await page.screenshot({ path: shot('01b-inicio-vacio', info.project.name), fullPage: true })
   })
 
@@ -45,9 +46,12 @@ test.describe('pantallas', () => {
   test('quinielas', async ({ page }, info) => {
     await mockBackend(page)
     await page.goto('/quinielas')
-    await expect(page.getByRole('tab', { name: /Disponibles/ })).toHaveAttribute('aria-selected', 'true')
-    await page.getByRole('tab', { name: /Finalizadas/ }).click()
+    await expect(page.getByRole('heading', { name: 'Partidos de la quiniela' })).toBeVisible()
+    await expect(page.getByText('Tu pronóstico:').first()).toBeVisible()
+    await expect(page.getByText('Sin pronóstico').first()).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Otras jornadas' })).toBeVisible()
     await expect(page.getByText('Jornada 11')).toBeVisible()
+    await expect(page.getByText(/grupo/i)).toHaveCount(0)
     await page.screenshot({ path: shot('02-quinielas', info.project.name), fullPage: true })
   })
 
@@ -121,7 +125,8 @@ test.describe('pantallas', () => {
     await mockBackend(page)
     await page.goto('/')
     const nav = page.getByRole('navigation', { name: 'Navegación principal' })
-    for (const [name, url] of [['Quiniela', /quinielas$/], ['Clasificación', /clasificacion$/], ['Grupos', /grupos$/], ['Perfil', /perfil$/], ['Inicio', /\/$/]] as const) {
+    await expect(nav.getByRole('link')).toHaveCount(4)
+    for (const [name, url] of [['Quiniela', /quinielas$/], ['Clasificación', /clasificacion$/], ['Perfil', /perfil$/], ['Inicio', /\/$/]] as const) {
       await nav.getByRole('link', { name }).click()
       await expect(page).toHaveURL(url)
       await expect(nav.getByRole('link', { name })).toHaveAttribute('aria-current', 'page')

@@ -1,79 +1,104 @@
-import { useMemo, useState } from 'react'
-import { Ticket } from 'lucide-react'
+import { Link } from 'react-router'
+import { useQuery } from '@tanstack/react-query'
+import { ChevronRight, Ticket } from 'lucide-react'
+import { useAuth } from '@/features/auth/AuthProvider'
 import { useGroup } from '@/features/groups/GroupProvider'
-import { NoGroupNotice } from '@/features/groups/NoGroupNotice'
 import { useAppConfig } from '@/hooks/useAppConfig'
-import { PageHeader } from '@/components/PageHeader'
-import { RoundCard } from '@/components/RoundCard'
-import { PillTabs } from '@/components/ui/Tabs'
+import { playerApi } from '@/services/player'
+import { qk } from '@/services/queryKeys'
+import { PageHeader, SectionTitle } from '@/components/PageHeader'
+import { RoundCard, roundHref } from '@/components/RoundCard'
+import { TeamCrest } from '@/components/TeamCrest'
+import { MatchStatusBadge } from '@/components/StatusBadge'
+import { TestDataBadge } from '@/components/ui/Badge'
+import { ButtonLink } from '@/components/ui/Button'
 import { CardSkeleton } from '@/components/ui/Skeleton'
 import { EmptyState, ErrorState } from '@/components/ui/States'
-import { FullPageSpinner } from '@/components/ui/Spinner'
-import { useRounds } from './useRounds'
-import type { RoundListItem } from '@/types/domain'
+import { QuinielaAccess } from '@/features/home/QuinielaAccess'
+import { formatShortDate, formatTime } from '@/lib/time'
+import { cn } from '@/lib/cn'
+import { pickFeaturedRound, useRounds } from './useRounds'
+import type { RoundListItem, RoundMatch } from '@/types/domain'
 
-type Tab = 'available' | 'mine' | 'live' | 'finished'
+const showsScore = (m: RoundMatch) => (m.status === 'live' || m.status === 'finished') && m.home_goals !== null
 
-const FILTERS: Record<Tab, (r: RoundListItem) => boolean> = {
-  available: (r) => r.phase === 'open' || r.phase === 'upcoming',
-  mine: (r) => r.my_status !== 'none',
-  live: (r) => r.phase === 'in_progress' || r.phase === 'closed',
-  finished: (r) => r.phase === 'finished' || r.phase === 'under_review',
+/** Un partido de la quiniela con el pronóstico del jugador y, si aplica, sus puntos. */
+function QuinielaMatch({ m, tz, to }: { m: RoundMatch; tz: string; to: string }) {
+  return (
+    <Link to={to} className={cn('card-flat group block border-l-2 px-3 py-3 transition hover:border-r-line-strong', m.status === 'live' ? 'border-l-red' : m.pick ? 'border-l-aqua' : 'border-l-line-strong')}>
+      <div className="mb-2 flex items-center justify-between gap-2 text-[11px] text-muted">
+        <span className="truncate">{m.competition?.name ?? 'Partido'}</span>
+        <span className="flex items-center gap-2">
+          <MatchStatusBadge status={m.status} elapsed={m.elapsed} confirmed={m.result_confirmed} />
+          {!showsScore(m) && <span className="capitalize">{formatShortDate(m.kickoff_at, tz)}</span>}
+        </span>
+      </div>
+      <div className="flex items-center gap-2">
+        <div className="flex min-w-0 flex-1 items-center justify-end gap-2 text-right">
+          <span className="truncate text-sm font-semibold">{m.home.short_name}</span>
+          <TeamCrest team={m.home} size={28} />
+        </div>
+        <div className="w-16 shrink-0 text-center">
+          {showsScore(m) ? <span className="scoreline text-xl">{m.home_goals}:{m.away_goals}</span> : <span className="scoreline text-lg">{formatTime(m.kickoff_at, tz)}</span>}
+        </div>
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <TeamCrest team={m.away} size={28} />
+          <span className="truncate text-sm font-semibold">{m.away.short_name}</span>
+        </div>
+      </div>
+      <div className="mt-2 flex items-center justify-between border-t border-line pt-2 text-xs">
+        {m.pick ? <span className="text-muted">Tu pronóstico: <span className="scoreline text-sm text-ink">{m.pick.home}-{m.pick.away}</span></span> : <span className="text-red">Sin pronóstico</span>}
+        {m.score ? <span className={cn('scoreline text-base', m.score.points === 5 ? 'text-aqua' : m.score.points === 3 ? 'text-success' : 'text-muted')}>+{m.score.points} pts</span>
+          : <ChevronRight className="size-4 text-faint transition group-hover:text-aqua" />}
+      </div>
+    </Link>
+  )
 }
 
-const EMPTY: Record<Tab, { title: string; description: string }> = {
-  available: { title: 'No hay jornadas abiertas', description: 'Te avisaremos aquí cuando el administrador abra la siguiente.' },
-  mine: { title: 'Aún no juegas', description: 'Tus borradores y quinielas enviadas aparecerán aquí.' },
-  live: { title: 'Nada en curso', description: 'Las jornadas cerradas con partidos en juego se muestran aquí.' },
-  finished: { title: 'Sin jornadas finalizadas', description: 'Cuando termine una jornada verás tus puntos y posición.' },
+function CurrentRound({ round, tz }: { round: RoundListItem; tz: string }) {
+  const detail = useQuery({ queryKey: qk.round(round.round_id), queryFn: () => playerApi.roundDetail(round.round_id), refetchInterval: 60_000 })
+  const to = roundHref(round)
+  return (
+    <>
+      <QuinielaAccess round={round} tz={tz} />
+      <SectionTitle>Partidos de la quiniela</SectionTitle>
+      {detail.isLoading ? <CardSkeleton lines={4} /> : detail.error ? <ErrorState error={detail.error} onRetry={() => void detail.refetch()} /> : (
+        <div className="space-y-2">
+          {detail.data!.matches.map((m) => <QuinielaMatch key={m.match_id} m={m} tz={tz} to={to} />)}
+          {detail.data!.matches.some((m) => m.is_test_data) && <div className="pt-1 text-center"><TestDataBadge /></div>}
+        </div>
+      )}
+    </>
+  )
 }
 
 export function RoundsPage() {
   const { group, loading } = useGroup()
+  const { isAdmin } = useAuth()
   const { timezone } = useAppConfig()
   const rounds = useRounds(group?.group_id)
-  const [tab, setTab] = useState<Tab>('available')
-
-  const counts = useMemo(() => {
-    const list = rounds.data ?? []
-    return Object.fromEntries((Object.keys(FILTERS) as Tab[]).map((t) => [t, list.filter(FILTERS[t]).length])) as Record<Tab, number>
-  }, [rounds.data])
-
-  if (loading) return <FullPageSpinner />
-  if (!group) return <><PageHeader title="Quiniela" /><NoGroupNotice what="la quiniela" /></>
-
-  const list = (rounds.data ?? []).filter(FILTERS[tab])
-  if (tab === 'available') list.sort((a, b) => +new Date(a.deadline_at) - +new Date(b.deadline_at))
+  const current = rounds.data ? pickFeaturedRound(rounds.data.filter((r) => r.phase !== 'draft')) : null
+  const others = (rounds.data ?? []).filter((r) => r.round_id !== current?.round_id)
 
   return (
     <div>
-      <PageHeader title="Quiniela" subtitle={`Jornadas oficiales · ${group.name}`} />
-      <div className="mb-4 grid grid-cols-3 gap-2" aria-label="Estado de mis pronósticos">
-        {[
-          { label: 'Pendientes', n: (rounds.data ?? []).filter((r) => r.phase === 'open' && r.my_status === 'none').length, tab: 'available' as Tab, tone: 'text-red' },
-          { label: 'Borradores', n: (rounds.data ?? []).filter((r) => r.phase === 'open' && r.my_status === 'draft').length, tab: 'mine' as Tab, tone: 'text-gold' },
-          { label: 'Enviadas', n: (rounds.data ?? []).filter((r) => r.my_status === 'submitted').length, tab: 'mine' as Tab, tone: 'text-aqua' },
-        ].map((c) => (
-          <button key={c.label} type="button" onClick={() => setTab(c.tab)} className="card-flat px-3 py-2.5 text-left transition hover:border-line-strong">
-            <div className={`scoreline text-2xl ${c.tone}`}>{c.n}</div>
-            <div className="text-[11px] font-semibold uppercase tracking-wider text-muted">{c.label}</div>
-          </button>
-        ))}
-      </div>
-      <PillTabs label="Filtrar jornadas" value={tab} onChange={setTab} className="mb-5" options={[
-        { value: 'available', label: 'Disponibles', count: counts.available },
-        { value: 'mine', label: 'Mis quinielas', count: counts.mine },
-        { value: 'live', label: 'En curso', count: counts.live },
-        { value: 'finished', label: 'Finalizadas', count: counts.finished },
-      ]} />
-      {rounds.isLoading ? (
-        <div className="space-y-3">{Array.from({ length: 3 }, (_, i) => <CardSkeleton key={i} lines={2} />)}</div>
-      ) : rounds.error ? (
+      <PageHeader title="Quiniela" subtitle="Partidos oficiales, tus pronósticos y puntos" />
+      {loading || rounds.isLoading ? <CardSkeleton lines={6} /> : rounds.error ? (
         <ErrorState error={rounds.error} onRetry={() => void rounds.refetch()} />
-      ) : list.length === 0 ? (
-        <EmptyState icon={<Ticket className="size-6" />} {...EMPTY[tab]} />
+      ) : current ? (
+        <CurrentRound round={current} tz={timezone} />
       ) : (
-        <div className="space-y-3">{list.map((r) => <RoundCard key={r.round_id} round={r} tz={timezone} />)}</div>
+        <EmptyState icon={<Ticket className="size-6" />} title="Aún no hay partidos en la quiniela"
+          description="Cuando se publique la jornada oficial verás aquí sus partidos para pronosticar. Mientras, revisa los partidos destacados."
+          action={isAdmin
+            ? <ButtonLink to="/admin/jornadas?nueva=1">Crear la jornada</ButtonLink>
+            : <ButtonLink to="/" variant="secondary">Ver partidos destacados</ButtonLink>} />
+      )}
+      {others.length > 0 && (
+        <>
+          <SectionTitle>Otras jornadas</SectionTitle>
+          <div className="space-y-3">{others.map((r) => <RoundCard key={r.round_id} round={r} tz={timezone} />)}</div>
+        </>
       )}
     </div>
   )

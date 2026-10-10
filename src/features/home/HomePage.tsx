@@ -59,7 +59,7 @@ export function HomePage() {
       ) : officialRound ? (
         <QuinielaAccess round={officialRound} tz={timezone} />
       ) : (
-        <NoQuiniela hasGroup={!!group} />
+        <NoQuiniela />
       )}
       </div>
 

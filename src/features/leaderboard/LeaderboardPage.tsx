@@ -2,7 +2,6 @@ import { useSearchParams } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import { ArrowDown, ArrowUp, Minus, Trophy } from 'lucide-react'
 import { useGroup } from '@/features/groups/GroupProvider'
-import { NoGroupNotice } from '@/features/groups/NoGroupNotice'
 import { useRounds } from '@/features/rounds/useRounds'
 import { playerApi } from '@/services/player'
 import { qk } from '@/services/queryKeys'
@@ -33,7 +32,7 @@ export function LeaderboardPage() {
   const history = useQuery({ queryKey: qk.history(gid ?? ''), queryFn: () => playerApi.history(gid!), enabled: !!gid })
 
   if (loading) return <FullPageSpinner />
-  if (!group) return <><PageHeader title="Clasificación" /><NoGroupNotice what="la clasificación" /></>
+  if (!group) return <><PageHeader title="Clasificación" /><EmptyState icon={<Trophy className="size-6" />} title="Aún no hay posiciones" description="La clasificación aparece cuando cierra la primera jornada de la quiniela." /></>
 
   const scoredRounds = (rounds.data ?? []).filter((r) => ['in_progress', 'closed', 'finished', 'under_review'].includes(r.phase))
   const rows = board.data ?? []
@@ -42,7 +41,7 @@ export function LeaderboardPage() {
 
   return (
     <div>
-      <PageHeader title="Clasificación" subtitle={group.name} />
+      <PageHeader title="Clasificación" subtitle="Quiniela oficial" />
 
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <label className="relative sm:w-72">

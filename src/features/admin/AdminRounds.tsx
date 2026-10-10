@@ -70,7 +70,8 @@ function CreateRoundSheet({ onClose }: { onClose: () => void }) {
   const [deadline, setDeadline] = useState('')
   const [error, setError] = useState<unknown>(null)
   const [loading, setLoading] = useState(false)
-  const gid = groupId || groups.data?.[0]?.id || ''
+  // Por defecto, la quiniela oficial (el grupo predeterminado).
+  const gid = groupId || groups.data?.find((g) => g.is_default)?.id || groups.data?.[0]?.id || ''
 
   const create = async () => {
     const deadlineIso = fromLocalInput(deadline, timezone)
@@ -89,7 +90,7 @@ function CreateRoundSheet({ onClose }: { onClose: () => void }) {
         {groups.data?.length === 0 && <p className="text-sm text-danger">Primero crea un grupo.</p>}
         <Field label="Grupo">{(id) => (
           <Select id={id} value={gid} onChange={(e) => setGroupId(e.target.value)}>
-            {(groups.data ?? []).map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+            {(groups.data ?? []).filter((g) => g.is_active).map((g) => <option key={g.id} value={g.id}>{g.name}{g.is_default ? ' (todos los jugadores)' : ''}</option>)}
           </Select>
         )}</Field>
         <Field label="Nombre">{(id) => <Input id={id} placeholder="Jornada 1" maxLength={80} value={name} onChange={(e) => setName(e.target.value)} />}</Field>

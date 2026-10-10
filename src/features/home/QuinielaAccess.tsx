@@ -52,15 +52,15 @@ export function QuinielaAccess({ round, tz }: { round: RoundListItem; tz: string
   )
 }
 
-export function NoQuiniela({ hasGroup }: { hasGroup: boolean }) {
+export function NoQuiniela() {
   return (
     <section className="card flex items-center gap-3 p-4">
       <span className="grid size-10 shrink-0 place-items-center rounded-full bg-aqua/12 text-aqua"><Ticket className="size-5" /></span>
       <div className="min-w-0 flex-1 text-sm">
-        <p className="font-semibold">{hasGroup ? 'Aún no hay jornada publicada' : 'Únete a un grupo para jugar la quiniela'}</p>
-        <p className="text-xs text-muted">{hasGroup ? 'Cuando el administrador publique la jornada oficial aparecerá aquí.' : 'Pide el código de invitación al organizador.'}</p>
+        <p className="font-semibold">La quiniela oficial aún no tiene jornada</p>
+        <p className="text-xs text-muted">Cuando se publique verás aquí sus partidos para pronosticar.</p>
       </div>
-      <ButtonLink to={hasGroup ? '/quinielas' : '/grupos'} variant="secondary" size="sm">{hasGroup ? 'Jornadas' : 'Grupos'}</ButtonLink>
+      <ButtonLink to="/quinielas" variant="secondary" size="sm">Quiniela</ButtonLink>
     </section>
   )
 }
