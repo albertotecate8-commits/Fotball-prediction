@@ -1,6 +1,6 @@
 import { rpc } from './rpc'
 import type {
-  AppConfig, FeaturedMatch, LeaderboardRow, MyPayment, Participation, PoolData, QuinielaPickInput, MyGroup, PlayerSummary, PositionHistoryRow, PredictionItemInput, RoundDetail, RoundListItem, UpcomingMatch,
+  AppConfig, FeaturedMatch, WeekBoard, LeaderboardRow, MyPayment, Participation, PoolData, QuinielaPickInput, MyGroup, PlayerSummary, PositionHistoryRow, PredictionItemInput, RoundDetail, RoundListItem, UpcomingMatch,
 } from '@/types/domain'
 
 export const playerApi = {
@@ -37,5 +37,9 @@ export const playerApi = {
   savePool: (items: QuinielaPickInput[]) => rpc<{ saved: number; closed: number; already_submitted: number; saved_at: string }>('save_pool_picks', { p_items: items }),
   submitPool: (items: QuinielaPickInput[]) => rpc<{ submitted: number; closed: number; already_submitted: number; submitted_at: string }>('submit_pool_picks', { p_items: items }),
   poolLeaderboard: () => rpc<LeaderboardRow[]>('get_pool_leaderboard'),
+  /** Total de goles de la jornada (desempate); se guarda como borrador hasta enviar la quiniela. */
+  saveWeekGoals: (weekId: string, goals: number) => rpc<{ saved: boolean; total_goals: number; saved_at: string }>('save_week_goals', { p_week: weekId, p_goals: goals }),
+  /** Clasificación de la semana: aciertos y, en empate, cercanía al total de goles. */
+  weekBoard: (weekId?: string | null) => rpc<WeekBoard>('get_week_leaderboard', { p_week: weekId ?? null }),
   claimFirstAdmin: () => rpc<boolean>('claim_first_admin'),
 }

@@ -238,6 +238,7 @@ export interface PoolMatch {
   is_test_data: boolean
   open: boolean
   can_submit: boolean
+  week_id?: string | null
   competition: { name: string; logo_url: string | null } | null
   home: Team
   away: Team
@@ -245,4 +246,20 @@ export interface PoolMatch {
   score: { points: number; exact_hit: boolean; outcome_hit: boolean; is_final: boolean } | null
 }
 
-export interface PoolData { server_time: string; max_goals: number; can_submit: boolean; matches: PoolMatch[] }
+/** Semana (jornada) de la quiniela con el total de goles del participante (desempate). */
+export interface PoolWeek {
+  id: string; label: string; week_start: string; week_end: string
+  goals_open: boolean; my_goals: number | null; my_goals_status: 'draft' | 'submitted' | null
+  real: { goals: number; counted: number; total: number; final: boolean; first_kickoff: string | null }
+}
+export interface PoolData { server_time: string; max_goals: number; can_submit: boolean; matches: PoolMatch[]; weeks?: PoolWeek[] }
+
+export interface WeekBoardRow {
+  rank_position: number; user_id: string; display_name: string; avatar_url: string | null
+  hits: number; scored: number; picks: number; guess: number | null; diff: number | null; is_me: boolean
+}
+export interface WeekBoard {
+  week: (Omit<PoolWeek, 'my_goals' | 'my_goals_status'>) | null
+  rows: WeekBoardRow[]
+  weeks: { id: string; label: string; week_start: string }[]
+}

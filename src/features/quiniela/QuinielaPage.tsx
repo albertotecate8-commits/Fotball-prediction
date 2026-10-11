@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowDown, CheckCircle2, CreditCard, Lock, Send, Ticket } from 'lucide-react'
+import { ArrowDown, CheckCircle2, CreditCard, Goal, Lock, Minus, Plus, Send, Ticket } from 'lucide-react'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { useAppConfig } from '@/hooks/useAppConfig'
 import { playerApi } from '@/services/player'
@@ -13,13 +13,14 @@ import { EmptyState, ErrorState, InlineError } from '@/components/ui/States'
 import { TestDataBadge } from '@/components/ui/Badge'
 import { dayKey, formatDate, formatDateTime, formatTime } from '@/lib/time'
 import { toAppError } from '@/lib/errors'
-import { isComplete, PickCard, type PickValue } from './PickCard'
+import { cn } from '@/lib/cn'
+import { isComplete, outcomeLabel, PickCard, type PickValue } from './PickCard'
 import { Celebration } from './Celebration'
-import type { PoolData, PoolMatch } from '@/types/domain'
+import type { PoolData, PoolMatch, PoolWeek } from '@/types/domain'
 
 type Picks = Record<string, PickValue>
 const empty: PickValue = { outcome: null, home: null, away: null }
-const same = (a: PickValue, b: PickValue) => a.home === b.home && a.away === b.away
+const same = (a: PickValue, b: PickValue) => a.outcome === b.outcome
 const backupKey = (user: string) => `shabex.pool.${user}`
 
 /** Mi quiniela: todos los partidos publicados, por fecha; cada uno cierra a su hora de inicio. */
@@ -70,7 +71,12 @@ function Form({ data, tz }: { data: PoolData; tz: string }) {
   const dirty = dirtyIds.length > 0
   const ready = editable.filter((m) => isComplete(picks[m.match_id] ?? empty))
   const missing = editable.filter((m) => !isComplete(picks[m.match_id] ?? empty))
-  const complete = editable.length > 0 && missing.length === 0
+  // Total de goles de cada jornada que aún no empieza (desempate): obligatorio para enviar.
+  const weeks = useMemo(() => (data.weeks ?? []).filter((w) => data.matches.some((m) => m.week_id === w.id)), [data.weeks, data.matches])
+  const [goals, setGoals] = useState<Record<string, number | null>>(() => Object.fromEntries((data.weeks ?? []).map((w) => [w.id, w.my_goals])))
+  const goalWeeks = weeks.filter((w) => w.goals_open && w.my_goals_status !== 'submitted' && editable.some((m) => m.week_id === w.id))
+  const missingGoals = goalWeeks.filter((w) => goals[w.id] == null)
+  const complete = editable.length > 0 && missing.length === 0 && missingGoals.length === 0
   const canSubmitAny = editable.some((m) => m.can_submit)
 
   useEffect(() => {
@@ -80,11 +86,7 @@ function Form({ data, tz }: { data: PoolData; tz: string }) {
     } catch { /* sin almacenamiento */ }
   }, [picks, dirty, dirtyIds, uid])
 
-  const toItem = (id: string) => {
-    const p = picks[id] ?? empty
-    const score = p.home !== null && p.away !== null
-    return { match_id: id, outcome: p.outcome, home: score ? p.home : null, away: score ? p.away : null }
-  }
+  const toItem = (id: string) => ({ match_id: id, outcome: (picks[id] ?? empty).outcome })
 
   const refresh = async () => {
     await qc.invalidateQueries({ queryKey: qk.pool })
@@ -92,7 +94,7 @@ function Form({ data, tz }: { data: PoolData; tz: string }) {
   }
 
   // Guardado automático en el servidor (borrador): 1,2 s después del último cambio.
-  const dirtyKey = dirtyIds.map((id) => `${id}:${picks[id]?.home}-${picks[id]?.away}`).join('|')
+  const dirtyKey = dirtyIds.map((id) => `${id}:${picks[id]?.outcome}`).join('|')
   useEffect(() => {
     if (!dirtyKey) return
     const t = setTimeout(() => {
@@ -106,10 +108,14 @@ function Form({ data, tz }: { data: PoolData; tz: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dirtyKey])
 
-  // Mientras falten marcadores, el botón lleva al siguiente partido incompleto.
+  // Mientras falte algo, el botón lleva al siguiente partido sin elegir o al total de goles.
   const goToMissing = () => {
     const first = missing[0]
-    if (!first) return
+    if (!first) {
+      const w = missingGoals[0]
+      if (w) document.getElementById(`goles-${w.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      return
+    }
     setHighlight(first.match_id)
     document.getElementById(`partido-${first.match_id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }
@@ -118,6 +124,8 @@ function Form({ data, tz }: { data: PoolData; tz: string }) {
     setBusy(true)
     setError(null)
     try {
+      // El total de goles se guarda antes de enviar (por si el guardado automático no alcanzó).
+      for (const w of goalWeeks) await playerApi.saveWeekGoals(w.id, goals[w.id]!)
       await playerApi.submitPool(editable.map((m) => toItem(m.match_id)))
       try { localStorage.removeItem(backupKey(uid)) } catch { /* sin almacenamiento */ }
       setConfirmOpen(false)
@@ -157,7 +165,7 @@ function Form({ data, tz }: { data: PoolData; tz: string }) {
             <PickCard match={m} tz={tz} value={picks[m.match_id] ?? empty}
               disabled={!m.open || m.pick?.status === 'submitted'}
               saved={same(picks[m.match_id] ?? empty, serverPicks[m.match_id] ?? empty)}
-              submitted={m.pick?.status === 'submitted'} maxGoals={data.max_goals} highlight={highlight === m.match_id}
+              submitted={m.pick?.status === 'submitted'} highlight={highlight === m.match_id}
               onChange={(v) => { setPicks((p) => ({ ...p, [m.match_id]: v })); if (highlight === m.match_id && isComplete(v)) setHighlight(null) }} />
             {m.open && m.pick?.status !== 'submitted' && <p className="mt-1 px-1 text-[11px] text-faint">Cierra: <span className="capitalize">{formatDateTime(m.kickoff_at, tz)}</span></p>}
           </li>
@@ -179,13 +187,17 @@ function Form({ data, tz }: { data: PoolData; tz: string }) {
         </section>
       )}
       {editable.length > 0 && (
-        <p className="mb-3 text-xs text-muted">Pon el marcador de <span className="font-semibold text-ink">todos</span> los partidos y envía tu quiniela completa. Una vez enviada ya no se puede cambiar.</p>
+        <p className="mb-3 text-xs text-muted">Elige quién gana (o empate) en <span className="font-semibold text-ink">todos</span> los partidos y pon cuántos goles habrá en la jornada. Gana quien más acierte; si hay empate, quien más se acerque al total de goles. Una vez enviada ya no se puede cambiar.</p>
       )}
       {data.matches.some((m) => m.is_test_data) && <div className="mb-3"><TestDataBadge /></div>}
       <WeekBanner />
       <Freshness show={data.matches.some((m) => m.status === 'live' || (Date.parse(m.kickoff_at) <= Date.now() && !m.result_confirmed && m.status !== 'cancelled'))} tz={tz} />
 
       {active.map(renderDay)}
+      {weeks.map((w) => (
+        <WeekGoalsCard key={w.id} week={w} value={goals[w.id] ?? null} editable={goalWeeks.some((g) => g.id === w.id)}
+          onChange={(v) => setGoals((g) => ({ ...g, [w.id]: v }))} onError={setError} />
+      ))}
       {past.length > 0 && (
         <>
           <h2 className="display mb-3 mt-8 text-xl font-semibold uppercase">Resultados</h2>
@@ -197,17 +209,17 @@ function Form({ data, tz }: { data: PoolData; tz: string }) {
         <div className="glass fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+4rem)] z-30 border-t border-line px-4 py-3 lg:bottom-0 lg:left-64">
           <div className="mx-auto max-w-3xl">
             <InlineError error={error} />
-            <div className="mb-2 h-1.5 overflow-hidden rounded-full bg-surface-2" role="progressbar" aria-label="Marcadores capturados" aria-valuenow={ready.length} aria-valuemax={editable.length}>
+            <div className="mb-2 h-1.5 overflow-hidden rounded-full bg-surface-2" role="progressbar" aria-label="Partidos elegidos" aria-valuenow={ready.length} aria-valuemax={editable.length}>
               <div className="h-full rounded-full bg-aqua transition-all" style={{ width: `${Math.round((ready.length / editable.length) * 100)}%` }} />
             </div>
             <div className="flex items-center gap-3">
               <div className="shrink-0">
                 <div className="scoreline text-xl">{ready.length}<span className="text-muted">/{editable.length}</span></div>
-                <div className="text-[10px] font-semibold uppercase tracking-wider text-muted">{saving ? 'guardando…' : 'marcadores'}</div>
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-muted">{saving ? 'guardando…' : 'elegidos'}</div>
               </div>
               {!complete ? (
                 <Button size="lg" block variant="secondary" className="whitespace-nowrap px-4 text-base" icon={<ArrowDown className="size-5" />} onClick={goToMissing}>
-                  {missing.length === 1 ? 'Falta 1 marcador' : `Faltan ${missing.length} marcadores`}
+                  {missing.length === 0 ? 'Falta el total de goles' : missing.length === 1 ? 'Falta 1 partido' : `Faltan ${missing.length} partidos`}
                 </Button>
               ) : !canSubmitAny ? (
                 <Button size="lg" block className="whitespace-nowrap px-4 text-base" disabled icon={<CheckCircle2 className="size-5" />}>Completa y guardada</Button>
@@ -223,20 +235,24 @@ function Form({ data, tz }: { data: PoolData; tz: string }) {
       )}
 
       <Sheet open={confirmOpen} onClose={() => !busy && setConfirmOpen(false)} title="¿Enviar tu quiniela?"
-        footer={<Button block size="lg" loading={busy} disabled={!complete} icon={<Send className="size-5" />} onClick={() => void submit()}>Enviar mis {editable.length} marcadores</Button>}>
+        footer={<Button block size="lg" loading={busy} disabled={!complete} icon={<Send className="size-5" />} onClick={() => void submit()}>Enviar quiniela · {editable.length}</Button>}>
         <div className="space-y-3 text-sm">
           <ul className="space-y-1.5">
             {editable.map((m) => {
               const p = picks[m.match_id] ?? empty
               return (
                 <li key={m.match_id} className="card-flat flex items-center gap-2 px-3 py-2">
-                  <span className="min-w-0 flex-1 truncate">{m.home.short_name}</span>
-                  <span className="scoreline shrink-0 text-lg">{p.home}-{p.away}</span>
-                  <span className="min-w-0 flex-1 truncate text-right">{m.away.short_name}</span>
+                  <span className="min-w-0 flex-1 truncate">{m.home.short_name} vs {m.away.short_name}</span>
+                  <span className="shrink-0 font-semibold text-aqua">{outcomeLabel(p.outcome, m)}</span>
                 </li>
               )
             })}
           </ul>
+          {goalWeeks.map((w) => (
+            <p key={w.id} className="card-flat flex items-center justify-between gap-2 px-3 py-2">
+              <span>Goles en la jornada ({w.label})</span><span className="scoreline text-lg text-gold">{goals[w.id]}</span>
+            </p>
+          ))}
           <p className="flex items-start gap-2 text-muted"><Lock className="mt-0.5 size-4 shrink-0" /> Al enviarla ya no se puede cambiar.</p>
           <InlineError error={error} />
         </div>
@@ -266,5 +282,51 @@ function WeekBanner() {
       <span className="font-semibold text-ink">Quiniela de la semana</span> · {w.data.filled} de {w.data.max_matches} partidos
       {w.data.filled < w.data.max_matches ? ' · los demás aparecerán en cuanto se confirmen' : ''}
     </p>
+  )
+}
+
+/** Total de goles de la jornada (desempate): − / + y se guarda solo. */
+function WeekGoalsCard({ week: w, value, editable, onChange, onError }: {
+  week: PoolWeek; value: number | null; editable: boolean; onChange: (v: number) => void; onError: (e: unknown) => void
+}) {
+  const qc = useQueryClient()
+  const [saved, setSaved] = useState<number | null>(w.my_goals)
+  useEffect(() => {
+    if (!editable || value === null || value === saved) return
+    const t = setTimeout(() => {
+      playerApi.saveWeekGoals(w.id, value).then(() => { setSaved(value); void qc.invalidateQueries({ queryKey: qk.pool }) }).catch(onError)
+    }, 900)
+    return () => clearTimeout(t)
+  }, [value, editable, saved, w.id, qc, onError])
+  const real = w.real
+  const step = (d: number) => onChange(Math.max(0, Math.min(200, (value ?? (d > 0 ? 0 : 1)) + d)))
+  return (
+    <section id={`goles-${w.id}`} aria-labelledby={`goles-h-${w.id}`} className={cn('card mb-5 scroll-mt-28 p-4', editable && value === null && 'border-gold/60 ring-2 ring-gold/25')}>
+      <div className="flex items-start gap-3">
+        <Goal className="mt-0.5 size-6 shrink-0 text-gold" />
+        <div className="min-w-0 flex-1">
+          <h2 id={`goles-h-${w.id}`} className="font-semibold">¿Cuántos goles habrá en la jornada?</h2>
+          <p className="text-xs text-muted">Suma de goles de todos los partidos de {w.label}. Sirve para desempatar: gana quien más se acerque.</p>
+        </div>
+      </div>
+      {editable ? (
+        <div className="mt-3 flex items-center justify-center gap-3">
+          <button type="button" aria-label="Menos goles en la jornada" onClick={() => step(-1)} disabled={value === 0}
+            className="grid size-12 place-items-center rounded-2xl border border-line-strong bg-surface-2 active:scale-95 disabled:opacity-35"><Minus className="size-6" /></button>
+          <output aria-label="Goles en la jornada" className={cn('scoreline w-20 text-center text-5xl', value === null ? 'text-faint' : 'text-ink')}>{value ?? '–'}</output>
+          <button type="button" aria-label="Más goles en la jornada" onClick={() => step(1)} disabled={value === 200}
+            className="grid size-12 place-items-center rounded-2xl border border-aqua/50 bg-aqua/15 text-aqua active:scale-95 disabled:opacity-35"><Plus className="size-6" /></button>
+        </div>
+      ) : (
+        <p className="mt-3 text-sm">
+          Tu total: <span className="scoreline text-xl text-gold">{w.my_goals_status === 'submitted' ? w.my_goals : '—'}</span>
+          {w.my_goals_status !== 'submitted' && !w.goals_open && <span className="ml-2 text-xs text-muted">La jornada ya empezó.</span>}
+        </p>
+      )}
+      {real.counted > 0 && (
+        <p className="mt-2 text-xs text-muted">Goles reales hasta ahora: <span className="font-semibold text-ink">{real.goals}</span> en {real.counted} de {real.total} partidos{real.final ? ' (final)' : ''}.</p>
+      )}
+      {editable && <p className="mt-2 text-center text-[11px] text-faint">{value === null ? 'Elige un número' : value === saved ? 'Guardado' : 'Guardando…'} · se puede cambiar hasta que empiece el primer partido</p>}
+    </section>
   )
 }

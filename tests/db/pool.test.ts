@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { asService, asUser, createAdmin, createUser, expectDbError, pool, sql } from './helpers'
+import { asService, asUser, createAdmin, createUser, expectDbError, fillWeekGoals, pool, sql } from './helpers'
 
 afterAll(() => pool.end())
 
@@ -74,16 +74,18 @@ describe('quiniela continua', () => {
     const [{ id: mid }] = (await sql(`select id from public.matches where external_id = 'auto-1'`)) as { id: string }[]
     const [s1] = await asUser(free, `select public.save_pool_picks($1::jsonb) as r`, [pick(mid, 'X')])
     expect(s1!.r.saved).toBe(1)
-    // Quiniela completa: todos los partidos abiertos, cada uno con marcador.
+    // Quiniela completa: todos los partidos abiertos, cada uno con su 1/X/2.
     const openIds = async (uid: string) => ((await asUser(uid, `select public.get_pool(10) as p`))[0]!.p.matches as { match_id: string; open: boolean }[]).filter((m) => m.open).map((m) => m.match_id)
-    const full = (ids: string[], main: [number, number]) => JSON.stringify(ids.map((id) => ({ match_id: id, home: id === mid ? main[0] : 0, away: id === mid ? main[1] : 0 })))
+    const full = (ids: string[], main: string) => JSON.stringify(ids.map((id) => ({ match_id: id, outcome: id === mid ? main : 'X' })))
+    await fillWeekGoals(free)
+    await fillWeekGoals(paid)
     const ids = await openIds(paid)
     expect(ids.length).toBeGreaterThan(1)
-    await expectDbError(asUser(free, `select public.submit_pool_picks($1::jsonb)`, [full(ids, [1, 1])]), 'PAYMENT_REQUIRED')
+    await expectDbError(asUser(free, `select public.submit_pool_picks($1::jsonb)`, [full(ids, 'X')]), 'PAYMENT_REQUIRED')
     await expectDbError(asUser(free, `update public.pool_picks set status = 'submitted', submitted_at = now() where user_id = $1`, [free]), 'permission denied')
-    await expectDbError(asUser(paid, `select public.submit_pool_picks($1::jsonb)`, [pick(mid, '1')]), 'SCORE_REQUIRED')
-    await expectDbError(asUser(paid, `select public.submit_pool_picks($1::jsonb)`, [pick(mid, '1', 2, 1)]), 'INCOMPLETE_QUINIELA')
-    const [sub] = await asUser(paid, `select public.submit_pool_picks($1::jsonb) as r`, [full(ids, [2, 1])])
+    await expectDbError(asUser(paid, `select public.submit_pool_picks($1::jsonb)`, [JSON.stringify([{ match_id: mid }])]), 'OUTCOME_REQUIRED')
+    await expectDbError(asUser(paid, `select public.submit_pool_picks($1::jsonb)`, [pick(mid, '1')]), 'INCOMPLETE_QUINIELA')
+    const [sub] = await asUser(paid, `select public.submit_pool_picks($1::jsonb) as r`, [full(ids, '1')])
     expect(sub!.r.submitted).toBe(ids.length)
     const [again] = await asUser(paid, `select public.submit_pool_picks($1::jsonb) as r`, [pick(mid, '2', 0, 1)])
     expect(again!.r).toMatchObject({ submitted: 0, already_submitted: 1 })
@@ -103,8 +105,12 @@ describe('quiniela continua', () => {
     const [{ id: mid }] = (await sql(`select id from public.matches where external_id = 'auto-1'`)) as { id: string }[]
     await asService(`select public.apply_provider_update($1, '{"status":"finished","status_detail":"FT","home_goals":2,"away_goals":1}'::jsonb)`, [mid])
     await asService(`select public.apply_provider_update($1, '{"status":"finished","status_detail":"FT","home_goals":2,"away_goals":1}'::jsonb)`, [mid])
-    let [b] = await asUser(free, `select points, exact_hits, is_me from public.get_pool_leaderboard() where user_id = $1`, [paid])
-    expect(b).toMatchObject({ points: 5, exact_hits: 1 })
+    // Solo 1/X/2: acertar quién gana vale 3 (ya no hay marcador exacto).
+    let [b] = await asUser(free, `select points, exact_hits, outcome_hits from public.get_pool_leaderboard() where user_id = $1`, [paid])
+    expect(b).toMatchObject({ points: 3, exact_hits: 0, outcome_hits: 1 })
+    await asUser(admin, `select public.admin_record_result($1, 0, 1, 'finished', 'Corrección de prueba')`, [mid])
+    ;[b] = await asUser(free, `select points from public.get_pool_leaderboard() where user_id = $1`, [paid])
+    expect(b!.points).toBe(0)
     await asUser(admin, `select public.admin_record_result($1, 1, 0, 'finished', 'Corrección de prueba')`, [mid])
     ;[b] = await asUser(free, `select points from public.get_pool_leaderboard() where user_id = $1`, [paid])
     expect(b!.points).toBe(3)

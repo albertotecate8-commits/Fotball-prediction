@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { asService, asUser, createAdmin, createUser, expectDbError, pool, sql } from './helpers'
+import { asService, asUser, createAdmin, createUser, expectDbError, fillWeekGoals, pool, sql } from './helpers'
 
 afterAll(() => pool.end())
 
@@ -54,7 +54,9 @@ describe('próxima quiniela', () => {
     expect(ours.map((m: { match_id: string }) => m.match_id)).toEqual([c, a, b])
 
     // Un jugador con pago envía su quiniela completa (todos los abiertos).
+    // Un marcador enviado se acepta como 1/X/2 (el marcador ya no se guarda).
     const open = (pool1!.p.matches as { match_id: string; open: boolean }[]).filter((m) => m.open).map((m) => ({ match_id: m.match_id, home: 1, away: 0 }))
+    await fillWeekGoals(paid)
     await asUser(paid, `select public.submit_pool_picks($1::jsonb)`, [JSON.stringify(open)])
 
     // Quitar np-1 (tiene pronóstico enviado): exige motivo, conserva el pronóstico.
@@ -62,8 +64,8 @@ describe('próxima quiniela', () => {
     await expectDbError(asUser(admin, `select public.admin_publish_selection(null)`), 'REASON_REQUIRED')
     const [p2] = await asUser(admin, `select public.admin_publish_selection('Cambio de programación') as r`)
     expect(p2!.r).toMatchObject({ published: 0, withdrawn: 1, withdrawn_picks: 1 })
-    const [pk] = await sql(`select status, home_goals from public.pool_picks where user_id = $1 and match_id = $2`, [paid, a])
-    expect(pk).toEqual({ status: 'submitted', home_goals: 1 })
+    const [pk] = await sql(`select status, outcome from public.pool_picks where user_id = $1 and match_id = $2`, [paid, a])
+    expect(pk).toEqual({ status: 'submitted', outcome: '1' })
     const [pm] = await sql(`select status, change_reason from public.pool_matches where match_id = $1`, [a])
     expect(pm).toEqual({ status: 'withdrawn', change_reason: 'Cambio de programación' })
   })

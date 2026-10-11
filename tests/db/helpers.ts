@@ -139,3 +139,10 @@ export async function expectDbError(promise: Promise<unknown>, match: string | R
   }
   throw new Error(`Se esperaba error ${String(match)} pero la operación tuvo éxito`)
 }
+
+/** Total de goles (desempate) en cada semana con partidos abiertos: las pruebas comparten la base y envían «todo lo abierto». */
+export async function fillWeekGoals(uid: string, goals = 3) {
+  const weeks = (await sql(`select distinct (private.week_for(m.kickoff_at)).id as w from public.pool_matches pm join public.matches m on m.id = pm.match_id
+    where pm.status = 'published' and private.pool_match_open(m.id)`)) as { w: string | null }[]
+  for (const { w } of weeks) if (w) await asUser(uid, `select public.save_week_goals($1, $2)`, [w, goals]).catch(() => undefined)
+}

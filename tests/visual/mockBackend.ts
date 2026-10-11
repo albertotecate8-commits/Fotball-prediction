@@ -95,9 +95,12 @@ const poolOf = (paid: boolean) => ({
   matches: [
     ...finishedMatches.slice(0, 4).map((m, i) => ({ ...m, is_manual: i === 3, source: i === 3 ? 'admin' : 'auto', open: false, can_submit: false,
       pick: { ...m.pick, status: 'submitted', submitted_at: iso(-7 * 24 * H), updated_at: iso(-7 * 24 * H) } })),
-    ...openMatches.map((m, i) => ({ ...m, is_manual: i === 9, source: i === 9 ? 'admin' : 'auto', open: true, can_submit: paid,
+    ...openMatches.map((m, i) => ({ ...m, is_manual: i === 9, source: i === 9 ? 'admin' : 'auto', open: true, can_submit: paid, week_id: 'w1',
       pick: m.pick ? { ...m.pick, status: 'draft', submitted_at: null, updated_at: iso(-H) } : null })),
   ],
+  // Semana FICTICIA con el total de goles (desempate) aún por poner.
+  weeks: [{ id: 'w1', label: 'Semana 12–18/10', week_start: '2026-10-12', week_end: '2026-10-18', goals_open: true, my_goals: null, my_goals_status: null,
+    real: { goals: 0, counted: 0, total: 10, final: false, first_kickoff: openMatches[0]!.kickoff_at } }],
 })
 const adminPool = [...finishedMatches.slice(0, 2), ...openMatches.slice(0, 3)].map((m, i) => ({
   match_id: m.match_id, kickoff_at: m.kickoff_at, status: m.status, home_goals: m.home_goals, away_goals: m.away_goals, result_confirmed: i !== 1,
@@ -130,6 +133,18 @@ const RPC: Record<string, (body: Record<string, unknown>) => unknown> = {
   get_round_detail: (b) => detail(String(b.p_round_id)),
   get_leaderboard: () => leaderboard,
   get_pool_leaderboard: () => leaderboard,
+  // Clasificación FICTICIA de la semana: aciertos y desempate por goles.
+  get_week_leaderboard: () => ({
+    week: { id: 'w0', label: 'Semana 05–11/10', week_start: '2026-10-05', week_end: '2026-10-11', goals_open: false, real: { goals: 27, counted: 9, total: 9, final: true, first_kickoff: iso(-6 * 24 * H) } },
+    weeks: [{ id: 'w1', label: 'Semana 12–18/10', week_start: '2026-10-12' }, { id: 'w0', label: 'Semana 05–11/10', week_start: '2026-10-05' }],
+    rows: [
+      { rank_position: 1, user_id: 'u2', display_name: 'Lucía', avatar_url: null, hits: 7, scored: 9, picks: 9, guess: 25, diff: 2, is_me: false },
+      { rank_position: 2, user_id: UID, display_name: 'Alberto', avatar_url: null, hits: 7, scored: 9, picks: 9, guess: 21, diff: 6, is_me: true },
+      { rank_position: 3, user_id: 'u3', display_name: 'Pedro', avatar_url: null, hits: 5, scored: 9, picks: 9, guess: 27, diff: 0, is_me: false },
+      { rank_position: 4, user_id: 'u4', display_name: 'Marta', avatar_url: null, hits: 4, scored: 9, picks: 9, guess: null, diff: null, is_me: false },
+    ],
+  }),
+  save_week_goals: (b) => ({ saved: true, total_goals: b.p_goals, saved_at: new Date().toISOString() }),
   admin_pool_list: () => adminPool,
   // Plan semanal FICTICIO.
   admin_week_plans: () => ({ today: iso(0).slice(0, 10), sources: [

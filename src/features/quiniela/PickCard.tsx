@@ -1,4 +1,4 @@
-import { CheckCircle2, Circle, CircleDot, Lock, Minus, Plus } from 'lucide-react'
+import { CheckCircle2, Circle, CircleDot, Lock, XCircle } from 'lucide-react'
 import { TeamCrest } from '@/components/TeamCrest'
 import { MatchStatusBadge } from '@/components/StatusBadge'
 import { formatShortDate, formatTime } from '@/lib/time'
@@ -16,80 +16,70 @@ export interface PickMatch {
   competition: { name: string } | null
   home: Team
   away: Team
-  score: { points: number } | null
+  score: { points: number; outcome_hit?: boolean } | null
   is_manual?: boolean
 }
 
 export interface PickValue { outcome: Outcome | null; home: number | null; away: number | null }
 
-const outcomeOf = (h: number, a: number): Outcome => (h > a ? '1' : h < a ? '2' : 'X')
-/** Completo = marcador de los dos equipos (el resultado 1/X/2 sale solo). */
-export const isComplete = (v: PickValue) => v.home !== null && v.away !== null
+/** Completo = eligió quién gana, empate o quién pierde. */
+export const isComplete = (v: PickValue) => v.outcome !== null
+export const outcomeLabel = (o: Outcome | null, m: Pick<PickMatch, 'home' | 'away'>) =>
+  o === '1' ? `Gana ${m.home.short_name}` : o === '2' ? `Gana ${m.away.short_name}` : o === 'X' ? 'Empate' : '—'
 
-/** Un partido: marcador obligatorio con botones − / + (sencillo con el pulgar). */
-export function PickCard({ match: m, tz, value, disabled, saved, submitted, maxGoals, onChange, highlight }: {
-  match: PickMatch; tz: string; value: PickValue; disabled: boolean; saved: boolean; submitted: boolean; maxGoals: number
+/** Un partido: tres botones grandes (local · empate · visita), fáciles con el pulgar. */
+export function PickCard({ match: m, tz, value, disabled, saved, submitted, onChange, highlight }: {
+  match: PickMatch; tz: string; value: PickValue; disabled: boolean; saved: boolean; submitted: boolean
   onChange: (v: PickValue) => void; highlight?: boolean
 }) {
   const hasResult = (m.status === 'live' || m.status === 'finished') && m.home_goals !== null
   const complete = isComplete(value)
-  const state = submitted ? 'Enviado' : disabled ? (complete ? 'Cerrado' : 'Sin pronóstico') : !complete ? 'Falta marcador' : saved ? 'Guardado' : 'Guardando…'
+  const state = submitted ? 'Enviado' : disabled ? (complete ? 'Cerrado' : 'Sin pronóstico') : !complete ? 'Elige un resultado' : saved ? 'Guardado' : 'Guardando…'
+  const choose = (o: Outcome) => onChange({ outcome: value.outcome === o ? null : o, home: null, away: null })
 
-  const step = (side: 'home' | 'away', d: 1 | -1) => {
-    const cur = value[side]
-    // Desde vacío: «+» pone 1 y «−» pone 0.
-    const n = cur === null ? (d > 0 ? 1 : 0) : Math.max(0, Math.min(maxGoals, cur + d))
-    const next = { ...value, [side]: n }
-    next.outcome = next.home !== null && next.away !== null ? outcomeOf(next.home, next.away) : null
-    onChange(next)
-  }
-  const verdict = complete ? (value.home! > value.away! ? `Gana ${m.home.short_name}` : value.home! < value.away! ? `Gana ${m.away.short_name}` : 'Empate') : null
-
-  const row = (side: 'home' | 'away') => {
-    const team = side === 'home' ? m.home : m.away
-    const v = value[side]
+  const option = (o: Outcome, label: string, team?: Team) => {
+    const active = value.outcome === o
     return (
-      <div key={side} className="flex items-center gap-3">
-        <TeamCrest team={team} size={30} />
-        <span className="min-w-0 flex-1 truncate text-sm font-semibold" title={team.name}>{team.short_name}</span>
-        {disabled ? (
-          <span className="scoreline w-10 text-center text-2xl">{v ?? '–'}</span>
-        ) : (
-          <div className="flex shrink-0 items-center gap-1">
-            <button type="button" aria-label={`Menos goles de ${team.name}`} onClick={() => step(side, -1)} disabled={v === 0}
-              className="grid size-10 place-items-center rounded-xl border border-line-strong bg-surface-2 text-ink active:scale-95 disabled:opacity-35"><Minus className="size-5" /></button>
-            <output aria-label={`Goles de ${team.name}`} className={cn('scoreline w-8 text-center text-3xl', v === null ? 'text-faint' : 'text-ink')}>{v ?? '–'}</output>
-            <button type="button" aria-label={`Más goles de ${team.name}`} onClick={() => step(side, 1)} disabled={v === maxGoals}
-              className="grid size-10 place-items-center rounded-xl border border-aqua/50 bg-aqua/15 text-aqua active:scale-95 disabled:opacity-35"><Plus className="size-5" /></button>
-          </div>
-        )}
-      </div>
+      <button key={o} type="button" disabled={disabled} aria-pressed={active} onClick={() => choose(o)}
+        aria-label={o === 'X' ? 'Empate' : `Gana ${team!.name}`}
+        className={cn('flex min-h-[86px] flex-1 flex-col items-center justify-center gap-1.5 rounded-2xl border px-1.5 py-2 text-center transition active:scale-[0.97]',
+          active ? 'border-aqua bg-aqua/15 text-ink shadow-[0_0_0_1px_var(--color-aqua)]' : 'border-line-strong bg-surface-2 text-ink/85',
+          disabled && !active && 'opacity-45', disabled && 'cursor-default active:scale-100')}>
+        {team ? <TeamCrest team={team} size={30} /> : <span className="scoreline grid size-[30px] place-items-center text-2xl text-muted">=</span>}
+        <span className="line-clamp-2 text-[12px] font-semibold leading-tight">{label}</span>
+      </button>
     )
   }
 
   return (
     <article className={cn('card p-3 transition', complete && 'border-aqua/30', highlight && !complete && 'border-gold/60 ring-2 ring-gold/30')}>
-      <div className="mb-3 flex items-center justify-between gap-2 text-[11px] text-muted">
+      <div className="mb-2.5 flex items-center justify-between gap-2 text-[11px] text-muted">
         <span className="flex min-w-0 items-center gap-1.5 truncate">{m.competition?.name ?? 'Partido'}{m.is_manual && <span className="shrink-0 rounded-full border border-gold/40 px-1.5 text-[9px] font-bold uppercase text-gold">Añadido por el admin</span>}</span>
         <span className="flex shrink-0 items-center gap-2">
           <MatchStatusBadge status={m.status} elapsed={m.elapsed} confirmed={m.result_confirmed} />
           <span className="capitalize">{formatShortDate(m.kickoff_at, tz)} · {formatTime(m.kickoff_at, tz)}</span>
         </span>
       </div>
-      <div className="space-y-2.5">
-        {row('home')}
-        {row('away')}
+      <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
+        <span className="min-w-0 flex-1 truncate" title={m.home.name}>{m.home.short_name}</span>
+        {hasResult ? <span className="scoreline shrink-0 text-xl">{m.home_goals}-{m.away_goals}</span> : <span className="shrink-0 text-xs text-faint">vs</span>}
+        <span className="min-w-0 flex-1 truncate text-right" title={m.away.name}>{m.away.short_name}</span>
       </div>
-      <div className="mt-3 flex items-center justify-between gap-2 border-t border-line pt-2.5">
+      <div role="group" aria-label={`Resultado de ${m.home.name} contra ${m.away.name}`} className="flex gap-2">
+        {option('1', `Gana ${m.home.short_name}`, m.home)}
+        {option('X', 'Empate')}
+        {option('2', `Gana ${m.away.short_name}`, m.away)}
+      </div>
+      <div className="mt-2.5 flex items-center justify-between gap-2 border-t border-line pt-2.5">
         <span className={cn('inline-flex items-center gap-1 text-[11px] font-semibold',
-          state === 'Enviado' ? 'text-success' : state === 'Guardado' ? 'text-aqua' : state === 'Falta marcador' ? 'text-gold' : 'text-muted')}>
-          {state === 'Falta marcador' || state === 'Sin pronóstico' ? <Circle className="size-3.5" /> : state === 'Guardando…' ? <CircleDot className="size-3.5" /> : state === 'Cerrado' ? <Lock className="size-3.5" /> : <CheckCircle2 className="size-3.5" />} {state}
+          state === 'Enviado' ? 'text-success' : state === 'Guardado' ? 'text-aqua' : state === 'Elige un resultado' ? 'text-gold' : 'text-muted')}>
+          {state === 'Elige un resultado' || state === 'Sin pronóstico' ? <Circle className="size-3.5" /> : state === 'Guardando…' ? <CircleDot className="size-3.5" /> : state === 'Cerrado' ? <Lock className="size-3.5" /> : <CheckCircle2 className="size-3.5" />} {state}
         </span>
         {m.score ? (
-          <span className={cn('scoreline text-base', m.score.points === 5 ? 'text-aqua' : m.score.points === 3 ? 'text-success' : 'text-muted')}>+{m.score.points} pts</span>
-        ) : hasResult ? (
-          <span className="text-[11px] text-muted">Resultado: <span className="scoreline text-sm text-ink">{m.home_goals}-{m.away_goals}</span></span>
-        ) : verdict ? <span className="text-[11px] font-semibold text-ink/80">{verdict}</span> : null}
+          (m.score.outcome_hit ?? m.score.points > 0)
+            ? <span className="inline-flex items-center gap-1 text-xs font-bold text-success"><CheckCircle2 className="size-4" /> Acierto</span>
+            : <span className="inline-flex items-center gap-1 text-xs font-semibold text-muted"><XCircle className="size-4" /> Fallo</span>
+        ) : complete ? <span className="text-[11px] font-semibold text-ink/80">{outcomeLabel(value.outcome, m)}</span> : null}
       </div>
     </article>
   )
