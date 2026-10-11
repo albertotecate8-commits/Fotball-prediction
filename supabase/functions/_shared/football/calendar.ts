@@ -7,11 +7,13 @@
 export const TSDB_LEAGUES: Record<string, { tsdb: string; name: string }> = {
   '262': { tsdb: '4350', name: 'Liga MX' },
   '140': { tsdb: '4335', name: 'La Liga' },
+  '263': { tsdb: '4654', name: 'Liga de Expansión MX' },
 }
-/** Equipos que se siguen por su liga doméstica (Barcelona y Real Madrid → La Liga). */
-export const TEAM_LEAGUE: Record<string, string> = { '529': '140', '541': '140' }
+const API_LEAGUE_OF_TSDB: Record<string, string> = Object.fromEntries(Object.entries(TSDB_LEAGUES).map(([af, v]) => [v.tsdb, af]))
 
-export interface CalendarWeek { id: string; week_start: string; league_ids: string[]; team_ids: string[]; weekend_only: boolean }
+/** Equipo seguido: id de API-Football y, si se conoce, su id y liga en TheSportsDB. */
+export interface CalendarTeam { af: string; tsdb?: string | null; tsdb_league?: string | null }
+export interface CalendarWeek { id: string; week_start: string; league_ids: string[]; team_ids: string[]; weekend_only: boolean; teams?: CalendarTeam[] }
 export interface TsdbEvent {
   idAPIfootball?: string | null; strTimestamp?: string | null; idHomeTeam?: string | null; idAwayTeam?: string | null
   strHomeTeam?: string | null; strAwayTeam?: string | null; strStatus?: string | null; strPostponed?: string | null
@@ -52,7 +54,9 @@ export async function collectCalendar(weeks: CalendarWeek[], deps: CalendarDeps)
   let stopped = false
   const byLeague: Record<string, number> = {}
   for (const w of weeks) {
-    const leagues = new Set([...w.league_ids, ...w.team_ids.map((t) => TEAM_LEAGUE[t]).filter((x): x is string => !!x)].filter((l) => TSDB_LEAGUES[l]))
+    // Liga doméstica de cada equipo seguido (Barcelona/Real Madrid → La Liga, Durango → Expansión).
+    const teamLeagues = (w.teams ?? []).map((t) => (t.tsdb_league ? API_LEAGUE_OF_TSDB[t.tsdb_league] : undefined)).filter((x): x is string => !!x)
+    const leagues = new Set([...w.league_ids, ...teamLeagues].filter((l) => TSDB_LEAGUES[l]))
     const lo = Date.parse(`${addDays(w.week_start, w.weekend_only ? 4 : 0)}T00:00:00-06:00`) - 6 * 3600e3
     const hi = Date.parse(`${addDays(w.week_start, 7)}T00:00:00-06:00`) + 6 * 3600e3
     for (const lg of leagues) {
@@ -65,7 +69,7 @@ export async function collectCalendar(weeks: CalendarWeek[], deps: CalendarDeps)
         events.push(...(r.events ?? []))
       }
       // La consulta por día tiene tope en la clave gratuita: la jornada completa la cubre.
-      if (!teamOnly && !stopped) {
+      if (!stopped) {
         const rounds = new Map<string, string>()
         for (const e of events) if (e.intRound && e.strSeason) rounds.set(e.intRound, e.strSeason)
         for (const [round, season] of rounds) {

@@ -6,7 +6,7 @@ const ev = (af: string, ts: string, h: string, a: string, extra: Partial<TsdbEve
   idAPIfootball: af, strTimestamp: ts, idHomeTeam: `t${h}`, idAwayTeam: `t${a}`, strHomeTeam: `Local ${h}`, strAwayTeam: `Visita ${a}`,
   strStatus: 'NS', intRound: '12', strSeason: '2026-2027', ...extra,
 })
-const week = { id: 'w', week_start: '2026-10-12', league_ids: ['262'], team_ids: ['529'], weekend_only: true }
+const week = { id: 'w', week_start: '2026-10-12', league_ids: ['262'], team_ids: ['529'], weekend_only: true, teams: [{ af: '529', tsdb: '133739', tsdb_league: '4335' }] }
 
 describe('calendario adelantado', () => {
   it('consulta viernes a lunes UTC y normaliza horarios UTC', () => {
@@ -32,7 +32,9 @@ describe('calendario adelantado', () => {
     expect(r.fixtures.map((f) => f.external_id).sort()).toEqual(['101', '102', '201'])
     expect(r.missingTeams).toBe(1) // 103: un equipo sin id de API-Football
     expect(r.fixtures.find((f) => f.external_id === '201')).toMatchObject({ competition: { external_id: '140' }, home: { external_id: '529' } })
-    expect(calls.filter((c) => c.startsWith('eventsround'))).toEqual(['eventsround.php?id=4350&r=12&s=2026-2027'])
+    expect(calls.filter((c) => c.startsWith('eventsround'))).toEqual(['eventsround.php?id=4350&r=12&s=2026-2027', 'eventsround.php?id=4335&r=12&s=2026-2027'])
+    // La liga del equipo seguido también se consulta (solo sus partidos entran).
+    expect(calls).toContain('eventsday.php?d=2026-10-18&l=4335')
   })
 
   it('se detiene sin error cuando se acaba el presupuesto de solicitudes', async () => {

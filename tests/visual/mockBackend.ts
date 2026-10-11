@@ -117,9 +117,9 @@ const nextPool = openMatches.slice(0, 6).map((m, i) => ({
 }))
 // Catálogo FICTICIO: uno con historial, uno sin partidos y uno retirado.
 const catalog = [
-  { id: 'tc1', name: 'Atlético Prueba', short_name: 'Atl. Prueba', logo_url: null, provider: 'api-football', external_id: '7001', retired: false, retired_at: null, retire_reason: null, matches: 4, pool_picks: 12, round_picks: 0, selected: 1, deletable: false },
-  { id: 'tc2', name: 'Club Sin Partidos', short_name: 'Sin Partidos', logo_url: null, provider: 'manual', external_id: null, retired: false, retired_at: null, retire_reason: null, matches: 0, pool_picks: 0, round_picks: 0, selected: 0, deletable: true },
-  { id: 'tc3', name: 'Estrella Beta', short_name: 'E. Beta', logo_url: null, provider: 'api-football', external_id: '7003', retired: true, retired_at: iso(-2 * 24 * H), retire_reason: 'No forma parte de la quiniela', matches: 2, pool_picks: 0, round_picks: 0, selected: 0, deletable: false },
+  { id: 'tc1', name: 'Atlético Prueba', short_name: 'Atl. Prueba', logo_url: null, provider: 'api-football', external_id: '7001', retired: false, retired_at: null, retire_reason: null, aliases: ['Atleti Prueba'], followed: true, matches: 4, pool_picks: 12, round_picks: 0, selected: 1, deletable: false },
+  { id: 'tc2', name: 'Club Sin Partidos', short_name: 'Sin Partidos', logo_url: null, provider: 'manual', external_id: null, retired: false, retired_at: null, retire_reason: null, aliases: [], followed: false, matches: 0, pool_picks: 0, round_picks: 0, selected: 0, deletable: true },
+  { id: 'tc3', name: 'Estrella Beta', short_name: 'E. Beta', logo_url: null, provider: 'api-football', external_id: '7003', retired: true, retired_at: iso(-2 * 24 * H), retire_reason: 'No forma parte de la quiniela', aliases: [], followed: false, matches: 2, pool_picks: 0, round_picks: 0, selected: 0, deletable: false },
 ]
 
 const RPC: Record<string, (body: Record<string, unknown>) => unknown> = {
@@ -149,6 +149,8 @@ const RPC: Record<string, (body: Record<string, unknown>) => unknown> = {
   admin_create_team: (b) => ({ id: 'new-team', created: true, retired: false, name: b.p_name }),
   admin_retire_team: () => ({ retired: true, suggestions_dismissed: 0 }),
   admin_restore_team: () => null,
+  admin_set_team_meta: () => null,
+  admin_follow_team: (b) => ({ followed: b.p_follow, weeks: 1, selected_now: 0 }),
   admin_delete_team: () => null,
   // Bolsa FICTICIA.
   get_prize_pot: () => ({ pot: 1200, paid_count: 40, currency: 'MXN', configured: true }),
@@ -202,9 +204,9 @@ export async function mockBackend(page: Page, opts: { admin?: boolean; featured?
       if (req.action === 'teams') {
         opts.calls?.push('provider-fixtures:teams')
         // Resultados FICTICIOS de la búsqueda oficial (sin escudos inventados).
-        return json({ provider: 'api-football', cached: false, teams: [
-          { external_id: '99001', name: `${req.query} FC`, code: 'TST', country: 'País Prueba', national: false, logo_url: null, catalog_id: null, catalog_retired: false },
-          { external_id: '99002', name: `${req.query} B`, code: null, country: 'País Prueba', national: false, logo_url: null, catalog_id: 'tc1', catalog_retired: false },
+        return json({ provider: 'api-football', cached: false, api_used: !!req.more, can_search_more: !req.more, free_error: null, teams: [
+          { external_id: '99001', name: `${req.query} FC`, code: null, country: 'País Prueba', league: 'Liga Prueba', national: false, logo_url: null, aliases: [`${req.query} FC`], tsdb_id: '1', tsdb_league: '2', source: 'free', catalog_id: null, catalog_retired: false },
+          { external_id: '99002', name: `${req.query} B`, code: null, country: 'País Prueba', league: 'Liga Prueba', national: false, logo_url: null, source: 'free', catalog_id: 'tc1', catalog_retired: false },
         ] })
       }
       return json({ default_provider: 'mock', providers: [

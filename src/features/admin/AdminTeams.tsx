@@ -45,7 +45,8 @@ export function AdminTeams() {
       </div>
 
       {list.isLoading ? <CardSkeleton lines={4} /> : list.error ? <ErrorState error={list.error} onRetry={() => void list.refetch()} /> : rows.length === 0 ? (
-        <EmptyState title="Sin equipos" description={q ? 'Ningún equipo coincide. Usa «Añadir equipo».' : 'Añade el primero con «Añadir equipo».'} />
+        <EmptyState title="Sin equipos" description={q ? `«${q}» no está en tu catálogo.` : 'Añade el primero con «Añadir equipo».'}
+          action={q.trim().length >= 3 ? <Button size="sm" icon={<Plus className="size-4" />} onClick={() => setAdding(true)}>Buscar «{q.trim()}» en internet y añadirlo</Button> : undefined} />
       ) : (
         <ul className="space-y-1.5">
           {rows.map((t) => (
@@ -57,7 +58,9 @@ export function AdminTeams() {
                   <span className="block text-[11px] text-muted">
                     {t.external_id ? `API-Football #${t.external_id}` : 'Manual'} · {t.matches} {t.matches === 1 ? 'partido' : 'partidos'}{t.pool_picks + t.round_picks ? ` · ${t.pool_picks + t.round_picks} pronósticos` : ''}
                   </span>
+                  {t.aliases?.length > 0 && <span className="block truncate text-[11px] text-faint">También: {t.aliases.join(', ')}</span>}
                 </span>
+                {t.followed && <Badge tone="accent" className="normal-case tracking-normal">Cada semana</Badge>}
                 {t.retired ? <Badge tone="danger" className="normal-case tracking-normal">Retirado</Badge>
                   : t.provider === 'manual' ? <Badge tone="gold" className="normal-case tracking-normal">Manual</Badge> : null}
               </button>
@@ -67,8 +70,8 @@ export function AdminTeams() {
       )}
 
       <Sheet open={adding} onClose={() => setAdding(false)} title="Añadir equipo">
-        <p className="mb-3 text-sm text-muted">Escribe solo el nombre. Se busca en API-Football con su escudo e identificador oficiales; si ya existe en el catálogo no se duplica.</p>
-        {adding && <AddTeamFlow initialName={q} onDone={() => { setAdding(false); void refresh() }} onCancel={() => setAdding(false)} />}
+        <p className="mb-3 text-sm text-muted">Escribe el nombre o un apodo. Se busca solo, primero en tu catálogo y luego en internet, con escudo e identificador oficiales; nunca se duplica.</p>
+        {adding && <AddTeamFlow initialName={q} offerFollow onDone={() => { setAdding(false); void refresh() }} onCancel={() => setAdding(false)} />}
       </Sheet>
       <ManageSheet team={managing} tz={timezone} onClose={() => setManaging(null)} onChanged={refresh} />
     </div>
@@ -103,6 +106,16 @@ function ManageSheet({ team: t, tz, onClose, onChanged }: { team: TeamCatalogEnt
           <div className="card-flat p-2"><dt className="text-muted">Pronósticos (quiniela)</dt><dd className="scoreline text-lg">{t.pool_picks}</dd></div>
           <div className="card-flat p-2"><dt className="text-muted">Pronósticos (jornadas)</dt><dd className="scoreline text-lg">{t.round_picks}</dd></div>
         </dl>
+        {!t.retired && t.provider === 'api-football' && (
+          <label className="card-flat flex items-center gap-3 p-3 text-sm">
+            <input type="checkbox" className="size-5 accent-[var(--color-red)]" checked={t.followed} disabled={busy}
+              onChange={(e) => { const on = e.target.checked; void run(async () => {
+                const r = await adminApi.followTeam(t.id, on)
+                if (on && r.selected_now) toast(`${r.selected_now} partido(s) agregados a la quiniela`)
+              }, on ? 'Se incluirá cada semana en la quiniela' : 'Ya no se incluirá cada semana') }} />
+            <span><span className="block font-semibold">Incluir cada semana</span><span className="block text-xs text-muted">Sus partidos entran solos a las quinielas automáticas (en curso y futuras).</span></span>
+          </label>
+        )}
         {t.retired ? (
           <div className="space-y-2">
             <p className="text-xs text-muted">Retirado el {t.retired_at ? formatDate(t.retired_at, tz) : '—'}{t.retire_reason ? ` · Motivo: ${t.retire_reason}` : ''}. No se sugiere ni se reimporta automáticamente.</p>

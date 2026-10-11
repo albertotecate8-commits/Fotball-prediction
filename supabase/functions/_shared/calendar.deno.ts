@@ -8,7 +8,7 @@ import { collectCalendar, type CalendarWeek } from './football/calendar.ts'
 
 const P = 'thesportsdb'
 const BASE = 'https://www.thesportsdb.com/api/v1/json'
-const MAX_REQUESTS = 24
+const MAX_REQUESTS = 28
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 export async function refreshCalendar(db: SupabaseClient, opts: { force?: boolean } = {}) {
@@ -69,4 +69,37 @@ export async function refreshCalendar(db: SupabaseClient, opts: { force?: boolea
   // A medias (tope de solicitudes o equipos por identificar): se reanuda pronto.
   if (incomplete && !opts.force) await put('calendar:gate', { at: summary.at, resume: true }, 15 * 60)
   return summary
+}
+
+/** Equipo encontrado en TheSportsDB con su id oficial de API-Football. */
+export interface FreeTeamResult {
+  external_id: string; name: string; country: string | null; league: string | null
+  aliases: string[]; tsdb_id: string; tsdb_league: string | null; logo_url: string
+}
+
+/** Búsqueda gratuita (sin cuota de API-Football), con caché de 7 días por texto. */
+export async function searchFreeTeams(db: SupabaseClient, query: string): Promise<{ teams: FreeTeamResult[]; cached: boolean }> {
+  const norm = query.toLowerCase().normalize('NFD').replace(/\p{M}/gu, '')
+  const cacheKey = `search:${norm}`
+  const { data: hit } = await db.rpc('provider_cache_get', { p_provider: P, p_key: cacheKey })
+  if (Array.isArray(hit)) return { teams: hit as FreeTeamResult[], cached: true }
+  const key = Deno.env.get('THESPORTSDB_KEY') || '3'
+  const res = await fetch(`${BASE}/${key}/searchteams.php?t=${encodeURIComponent(query)}`, { signal: AbortSignal.timeout(8000), headers: { accept: 'application/json' } })
+  if (!res.ok) throw new Error(`TheSportsDB HTTP ${res.status}`)
+  const body = await res.json().catch(() => ({})) as { teams?: Record<string, string | null>[] | null }
+  const teams: FreeTeamResult[] = []
+  for (const t of body.teams ?? []) {
+    const af = t.idAPIfootball ?? ''
+    if (!/^\d{1,10}$/.test(af) || !t.strTeam || !/^\d{1,10}$/.test(t.idTeam ?? '')) continue
+    if ((t.strSport ?? 'Soccer') !== 'Soccer' || /defunct/i.test(t.strLeague ?? '')) continue
+    const alt = (t.strTeamAlternate ?? '').split(',').map((x) => x.trim()).filter((x) => x.length >= 2)
+    teams.push({
+      external_id: af, name: t.strTeam, country: t.strCountry ?? null, league: t.strLeague ?? null,
+      aliases: [...new Set([t.strTeam, ...alt, query])].slice(0, 6), tsdb_id: t.idTeam!, tsdb_league: /^\d{1,10}$/.test(t.idLeague ?? '') ? t.idLeague! : null,
+      // Escudo oficial de API-Football por el id del equipo (nunca inventado).
+      logo_url: `https://media.api-sports.io/football/teams/${af}.png`,
+    })
+  }
+  await db.rpc('provider_cache_put', { p_provider: P, p_key: cacheKey, p_payload: teams, p_ttl_seconds: 7 * 86400 })
+  return { teams, cached: false }
 }

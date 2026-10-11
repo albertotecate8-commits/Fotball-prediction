@@ -114,3 +114,38 @@ describe('quiniela automática por semana', () => {
     expect(o!.repeat_weekly).toBe(false)
   })
 })
+
+describe('equipos seguidos y apodos', () => {
+  let admin: string
+  beforeAll(async () => { admin = await createAdmin() })
+
+  it('apodos: «Alacranes» encuentra al equipo oficial aunque se llame distinto', async () => {
+    const [{ id }] = (await sql(`insert into public.teams (provider, external_id, name, short_name, is_test_data) values ('api-football', '66001', 'Durango Prueba', 'Durango P', false) returning id`)) as { id: string }[]
+    expect(await asUser(admin, `select * from public.admin_search_teams('Alacranes Prueba')`)).toHaveLength(0)
+    await asUser(admin, `select public.admin_set_team_meta($1, array['Alacranes Prueba', 'Durango Prueba'], '146999', '4654')`, [id])
+    const found = await asUser(admin, `select * from public.admin_search_teams('alacranes prueba')`)
+    expect(found.map((t) => t.id)).toEqual([id])
+    const [t] = await sql(`select aliases, tsdb_id, tsdb_league from public.teams where id = $1`, [id])
+    // El nombre propio no se repite como apodo.
+    expect(t).toEqual({ aliases: ['Alacranes Prueba'], tsdb_id: '146999', tsdb_league: '4654' })
+  })
+
+  it('«Incluir cada semana»: entra a las fuentes y a las semanas en curso y futuras; se puede quitar', async () => {
+    const [{ id }] = (await sql(`select id from public.teams where external_id = '66001'`)) as { id: string }[]
+    const [{ d }] = (await sql(`select to_char(private.local_day(now()) + (8 - extract(isodow from private.local_day(now()))::int) + 42, 'YYYY-MM-DD') as d`)) as { d: string }[]
+    const [p] = await asUser(admin, `select public.admin_plan_week($1::date, 5, array[]::text[], array['262'], true) as r`, [d])
+    const [r] = await asUser(admin, `select public.admin_follow_team($1, true) as r`, [id])
+    expect(r!.r.followed).toBe(true)
+    const [w] = await sql(`select team_ids from public.pool_weeks where id = $1`, [p!.r.id])
+    expect(w!.team_ids).toContain('66001')
+    expect(await sql(`select enabled from public.pool_sources where kind = 'team' and external_id = '66001'`)).toEqual([{ enabled: true }])
+    const [cat] = await asUser(admin, `select public.admin_team_catalog('Durango Prueba', true) as r`)
+    expect(cat!.r[0]).toMatchObject({ followed: true, aliases: ['Alacranes Prueba'] })
+    await asUser(admin, `select public.admin_follow_team($1, false)`, [id])
+    const [w2] = await sql(`select team_ids from public.pool_weeks where id = $1`, [p!.r.id])
+    expect(w2!.team_ids).not.toContain('66001')
+    expect(await sql(`select enabled from public.pool_sources where kind = 'team' and external_id = '66001'`)).toEqual([{ enabled: false }])
+    // Planear una semana activa sus ligas como fuentes.
+    expect(await sql(`select enabled from public.pool_sources where kind = 'league' and external_id = '262'`)).toEqual([{ enabled: true }])
+  })
+})

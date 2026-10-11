@@ -73,12 +73,13 @@ export interface PoolSource { kind: 'league' | 'team'; external_id: string; labe
 export interface SelectionItem { match_id: string; selected: boolean; dismissed?: boolean; sort_order?: number | null }
 export interface TeamCatalogEntry {
   id: string; name: string; short_name: string; logo_url: string | null; provider: string; external_id: string | null
-  retired: boolean; retired_at: string | null; retire_reason: string | null
+  retired: boolean; retired_at: string | null; retire_reason: string | null; aliases: string[]; followed: boolean
   matches: number; pool_picks: number; round_picks: number; selected: number; deletable: boolean
 }
 /** Equipo oficial encontrado en API-Football (escudo y datos del proveedor). */
 export interface ProviderTeamResult {
   external_id: string; name: string; code: string | null; country: string | null; national: boolean; logo_url: string | null
+  league?: string | null; aliases?: string[]; tsdb_id?: string | null; tsdb_league?: string | null; source: 'free' | 'api-football'
   catalog_id: string | null; catalog_retired: boolean
 }
 export interface CreateTeamResult { id: string; created: boolean; retired: boolean; match?: 'provider_id' | 'name' | 'name_upgraded' }
@@ -259,8 +260,13 @@ export const adminApi = {
   restoreTeam: (id: string) => rpc<void>('admin_restore_team', { p_team: id }),
   deleteTeam: (id: string, reason: string) => rpc<void>('admin_delete_team', { p_team: id, p_reason: reason }),
   /** Búsqueda oficial por nombre en API-Football (servidor, con caché y dentro de la cuota). */
-  searchProviderTeams: (query: string) =>
-    invokeFunction<{ provider: string; cached: boolean; teams: ProviderTeamResult[] }>('provider-fixtures', { action: 'teams', provider: 'api-football', query }),
+  searchProviderTeams: (query: string, more = false) =>
+    invokeFunction<{ provider: string; cached: boolean; api_used: boolean; can_search_more: boolean; free_error: string | null; teams: ProviderTeamResult[] }>(
+      'provider-fixtures', { action: 'teams', provider: 'api-football', query, more }),
+  setTeamMeta: (id: string, aliases: string[], tsdbId: string | null, tsdbLeague: string | null) =>
+    rpc<void>('admin_set_team_meta', { p_team: id, p_aliases: aliases, p_tsdb_id: tsdbId, p_tsdb_league: tsdbLeague }),
+  /** «Incluir cada semana»: el equipo entra a todas las quinielas automáticas (en curso y futuras). */
+  followTeam: (id: string, follow: boolean) => rpc<{ followed: boolean; weeks: number; selected_now: number }>('admin_follow_team', { p_team: id, p_follow: follow }),
   poolList: () => rpc<PoolAdminMatch[]>('admin_pool_list', { p_days_back: 14 }),
   publishMatch: (matchId: string) => rpc<void>('admin_publish_match', { p_match_id: matchId }),
   setPoolStatus: (matchId: string, status: 'published' | 'withdrawn', reason: string) =>

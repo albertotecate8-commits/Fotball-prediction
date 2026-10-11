@@ -5,7 +5,7 @@
 import { corsHeaders, json, requireAdmin, serviceClient } from '../_shared/http.deno.ts'
 import { ApiFootballProvider, ProviderError, type FixtureSearch, type NormalizedFixture, type ProviderTeam } from '../_shared/football/index.ts'
 import { linkManualMatch, type ManualInput } from '../_shared/manualLink.deno.ts'
-import { refreshCalendar } from '../_shared/calendar.deno.ts'
+import { refreshCalendar, searchFreeTeams } from '../_shared/calendar.deno.ts'
 import { defaultProviderId, loadPlanFlags, providerEnv, quotaState, realProviderConfigured, resolveProvider, savePlanFlags } from '../_shared/providers.deno.ts'
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/
@@ -25,6 +25,7 @@ Deno.serve(async (req) => {
     action?: string; provider?: string; filters?: FixtureSearch
     manual?: ManualInput
     query?: string
+    more?: boolean
   }
   try {
     body = await req.json()
@@ -61,7 +62,7 @@ Deno.serve(async (req) => {
       providers: [
         {
           id: 'api-football', is_test_data: false, configured: real,
-          budget_daily: quota?.budget ?? 80,
+          budget_daily: quota?.budget ?? 98,
           usage: quota ? { requests: quota.used, reported_remaining: (quota as unknown as { provider_remaining_estimate: number | null }).provider_remaining_estimate, reported_limit: null, last_request_at: null, last_error: null } : null,
           status,
         },
@@ -105,26 +106,45 @@ Deno.serve(async (req) => {
     }
 
     if (body.action === 'teams') {
-      // «Añadir equipo»: búsqueda oficial por nombre (1 solicitud, en caché 7 días por texto).
-      if (!(provider instanceof ApiFootballProvider)) return json(req, { error: 'NOT_CONFIGURED', provider: provider.id }, 409)
+      // «Añadir equipo»: primero la búsqueda gratuita (TheSportsDB, ids oficiales de API-Football);
+      // API-Football (1 solicitud, en caché 7 días) solo si no hubo resultados o se pide «más».
       const q = (body.query ?? '').toString().normalize('NFKC').replace(/\s+/g, ' ').trim().slice(0, 40)
       if (q.length < 3 || !/^[\p{L}\p{N} .'&-]+$/u.test(q)) return json(req, { error: 'QUERY_TOO_SHORT' }, 400)
-      const key = `teams:${q.toLowerCase().normalize('NFD').replace(/\p{M}/gu, '')}`
-      let teams = await cacheGet<ProviderTeam[]>(key)
-      const cached = teams !== null
-      if (!teams) {
-        teams = (await provider.searchTeams(q)).slice(0, 25)
-        await cachePut(key, teams, 7 * 24 * 3600)
+      type Row = { external_id: string; name: string; code: string | null; country: string | null; national: boolean; logo_url: string | null
+        league?: string | null; aliases?: string[]; tsdb_id?: string | null; tsdb_league?: string | null; source: 'free' | 'api-football' }
+      const rows = new Map<string, Row>()
+      let cached = true
+      let freeError: string | null = null
+      try {
+        const free = await searchFreeTeams(db, q)
+        cached = free.cached
+        for (const t of free.teams) rows.set(t.external_id, { ...t, code: null, national: false, source: 'free' })
+      } catch (e) { freeError = (e as Error).message }
+      let apiUsed = false
+      if ((body.more || rows.size === 0) && provider instanceof ApiFootballProvider) {
+        const key = `teams:${q.toLowerCase().normalize('NFD').replace(/\p{M}/gu, '')}`
+        let teams = await cacheGet<ProviderTeam[]>(key)
+        if (!teams) {
+          teams = (await provider.searchTeams(q)).slice(0, 25)
+          await cachePut(key, teams, 7 * 24 * 3600)
+          cached = false
+        }
+        apiUsed = true
+        for (const t of teams) {
+          const prev = rows.get(t.external_id)
+          rows.set(t.external_id, prev ? { ...prev, code: t.code, national: t.national, logo_url: t.logo_url ?? prev.logo_url, name: t.name }
+            : { ...t, source: 'api-football' })
+        }
       }
       // Cuáles ya están en el catálogo (activos o retirados) para no duplicarlos.
-      const ids = teams.map((t) => t.external_id)
+      const ids = [...rows.keys()]
       const { data: known } = ids.length
         ? await db.from('teams').select('id, external_id, retired_at').eq('provider', 'api-football').in('external_id', ids)
         : { data: [] as { id: string; external_id: string; retired_at: string | null }[] }
       const byId = new Map((known ?? []).map((k) => [k.external_id, k]))
       return json(req, {
-        provider: provider.id, cached,
-        teams: teams.map((t) => {
+        provider: provider.id, cached, api_used: apiUsed, can_search_more: !apiUsed && provider instanceof ApiFootballProvider, free_error: freeError,
+        teams: [...rows.values()].map((t) => {
           const k = byId.get(t.external_id)
           return { ...t, catalog_id: k?.id ?? null, catalog_retired: k ? k.retired_at !== null : false }
         }),
