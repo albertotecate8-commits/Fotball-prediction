@@ -1,10 +1,11 @@
 // Búsqueda de partidos en el proveedor para que el admin los seleccione.
 // Los partidos encontrados se guardan (upsert idempotente) con su id externo,
 // pero NO se agregan a ninguna jornada: eso lo decide el admin.
-// Acciones: status · competitions · teams · manual · search. Nunca devuelve la clave.
+// Acciones: status · calendar · competitions · teams · manual · search. Nunca devuelve la clave.
 import { corsHeaders, json, requireAdmin, serviceClient } from '../_shared/http.deno.ts'
 import { ApiFootballProvider, ProviderError, type FixtureSearch, type NormalizedFixture, type ProviderTeam } from '../_shared/football/index.ts'
 import { linkManualMatch, type ManualInput } from '../_shared/manualLink.deno.ts'
+import { refreshCalendar } from '../_shared/calendar.deno.ts'
 import { defaultProviderId, loadPlanFlags, providerEnv, quotaState, realProviderConfigured, resolveProvider, savePlanFlags } from '../_shared/providers.deno.ts'
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/
@@ -67,6 +68,16 @@ Deno.serve(async (req) => {
         { id: 'mock', is_test_data: true, configured: true, budget_daily: null, usage: null, status: null },
       ],
     })
+  }
+
+  if (body.action === 'calendar') {
+    // «Buscar calendario ahora» (admin): no gasta cuota de API-Football; como mucho cada 10 min.
+    try {
+      const r = await refreshCalendar(db, { force: true })
+      return json(req, 'skipped' in r ? { skipped: true, reason: 'RECENT' } : r)
+    } catch (e) {
+      return json(req, { error: 'CALENDAR_ERROR', message: (e as Error).message }, 502)
+    }
   }
 
   const providerId = body.provider && PROVIDERS.includes(body.provider) ? body.provider : defaultProviderId(env)

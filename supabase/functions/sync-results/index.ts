@@ -6,6 +6,7 @@
 import { corsHeaders, json, requireAdmin, safeEqual, serviceClient } from '../_shared/http.deno.ts'
 import { linkManualMatch, type ManualInput } from '../_shared/manualLink.deno.ts'
 import { runPlannedSync } from '../_shared/quotaSync.deno.ts'
+import { refreshCalendar } from '../_shared/calendar.deno.ts'
 import type { ApiFootballProvider } from '../_shared/football/index.ts'
 import { loadPlanFlags, providerEnv, realProviderConfigured, resolveProvider, savePlanFlags } from '../_shared/providers.deno.ts'
 import { runAllProviders, type SyncStore } from '../_shared/football/sync.ts'
@@ -161,6 +162,13 @@ Deno.serve(async (req) => {
         planned = { error: (e as Error).message }
       }
       await savePlanFlags(db, real)
+      // Jornada completa por adelantado (TheSportsDB, sin cuota de API-Football): como mucho cada 6 h.
+      try {
+        const cal = await refreshCalendar(db)
+        if (!('skipped' in cal)) planned = { ...(planned ?? {}), calendar: cal }
+      } catch (e) {
+        planned = { ...(planned ?? {}), calendar: { error: (e as Error).message } }
+      }
     }
     // Demostración y mantenimiento (cierres y finalización): nunca consultan API-Football.
     result = { ...(await runAllProviders(store, (id) => (id === 'mock' ? resolveProvider(db, 'mock') : null), viaCron ? 'cron' : 'manual')), planned }

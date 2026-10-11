@@ -62,8 +62,12 @@ export interface NextPoolMatch {
 export type WeekMode = 'off' | 'select' | 'publish'
 export interface WeekPlan {
   id: string; week_start: string; week_end: string; label: string; max_matches: number
-  team_ids: string[]; league_ids: string[]; team_weekend_only: boolean; auto_mode: WeekMode
-  selected: number; published: number; teams_found: string[]
+  team_ids: string[]; league_ids: string[]; team_weekend_only: boolean; auto_mode: WeekMode; repeat_weekly: boolean
+  selected: number; published: number; known: number; teams_found: string[]
+}
+export interface CalendarStatus {
+  at: string
+  summary: { at?: string; weeks?: number; found?: number; new_matches?: number; week_selected?: number; by_league?: Record<string, number>; missing_teams?: number; incomplete?: boolean }
 }
 export interface PoolSource { kind: 'league' | 'team'; external_id: string; label: string; enabled: boolean }
 export interface SelectionItem { match_id: string; selected: boolean; dismissed?: boolean; sort_order?: number | null }
@@ -238,7 +242,10 @@ export const adminApi = {
     instructions: string | null; contact: string | null; updated_at: string } | null>(await supabase.from('payment_info').select('*').maybeSingle()),
   savePaymentInfo: (v: { bank: string; holder: string; clabe: string; account: string; amount: number | null; concept: string; instructions: string; contact: string }) =>
     rpc<void>('admin_save_payment_info', { p_bank: v.bank, p_holder: v.holder, p_clabe: v.clabe, p_account: v.account, p_amount: v.amount, p_concept: v.concept, p_instructions: v.instructions, p_contact: v.contact }),
-  weekPlans: () => rpc<{ plans: WeekPlan[]; sources: PoolSource[]; today: string }>('admin_week_plans'),
+  weekPlans: () => rpc<{ plans: WeekPlan[]; sources: PoolSource[]; today: string; calendar: CalendarStatus | null }>('admin_week_plans'),
+  setWeekRepeat: (weekId: string, repeat: boolean) => rpc<void>('admin_set_week_repeat', { p_week: weekId, p_repeat: repeat }),
+  /** Busca ya la jornada completa en el calendario adelantado (no gasta cuota de API-Football). */
+  refreshCalendar: () => invokeFunction<{ skipped?: boolean; found?: number; new_matches?: number; week_selected?: number; incomplete?: boolean }>('provider-fixtures', { action: 'calendar' }),
   planWeek: (weekStart: string, max: number, teams: string[], leagues: string[], weekendOnly: boolean) =>
     rpc<{ id: string; week_start: string; added_now: number }>('admin_plan_week', { p_week_start: weekStart, p_max: max, p_teams: teams, p_leagues: leagues, p_team_weekend_only: weekendOnly }),
   setWeekMode: (weekId: string, mode: WeekMode) => rpc<{ mode: WeekMode; selected_now: number }>('admin_set_week_mode', { p_week: weekId, p_mode: mode }),

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { CalendarRange, Sparkles } from 'lucide-react'
-import { adminApi, type PoolSource, type WeekMode, type WeekPlan } from '@/services/admin'
+import { CalendarRange, RefreshCw, Sparkles } from 'lucide-react'
+import { adminApi, type CalendarStatus, type PoolSource, type WeekMode, type WeekPlan } from '@/services/admin'
 import { errorMessage } from '@/lib/errors'
 import { cn } from '@/lib/cn'
 import { Badge } from '@/components/ui/Badge'
@@ -34,7 +34,8 @@ export function AutoWeekCard() {
         <Sparkles className="size-5 text-gold" />
         <h2 id="auto-h" className="font-semibold">Armado automático por semana</h2>
       </div>
-      <p className="mb-3 text-xs text-muted">Elige ligas, equipos y cupo. La API gratuita da a conocer los partidos un día antes: se agregan conforme aparecen y cada uno cierra a su hora.</p>
+      <p className="mb-3 text-xs text-muted">Elige ligas, equipos y cupo. La jornada completa se carga por adelantado desde el calendario (con los ids oficiales de API-Football) para que la quiniela esté lista antes del viernes. Cada partido cierra a su hora y la quiniela termina con el último del domingo.</p>
+      <CalendarStatusLine status={q.data?.calendar ?? null} />
       {plans.length === 0 && !q.isLoading && <p className="mb-3 text-sm text-muted">No hay semanas planificadas.</p>}
       <ul className="mb-3 space-y-2">
         {plans.map((w) => <PlanRow key={w.id} w={w} sources={q.data?.sources ?? []} onEdit={() => setEditing(w)} />)}
@@ -61,6 +62,14 @@ function PlanRow({ w, sources, onEdit }: { w: WeekPlan; sources: PoolSource[]; o
       await Promise.all([qc.invalidateQueries({ queryKey: WEEKS_KEY }), qc.invalidateQueries({ queryKey: NEXT_POOL_KEY }), qc.invalidateQueries({ queryKey: ['pool'] })])
     } catch (e) { toast(errorMessage(e), 'error') } finally { setBusy(false) }
   }
+  const setRepeat = async (on: boolean) => {
+    setBusy(true)
+    try {
+      await adminApi.setWeekRepeat(w.id, on)
+      toast(on ? 'Se repetirá cada semana con el mismo plan' : 'Ya no se repetirá')
+      await qc.invalidateQueries({ queryKey: WEEKS_KEY })
+    } catch (e) { toast(errorMessage(e), 'error') } finally { setBusy(false) }
+  }
   return (
     <li className="card-flat p-3">
       <div className="mb-2 flex flex-wrap items-center gap-2">
@@ -69,7 +78,8 @@ function PlanRow({ w, sources, onEdit }: { w: WeekPlan; sources: PoolSource[]; o
         <Badge tone="accent" className="ml-auto normal-case tracking-normal">{w.selected}/{w.max_matches} elegidos · {w.published} publicados</Badge>
       </div>
       <p className="mb-2 text-[11px] text-muted">
-        {[...w.league_ids.map((id) => name('league', id)), ...w.team_ids.map((id) => `${name('team', id)}${w.team_ids.length && w.team_weekend_only ? ' (fin de semana)' : ''}${w.teams_found.includes(id) ? ' ✓' : ''}`)].join(' · ') || 'Sin ligas ni equipos'}
+        {[...w.league_ids.map((id) => name('league', id)), ...w.team_ids.map((id) => `${name('team', id)}${w.teams_found.includes(id) ? ' ✓' : ''}`)].join(' · ') || 'Sin ligas ni equipos'}
+        {w.team_weekend_only ? ' · viernes a domingo' : ' · toda la semana'} · {w.known} en el calendario
       </p>
       <div role="radiogroup" aria-label={`Modo de ${w.label}`} className="mb-1.5 grid grid-cols-3 gap-1 rounded-full border border-line p-1">
         {MODES.map((m) => (
@@ -81,11 +91,15 @@ function PlanRow({ w, sources, onEdit }: { w: WeekPlan; sources: PoolSource[]; o
       </div>
       {w.selected === 0 && w.auto_mode !== 'off' && (
         <p className="mb-1.5 rounded-xl border border-gold/40 bg-gold/10 p-2 text-[11px] text-gold">
-          Aún no hay partidos de estas ligas y equipos en la API para esa semana. La API gratuita los da a conocer un día antes: en cuanto aparezcan se {w.auto_mode === 'publish' ? 'agregarán y publicarán' : 'agregarán a la selección'} solos. Si quieres adelantar uno, usa «Agregar partido que no aparece».
+          Aún no hay partidos de estas ligas y equipos para esa semana en el calendario. En cuanto aparezcan se {w.auto_mode === 'publish' ? 'agregarán y publicarán' : 'agregarán a la selección'} solos (se revisa cada 6 h; puedes usar «Buscar calendario ahora»). Si quieres adelantar uno, usa «Agregar partido que no aparece».
         </p>
       )}
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-[11px] text-faint">{MODES.find((m) => m.value === w.auto_mode)!.hint}</p>
+      <p className="text-[11px] text-faint">{MODES.find((m) => m.value === w.auto_mode)!.hint}</p>
+      <div className="mt-1 flex items-center justify-between gap-2">
+        <label className="flex items-center gap-2 text-xs font-semibold">
+          <input type="checkbox" className="size-4 accent-[var(--color-red)]" checked={w.repeat_weekly} disabled={busy} onChange={(e) => void setRepeat(e.target.checked)} />
+          Repetir cada semana
+        </label>
         <Button size="sm" variant="ghost" onClick={onEdit}>Editar</Button>
       </div>
     </li>
@@ -103,6 +117,7 @@ function PlanSheet({ open, plan, sources, today, onClose }: { open: boolean; pla
   const [picked, setPicked] = useState<string[]>(() => plan ? [...plan.league_ids.map((x) => `league:${x}`), ...plan.team_ids.map((x) => `team:${x}`)] : usable.map((s) => `${s.kind}:${s.external_id}`))
   const [weekendOnly, setWeekendOnly] = useState(plan?.team_weekend_only ?? true)
   const [mode, setMode] = useState<WeekMode>(plan?.auto_mode ?? 'publish')
+  const [repeat, setRepeat] = useState(plan?.repeat_weekly ?? true)
   const [busy, setBusy] = useState(false)
   const n = Number(max)
   const valid = Number.isInteger(n) && n >= 1 && n <= 30 && picked.length > 0
@@ -113,6 +128,7 @@ function PlanSheet({ open, plan, sources, today, onClose }: { open: boolean; pla
       const of = (kind: string) => picked.filter((k) => k.startsWith(`${kind}:`)).map((k) => k.split(':')[1]!)
       const r = await adminApi.planWeek(start, n, of('team'), of('league'), weekendOnly)
       const m = await adminApi.setWeekMode(r.id, mode)
+      if (repeat !== (plan?.repeat_weekly ?? false)) await adminApi.setWeekRepeat(r.id, repeat)
       const added = m.selected_now + r.added_now
       toast(`Semana guardada · ${MODES.find((x) => x.value === mode)!.label} · ${added ? `${added} partido(s) agregados` : 'aún no hay partidos en la API; se agregarán solos'}`)
       await Promise.all([qc.invalidateQueries({ queryKey: WEEKS_KEY }), qc.invalidateQueries({ queryKey: NEXT_POOL_KEY }), qc.invalidateQueries({ queryKey: ['pool'] })])
@@ -146,7 +162,11 @@ function PlanSheet({ open, plan, sources, today, onClose }: { open: boolean; pla
         </fieldset>
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" className="size-4 accent-[var(--color-red)]" checked={weekendOnly} onChange={(e) => setWeekendOnly(e.target.checked)} />
-          Equipos: solo su partido de fin de semana (viernes a domingo)
+          Solo viernes a domingo (ligas y equipos)
+        </label>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" className="size-4 accent-[var(--color-red)]" checked={repeat} onChange={(e) => setRepeat(e.target.checked)} />
+          Repetir cada semana (la siguiente se arma sola el lunes)
         </label>
         <Field label="Modo">{(id) => (
           <Select id={id} value={mode} onChange={(e) => setMode(e.target.value as WeekMode)}>
@@ -156,5 +176,29 @@ function PlanSheet({ open, plan, sources, today, onClose }: { open: boolean; pla
         <p className="text-xs text-muted">Primero entran los equipos elegidos y luego la liga por fecha, hasta llenar el cupo. Lo que tú quites no vuelve a entrar solo. También puedes agregar o quitar partidos sueltos en las listas de abajo.</p>
       </div>
     </Sheet>
+  )
+}
+
+function CalendarStatusLine({ status }: { status: CalendarStatus | null }) {
+  const qc = useQueryClient()
+  const toast = useToast()
+  const [busy, setBusy] = useState(false)
+  const s = status?.summary
+  const ago = status ? Math.max(0, Math.round((Date.now() - Date.parse(status.at)) / 60000)) : null
+  const run = async () => {
+    setBusy(true)
+    try {
+      const r = await adminApi.refreshCalendar()
+      toast(r.skipped ? 'Se buscó hace menos de 10 minutos' : `Calendario: ${r.found ?? 0} partido(s) encontrados${r.new_matches ? ` · ${r.new_matches} nuevos` : ''}`)
+      await Promise.all([qc.invalidateQueries({ queryKey: WEEKS_KEY }), qc.invalidateQueries({ queryKey: NEXT_POOL_KEY }), qc.invalidateQueries({ queryKey: ['pool'] })])
+    } catch (e) { toast(errorMessage(e), 'error') } finally { setBusy(false) }
+  }
+  return (
+    <div className="mb-3 flex flex-wrap items-center gap-2 text-[11px] text-muted">
+      <span className="min-w-0 flex-1">
+        {status ? `Calendario revisado ${ago! < 1 ? 'hace un momento' : ago! < 60 ? `hace ${ago} min` : `hace ${Math.round(ago! / 60)} h`}: ${s?.found ?? 0} partido(s)${s?.by_league ? ` (${Object.entries(s.by_league).map(([k, v]) => `${k} ${v}`).join(', ')})` : ''}${s?.incomplete ? ' · continúa en unos minutos' : ''}` : 'El calendario aún no se ha revisado.'}
+      </span>
+      <Button size="sm" variant="ghost" icon={<RefreshCw className="size-4" />} loading={busy} onClick={() => void run()}>Buscar calendario ahora</Button>
+    </div>
   )
 }

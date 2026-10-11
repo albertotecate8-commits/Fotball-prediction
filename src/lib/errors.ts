@@ -67,6 +67,7 @@ const MESSAGES: Record<string, string> = {
   INVALID_EMAIL: 'Correo no válido.',
   TEAM_HAS_HISTORY: 'Este equipo tiene partidos o pronósticos en el historial: no se puede eliminar. Puedes retirarlo.',
   TEAM_NOT_FOUND: 'Equipo no encontrado (o ya estaba en ese estado).',
+  CALENDAR_ERROR: 'No se pudo consultar el calendario adelantado. Se reintentará solo.',
   INVALID_MODE: 'Modo no válido.',
   WEEK_NOT_FOUND: 'Esa semana no está planificada.',
   WEEK_MUST_START_MONDAY: 'La semana debe empezar en lunes.',

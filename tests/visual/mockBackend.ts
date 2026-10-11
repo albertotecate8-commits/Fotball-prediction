@@ -136,7 +136,9 @@ const RPC: Record<string, (body: Record<string, unknown>) => unknown> = {
     { kind: 'league', external_id: '262', label: 'Liga MX', enabled: true }, { kind: 'team', external_id: '529', label: 'Barcelona', enabled: true },
     { kind: 'team', external_id: '541', label: 'Real Madrid', enabled: true }, { kind: 'team', external_id: '15941', label: 'Durango (Alacranes)', enabled: false }],
     plans: [{ id: 'w1', week_start: '2026-10-12', week_end: '2026-10-18', label: 'Semana 12–18/10', max_matches: 12, team_ids: ['529', '541'], league_ids: ['262'],
-      team_weekend_only: true, auto_mode: 'publish', selected: 3, published: 2, teams_found: ['529'] }] }),
+      team_weekend_only: true, auto_mode: 'publish', repeat_weekly: true, selected: 3, published: 2, known: 10, teams_found: ['529'] }],
+    calendar: { at: iso(-20 * 60e3), summary: { found: 10, by_league: { 'Liga MX': 9, 'La Liga': 1 }, incomplete: false } } }),
+  admin_set_week_repeat: () => null,
   admin_plan_week: () => ({ id: 'w2', week_start: '2026-10-19', added_now: 0 }),
   admin_set_week_mode: (b) => ({ mode: b.p_mode, selected_now: 0 }),
   // Borrador FICTICIO de la próxima quiniela.
@@ -196,6 +198,7 @@ export async function mockBackend(page: Page, opts: { admin?: boolean; featured?
     if (url.pathname.startsWith('/auth/v1/user')) return json(session.user)
     if (url.pathname === '/functions/v1/provider-fixtures') {
       const req = route.request().postDataJSON() ?? {}
+      if (req.action === 'calendar') { opts.calls?.push('provider-fixtures:calendar'); return json({ found: 10, new_matches: 0, week_selected: 0 }) }
       if (req.action === 'teams') {
         opts.calls?.push('provider-fixtures:teams')
         // Resultados FICTICIOS de la búsqueda oficial (sin escudos inventados).
