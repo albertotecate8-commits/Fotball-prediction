@@ -69,15 +69,18 @@ function Form({ data, tz }: { data: PoolData; tz: string }) {
   const editable = data.matches.filter((m) => m.open && m.pick?.status !== 'submitted')
   const dirtyIds = editable.filter((m) => !same(picks[m.match_id] ?? empty, serverPicks[m.match_id] ?? empty)).map((m) => m.match_id)
   const dirty = dirtyIds.length > 0
-  const ready = editable.filter((m) => isComplete(picks[m.match_id] ?? empty))
-  const missing = editable.filter((m) => !isComplete(picks[m.match_id] ?? empty))
+  const canSubmitAny = editable.some((m) => m.can_submit)
+  // Lo que se envía: los partidos que cubre el pago vigente. Los posteriores quedan guardados para después.
+  const sendable = canSubmitAny ? editable.filter((m) => m.can_submit) : editable
+  const later = canSubmitAny ? editable.filter((m) => !m.can_submit) : []
+  const ready = sendable.filter((m) => isComplete(picks[m.match_id] ?? empty))
+  const missing = sendable.filter((m) => !isComplete(picks[m.match_id] ?? empty))
   // Total de goles de cada jornada que aún no empieza (desempate): obligatorio para enviar.
   const weeks = useMemo(() => (data.weeks ?? []).filter((w) => data.matches.some((m) => m.week_id === w.id)), [data.weeks, data.matches])
   const [goals, setGoals] = useState<Record<string, number | null>>(() => Object.fromEntries((data.weeks ?? []).map((w) => [w.id, w.my_goals])))
-  const goalWeeks = weeks.filter((w) => w.goals_open && w.my_goals_status !== 'submitted' && editable.some((m) => m.week_id === w.id))
+  const goalWeeks = weeks.filter((w) => w.goals_open && w.my_goals_status !== 'submitted' && sendable.some((m) => m.week_id === w.id))
   const missingGoals = goalWeeks.filter((w) => goals[w.id] == null)
-  const complete = editable.length > 0 && missing.length === 0 && missingGoals.length === 0
-  const canSubmitAny = editable.some((m) => m.can_submit)
+  const complete = sendable.length > 0 && missing.length === 0 && missingGoals.length === 0
 
   useEffect(() => {
     try {
@@ -126,7 +129,7 @@ function Form({ data, tz }: { data: PoolData; tz: string }) {
     try {
       // El total de goles se guarda antes de enviar (por si el guardado automático no alcanzó).
       for (const w of goalWeeks) await playerApi.saveWeekGoals(w.id, goals[w.id]!)
-      await playerApi.submitPool(editable.map((m) => toItem(m.match_id)))
+      await playerApi.submitPool(sendable.map((m) => toItem(m.match_id)))
       try { localStorage.removeItem(backupKey(uid)) } catch { /* sin almacenamiento */ }
       setConfirmOpen(false)
       setCelebrate(Date.now())
@@ -208,12 +211,12 @@ function Form({ data, tz }: { data: PoolData; tz: string }) {
         <div className="glass fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+4rem)] z-30 border-t border-line px-4 py-3 lg:bottom-0 lg:left-64">
           <div className="mx-auto max-w-3xl">
             <InlineError error={error} />
-            <div className="mb-2 h-1.5 overflow-hidden rounded-full bg-surface-2" role="progressbar" aria-label="Partidos elegidos" aria-valuenow={ready.length} aria-valuemax={editable.length}>
-              <div className="h-full rounded-full bg-aqua transition-all" style={{ width: `${Math.round((ready.length / editable.length) * 100)}%` }} />
+            <div className="mb-2 h-1.5 overflow-hidden rounded-full bg-surface-2" role="progressbar" aria-label="Partidos elegidos" aria-valuenow={ready.length} aria-valuemax={sendable.length}>
+              <div className="h-full rounded-full bg-aqua transition-all" style={{ width: `${Math.round((ready.length / sendable.length) * 100)}%` }} />
             </div>
             <div className="flex items-center gap-3">
               <div className="shrink-0">
-                <div className="scoreline text-xl">{ready.length}<span className="text-muted">/{editable.length}</span></div>
+                <div className="scoreline text-xl">{ready.length}<span className="text-muted">/{sendable.length}</span></div>
                 <div className="text-[10px] font-semibold uppercase tracking-wider text-muted">{saving ? 'guardando…' : 'elegidos'}</div>
               </div>
               {!complete ? (
@@ -234,10 +237,10 @@ function Form({ data, tz }: { data: PoolData; tz: string }) {
       )}
 
       <Sheet open={confirmOpen} onClose={() => !busy && setConfirmOpen(false)} title="¿Enviar tu quiniela?"
-        footer={<Button block size="lg" loading={busy} disabled={!complete} icon={<Send className="size-5" />} onClick={() => void submit()}>Enviar quiniela · {editable.length}</Button>}>
+        footer={<Button block size="lg" loading={busy} disabled={!complete} icon={<Send className="size-5" />} onClick={() => void submit()}>Enviar quiniela · {sendable.length}</Button>}>
         <div className="space-y-3 text-sm">
           <ul className="space-y-1.5">
-            {editable.map((m) => {
+            {sendable.map((m) => {
               const p = picks[m.match_id] ?? empty
               return (
                 <li key={m.match_id} className="card-flat flex items-center gap-2 px-3 py-2">
@@ -252,6 +255,11 @@ function Form({ data, tz }: { data: PoolData; tz: string }) {
               <span>Goles en la jornada ({w.label})</span><span className="scoreline text-lg text-gold">{goals[w.id]}</span>
             </p>
           ))}
+          {later.length > 0 && (
+            <p className="text-xs text-muted">
+              {later.map((m) => `${m.home.short_name} vs ${m.away.short_name}`).join(', ')}: {later.length === 1 ? 'es' : 'son'} después de la vigencia de tu pago; queda{later.length === 1 ? '' : 'n'} guardado{later.length === 1 ? '' : 's'} para enviar después.
+            </p>
+          )}
           <p className="flex items-start gap-2 text-muted"><Lock className="mt-0.5 size-4 shrink-0" /> Al enviarla ya no se puede cambiar.</p>
           <InlineError error={error} />
         </div>
