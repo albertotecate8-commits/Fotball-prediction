@@ -66,6 +66,26 @@
   0%, 100% { opacity: 0; transform: scale(0.4); }
   50% { opacity: 1; transform: scale(1); }
 }
+/* Celebración al enviar la quiniela. */
+@keyframes ball-bounce {
+  0%, 100% { transform: translateY(0) scale(1, 1); }
+  45% { transform: translateY(-70px) scale(0.98, 1.02); }
+  90% { transform: translateY(0) scale(1.08, 0.92); }
+}
+@keyframes ball-spin { to { transform: rotate(360deg); } }
+@keyframes ball-shadow {
+  0%, 100% { transform: scaleX(1); opacity: 0.45; }
+  45% { transform: scaleX(0.55); opacity: 0.18; }
+}
+@keyframes confetti-fall {
+  0% { transform: translateY(-20vh) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(110vh) rotate(720deg); opacity: 0.9; }
+}
+@keyframes pop-in {
+  0% { opacity: 0; transform: scale(0.85); }
+  60% { opacity: 1; transform: scale(1.04); }
+  100% { transform: scale(1); }
+}
 @keyframes shimmer {
   from { background-position: -200% 0; }
   to { background-position: 200% 0; }

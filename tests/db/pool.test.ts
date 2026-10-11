@@ -64,11 +64,18 @@ describe('quiniela continua', () => {
     const [{ id: mid }] = (await sql(`select id from public.matches where external_id = 'auto-1'`)) as { id: string }[]
     const [s1] = await asUser(free, `select public.save_pool_picks($1::jsonb) as r`, [pick(mid, 'X')])
     expect(s1!.r.saved).toBe(1)
-    await expectDbError(asUser(free, `select public.submit_pool_picks($1::jsonb)`, [pick(mid, 'X')]), 'PAYMENT_REQUIRED')
+    // Quiniela completa: todos los partidos abiertos, cada uno con marcador.
+    const openIds = async (uid: string) => ((await asUser(uid, `select public.get_pool(10) as p`))[0]!.p.matches as { match_id: string; open: boolean }[]).filter((m) => m.open).map((m) => m.match_id)
+    const full = (ids: string[], main: [number, number]) => JSON.stringify(ids.map((id) => ({ match_id: id, home: id === mid ? main[0] : 0, away: id === mid ? main[1] : 0 })))
+    const ids = await openIds(paid)
+    expect(ids.length).toBeGreaterThan(1)
+    await expectDbError(asUser(free, `select public.submit_pool_picks($1::jsonb)`, [full(ids, [1, 1])]), 'PAYMENT_REQUIRED')
     await expectDbError(asUser(free, `update public.pool_picks set status = 'submitted', submitted_at = now() where user_id = $1`, [free]), 'permission denied')
-    const [sub] = await asUser(paid, `select public.submit_pool_picks($1::jsonb) as r`, [pick(mid, '1', 2, 1)])
-    expect(sub!.r.submitted).toBe(1)
-    const [again] = await asUser(paid, `select public.submit_pool_picks($1::jsonb) as r`, [pick(mid, '2')])
+    await expectDbError(asUser(paid, `select public.submit_pool_picks($1::jsonb)`, [pick(mid, '1')]), 'SCORE_REQUIRED')
+    await expectDbError(asUser(paid, `select public.submit_pool_picks($1::jsonb)`, [pick(mid, '1', 2, 1)]), 'INCOMPLETE_QUINIELA')
+    const [sub] = await asUser(paid, `select public.submit_pool_picks($1::jsonb) as r`, [full(ids, [2, 1])])
+    expect(sub!.r.submitted).toBe(ids.length)
+    const [again] = await asUser(paid, `select public.submit_pool_picks($1::jsonb) as r`, [pick(mid, '2', 0, 1)])
     expect(again!.r).toMatchObject({ submitted: 0, already_submitted: 1 })
     await expectDbError(sql(`update public.pool_picks set outcome = '2' where user_id = $1 and match_id = $2`, [paid, mid]), 'PREDICTION_LOCKED')
     // El partido empieza: queda cerrado; moverlo después no lo reabre.

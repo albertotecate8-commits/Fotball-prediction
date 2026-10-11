@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { CheckCircle2, CreditCard, Lock, Save, Send, Ticket } from 'lucide-react'
+import { ArrowDown, CheckCircle2, CreditCard, Lock, Send, Ticket } from 'lucide-react'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { useAppConfig } from '@/hooks/useAppConfig'
 import { playerApi } from '@/services/player'
@@ -11,15 +11,15 @@ import { Sheet } from '@/components/ui/Sheet'
 import { CardSkeleton } from '@/components/ui/Skeleton'
 import { EmptyState, ErrorState, InlineError } from '@/components/ui/States'
 import { TestDataBadge } from '@/components/ui/Badge'
-import { useToast } from '@/components/ui/Toast'
 import { dayKey, formatDate, formatDateTime, formatTime } from '@/lib/time'
 import { toAppError } from '@/lib/errors'
-import { PickCard, type PickValue } from './PickCard'
+import { isComplete, PickCard, type PickValue } from './PickCard'
+import { Celebration } from './Celebration'
 import type { PoolData, PoolMatch } from '@/types/domain'
 
 type Picks = Record<string, PickValue>
 const empty: PickValue = { outcome: null, home: null, away: null }
-const same = (a: PickValue, b: PickValue) => a.outcome === b.outcome && a.home === b.home && a.away === b.away
+const same = (a: PickValue, b: PickValue) => a.home === b.home && a.away === b.away
 const backupKey = (user: string) => `shabex.pool.${user}`
 
 /** Mi quiniela: todos los partidos publicados, por fecha; cada uno cierra a su hora de inicio. */
@@ -44,7 +44,6 @@ export function QuinielaPage() {
 function Form({ data, tz }: { data: PoolData; tz: string }) {
   const { session } = useAuth()
   const qc = useQueryClient()
-  const toast = useToast()
   const uid = session!.user.id
   const serverPicks = useMemo<Picks>(() => Object.fromEntries(data.matches.map((m) => [m.match_id,
     m.pick ? { outcome: m.pick.outcome, home: m.pick.home, away: m.pick.away } : empty])), [data.matches])
@@ -62,12 +61,16 @@ function Form({ data, tz }: { data: PoolData; tz: string }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<unknown>(null)
   const [confirmOpen, setConfirmOpen] = useState(false)
+  const [celebrate, setCelebrate] = useState(0)
+  const [highlight, setHighlight] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
 
   const editable = data.matches.filter((m) => m.open && m.pick?.status !== 'submitted')
   const dirtyIds = editable.filter((m) => !same(picks[m.match_id] ?? empty, serverPicks[m.match_id] ?? empty)).map((m) => m.match_id)
   const dirty = dirtyIds.length > 0
-  const ready = editable.filter((m) => picks[m.match_id]?.outcome)
-  const missing = editable.length - ready.length
+  const ready = editable.filter((m) => isComplete(picks[m.match_id] ?? empty))
+  const missing = editable.filter((m) => !isComplete(picks[m.match_id] ?? empty))
+  const complete = editable.length > 0 && missing.length === 0
   const canSubmitAny = editable.some((m) => m.can_submit)
 
   useEffect(() => {
@@ -88,28 +91,41 @@ function Form({ data, tz }: { data: PoolData; tz: string }) {
     await qc.invalidateQueries({ queryKey: qk.poolBoard })
   }
 
-  const save = async () => {
-    setBusy(true)
-    setError(null)
-    try {
-      const r = await playerApi.savePool(dirtyIds.map(toItem))
-      toast(r.closed ? `Guardado: ${r.saved}. ${r.closed} ya cerraron y no se guardaron.` : `Guardado en el servidor: ${r.saved} ${r.saved === 1 ? 'partido' : 'partidos'}`)
-      await refresh()
-    } catch (e) { setError(e) } finally { setBusy(false) }
+  // Guardado automático en el servidor (borrador): 1,2 s después del último cambio.
+  const dirtyKey = dirtyIds.map((id) => `${id}:${picks[id]?.home}-${picks[id]?.away}`).join('|')
+  useEffect(() => {
+    if (!dirtyKey) return
+    const t = setTimeout(() => {
+      setSaving(true)
+      playerApi.savePool(dirtyKey.split('|').map((x) => toItem(x.split(':')[0]!)))
+        .then(() => refresh())
+        .catch((e) => setError(e))
+        .finally(() => setSaving(false))
+    }, 1200)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dirtyKey])
+
+  // Mientras falten marcadores, el botón lleva al siguiente partido incompleto.
+  const goToMissing = () => {
+    const first = missing[0]
+    if (!first) return
+    setHighlight(first.match_id)
+    document.getElementById(`partido-${first.match_id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }
 
   const submit = async () => {
     setBusy(true)
     setError(null)
     try {
-      const r = await playerApi.submitPool(ready.map((m) => toItem(m.match_id)))
+      await playerApi.submitPool(editable.map((m) => toItem(m.match_id)))
       try { localStorage.removeItem(backupKey(uid)) } catch { /* sin almacenamiento */ }
       setConfirmOpen(false)
-      toast(`Confirmado por el servidor: ${r.submitted} ${r.submitted === 1 ? 'pronóstico enviado' : 'pronósticos enviados'}${r.closed ? ` · ${r.closed} ya habían cerrado` : ''}`)
+      setCelebrate(Date.now())
       await refresh()
     } catch (e) {
       const err = toAppError(e)
-      if (err.code === 'NETWORK') { await refresh() }
+      await refresh()
       setError(err)
     } finally { setBusy(false) }
   }
@@ -137,12 +153,12 @@ function Form({ data, tz }: { data: PoolData; tz: string }) {
       <h2 className="mb-2 text-xs font-bold uppercase tracking-[0.16em] text-muted capitalize">{formatDate(list[0]!.kickoff_at, tz)}</h2>
       <ol className="space-y-3">
         {list.map((m) => (
-          <li key={m.match_id}>
+          <li key={m.match_id} id={`partido-${m.match_id}`} className="scroll-mt-28">
             <PickCard match={m} tz={tz} value={picks[m.match_id] ?? empty}
               disabled={!m.open || m.pick?.status === 'submitted'}
-              saved={same(picks[m.match_id] ?? empty, serverPicks[m.match_id] ?? empty) && !!serverPicks[m.match_id]?.outcome}
-              submitted={m.pick?.status === 'submitted'} maxGoals={data.max_goals}
-              onChange={(v) => setPicks((p) => ({ ...p, [m.match_id]: v }))} />
+              saved={same(picks[m.match_id] ?? empty, serverPicks[m.match_id] ?? empty)}
+              submitted={m.pick?.status === 'submitted'} maxGoals={data.max_goals} highlight={highlight === m.match_id}
+              onChange={(v) => { setPicks((p) => ({ ...p, [m.match_id]: v })); if (highlight === m.match_id && isComplete(v)) setHighlight(null) }} />
             {m.open && m.pick?.status !== 'submitted' && <p className="mt-1 px-1 text-[11px] text-faint">Cierra: <span className="capitalize">{formatDateTime(m.kickoff_at, tz)}</span></p>}
           </li>
         ))}
@@ -156,11 +172,14 @@ function Form({ data, tz }: { data: PoolData; tz: string }) {
         <section className="mb-4 flex items-start gap-3 rounded-2xl border border-gold/35 bg-gold/10 p-3 text-sm">
           <CreditCard className="mt-0.5 size-5 shrink-0 text-gold" />
           <div className="flex-1">
-            <p className="font-semibold text-gold">Puedes guardar, pero para enviar necesitas tu pago confirmado</p>
-            <p className="mt-0.5 text-xs text-muted">Solo los pronósticos enviados suman puntos.</p>
+            <p className="font-semibold text-gold">Tu quiniela se guarda sola; para enviarla necesitas tu pago confirmado</p>
+            <p className="mt-0.5 text-xs text-muted">Solo las quinielas enviadas suman puntos.</p>
           </div>
           <ButtonLink to="/perfil#pago" size="sm" variant="secondary">Ver cómo pagar</ButtonLink>
         </section>
+      )}
+      {editable.length > 0 && (
+        <p className="mb-3 text-xs text-muted">Pon el marcador de <span className="font-semibold text-ink">todos</span> los partidos y envía tu quiniela completa. Una vez enviada ya no se puede cambiar.</p>
       )}
       {data.matches.some((m) => m.is_test_data) && <div className="mb-3"><TestDataBadge /></div>}
       <WeekBanner />
@@ -178,17 +197,22 @@ function Form({ data, tz }: { data: PoolData; tz: string }) {
         <div className="glass fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+4rem)] z-30 border-t border-line px-4 py-3 lg:bottom-0 lg:left-64">
           <div className="mx-auto max-w-3xl">
             <InlineError error={error} />
+            <div className="mb-2 h-1.5 overflow-hidden rounded-full bg-surface-2" role="progressbar" aria-label="Marcadores capturados" aria-valuenow={ready.length} aria-valuemax={editable.length}>
+              <div className="h-full rounded-full bg-aqua transition-all" style={{ width: `${Math.round((ready.length / editable.length) * 100)}%` }} />
+            </div>
             <div className="flex items-center gap-3">
               <div className="shrink-0">
                 <div className="scoreline text-xl">{ready.length}<span className="text-muted">/{editable.length}</span></div>
-                <div className="text-[10px] font-semibold uppercase tracking-wider text-muted">elegidos</div>
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-muted">{saving ? 'guardando…' : 'marcadores'}</div>
               </div>
-              {dirty || !canSubmitAny ? (
-                <Button size="lg" block className="whitespace-nowrap px-4 text-base" loading={busy} disabled={!dirty} icon={<Save className="size-5" />} onClick={() => void save()}>
-                  {dirty ? 'Guardar mi quiniela' : 'Quiniela guardada'}
+              {!complete ? (
+                <Button size="lg" block variant="secondary" className="whitespace-nowrap px-4 text-base" icon={<ArrowDown className="size-5" />} onClick={goToMissing}>
+                  {missing.length === 1 ? 'Falta 1 marcador' : `Faltan ${missing.length} marcadores`}
                 </Button>
+              ) : !canSubmitAny ? (
+                <Button size="lg" block className="whitespace-nowrap px-4 text-base" disabled icon={<CheckCircle2 className="size-5" />}>Completa y guardada</Button>
               ) : (
-                <Button size="lg" block className="whitespace-nowrap px-4 text-base" disabled={busy || ready.length === 0} icon={<Send className="size-5" />} onClick={() => setConfirmOpen(true)}>Enviar pronósticos</Button>
+                <Button size="lg" block className="whitespace-nowrap px-4 text-base" disabled={busy || saving} icon={<Send className="size-5" />} onClick={() => setConfirmOpen(true)}>Enviar quiniela</Button>
               )}
             </div>
           </div>
@@ -198,18 +222,26 @@ function Form({ data, tz }: { data: PoolData; tz: string }) {
         <p className="flex items-center gap-2 text-sm text-muted"><CheckCircle2 className="size-4 text-success" /> No tienes partidos pendientes por enviar.</p>
       )}
 
-      <Sheet open={confirmOpen} onClose={() => !busy && setConfirmOpen(false)} title="¿Enviar tus pronósticos?"
-        footer={<Button block size="lg" loading={busy} disabled={ready.length === 0} icon={<Send className="size-5" />} onClick={() => void submit()}>Enviar {ready.length} {ready.length === 1 ? 'pronóstico' : 'pronósticos'}</Button>}>
+      <Sheet open={confirmOpen} onClose={() => !busy && setConfirmOpen(false)} title="¿Enviar tu quiniela?"
+        footer={<Button block size="lg" loading={busy} disabled={!complete} icon={<Send className="size-5" />} onClick={() => void submit()}>Enviar mis {editable.length} marcadores</Button>}>
         <div className="space-y-3 text-sm">
-          <div className="grid grid-cols-2 gap-2">
-            <div className="card-flat p-3 text-center"><div className="scoreline text-3xl text-aqua">{ready.length}</div><div className="text-xs text-muted">contestados</div></div>
-            <div className="card-flat p-3 text-center"><div className={`scoreline text-3xl ${missing ? 'text-red' : 'text-muted'}`}>{missing}</div><div className="text-xs text-muted">sin contestar</div></div>
-          </div>
-          {missing > 0 && <p className="text-muted">Los partidos sin contestar quedan pendientes: puedes enviarlos después, antes de que empiecen.</p>}
-          <p className="flex items-start gap-2 text-muted"><Lock className="mt-0.5 size-4 shrink-0" /> Un pronóstico enviado ya no se puede cambiar.</p>
+          <ul className="space-y-1.5">
+            {editable.map((m) => {
+              const p = picks[m.match_id] ?? empty
+              return (
+                <li key={m.match_id} className="card-flat flex items-center gap-2 px-3 py-2">
+                  <span className="min-w-0 flex-1 truncate">{m.home.short_name}</span>
+                  <span className="scoreline shrink-0 text-lg">{p.home}-{p.away}</span>
+                  <span className="min-w-0 flex-1 truncate text-right">{m.away.short_name}</span>
+                </li>
+              )
+            })}
+          </ul>
+          <p className="flex items-start gap-2 text-muted"><Lock className="mt-0.5 size-4 shrink-0" /> Al enviarla ya no se puede cambiar.</p>
           <InlineError error={error} />
         </div>
       </Sheet>
+      {celebrate > 0 && <Celebration key={celebrate} onClose={() => setCelebrate(0)} />}
     </div>
   )
 }

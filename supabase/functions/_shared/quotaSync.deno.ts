@@ -26,12 +26,12 @@ export async function runPlannedSync(db: SupabaseClient, provider: ApiFootballPr
   const ages = await rpc<{ cache_key: string; fetched_at: string }[]>('provider_cache_ages', { p_provider: provider.id, p_keys: [...days.map((d) => `day:${d}`), 'live'] })
   const at = (k: string) => { const r = ages.find((a) => a.cache_key === k); return r ? Date.parse(r.fetched_at) : null }
   const dayFetchedAt: Record<string, number | null> = Object.fromEntries(days.map((d) => [d, at(`day:${d}`)]))
-  const { data: feat } = await db.rpc('featured_last_refresh', { p_provider: provider.id })
   const w = (provider as unknown as { dateWindow?: [number, number] | null }).dateWindow
 
   const plan = planTick({
     now, effective: state.effective_remaining, paused: state.paused, tracked,
-    featuredLive: Number(feat?.live ?? 0), lastLiveAt: at('live'), dayFetchedAt,
+    // Inicio solo muestra partidos de la quiniela: los destacados de otras ligas ya no gastan consultas en vivo.
+    featuredLive: 0, lastLiveAt: at('live'), dayFetchedAt,
     liveRestricted: provider.liveRestricted, dateWindow: w ?? [-1, 1],
   })
   const summary = {

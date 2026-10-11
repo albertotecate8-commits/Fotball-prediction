@@ -1,6 +1,6 @@
 import { Link } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
-import { CalendarDays, Radio } from 'lucide-react'
+import { CalendarDays, Radio, Ticket } from 'lucide-react'
 import { playerApi } from '@/services/player'
 import { qk } from '@/services/queryKeys'
 import { useAppConfig } from '@/hooks/useAppConfig'
@@ -8,65 +8,59 @@ import { CardSkeleton } from '@/components/ui/Skeleton'
 import { EmptyState, ErrorState } from '@/components/ui/States'
 import { ButtonLink } from '@/components/ui/Button'
 import { SectionTitle } from '@/components/PageHeader'
-import { MatchRow } from '@/components/MatchCard'
-import { FeaturedHero, FeaturedRow } from './Featured'
+import { MatchCard, MatchRow } from '@/components/MatchCard'
 import { PoolAccess } from './PoolAccess'
 import { PrizePot } from './PrizePot'
-import type { FeaturedMatch } from '@/types/domain'
 
-const upcomingFirst = (a: FeaturedMatch, b: FeaturedMatch) => b.priority - a.priority || Date.parse(a.kickoff_at) - Date.parse(b.kickoff_at)
-
+/** Inicio: solo equipos y partidos de la quiniela (nada de otras ligas). */
 export function HomePage() {
   const { timezone } = useAppConfig()
-  const featured = useQuery({ queryKey: qk.featured, queryFn: playerApi.featured, refetchInterval: 120_000 })
   const pool = useQuery({ queryKey: qk.pool, queryFn: playerApi.pool, refetchInterval: 60_000 })
 
-  const list = featured.data ?? []
-  const live = list.filter((m) => m.status === 'live')
-  const next = list.filter((m) => m.status === 'scheduled' && Date.parse(m.kickoff_at) > Date.now() - 15 * 60e3).sort(upcomingFirst)
-  const hero = next[0] ?? live[0] ?? null
-  const rest = next.filter((m) => m !== hero)
-  const featuredIds = new Set(list.map((m) => m.in_round_id).filter(Boolean))
-  const officialLive = (pool.data?.matches ?? []).filter((m) => m.status === 'live' && !featuredIds.has(m.match_id))
+  const matches = pool.data?.matches ?? []
+  const live = matches.filter((m) => m.status === 'live' || m.status === 'suspended')
+  const upcoming = matches.filter((m) => m.status === 'scheduled' && Date.parse(m.kickoff_at) > Date.now())
+    .sort((a, b) => Date.parse(a.kickoff_at) - Date.parse(b.kickoff_at))
+  const hero = upcoming[0] ?? null
+  const rest = upcoming.slice(1, 9)
 
   return (
     <div>
       <PrizePot />
       <PoolAccess />
 
-      <h2 className="display mb-3 mt-6 text-xl font-semibold uppercase tracking-wide">Partidos destacados</h2>
-      {featured.isLoading ? (
+      <h2 className="display mb-3 mt-6 text-xl font-semibold uppercase tracking-wide">Próximo partido</h2>
+      {pool.isLoading ? (
         <CardSkeleton lines={4} />
-      ) : featured.error ? (
-        <ErrorState error={featured.error} onRetry={() => void featured.refetch()} />
+      ) : pool.error ? (
+        <ErrorState error={pool.error} onRetry={() => void pool.refetch()} />
       ) : hero ? (
-        <FeaturedHero match={hero} tz={timezone} />
+        <MatchCard match={hero} tz={timezone}
+          footer={<ButtonLink to="/quinielas" variant={hero.pick?.status === 'submitted' ? 'secondary' : 'primary'} block className="mt-4" icon={<Ticket className="size-4" />}>
+            {hero.pick?.status === 'submitted' ? `Tu pronóstico: ${hero.pick.home ?? '–'}-${hero.pick.away ?? '–'}` : 'Hacer pronóstico'}
+          </ButtonLink>} />
       ) : (
-        <EmptyState icon={<CalendarDays className="size-6" />} title="Sin partidos destacados por ahora"
-          description="Aquí verás los partidos importantes de hoy y mañana."
-          action={<ButtonLink to="/quinielas" variant="secondary">Ir a Mi quiniela</ButtonLink>} />
+        <EmptyState icon={<CalendarDays className="size-6" />} title="Aún no hay partidos en la quiniela"
+          description="En cuanto se publiquen aparecerán aquí." />
       )}
 
-      {(live.length > 0 || officialLive.length > 0) && (
+      {live.length > 0 && (
         <>
           <SectionTitle><span className="inline-flex items-center gap-2"><Radio className="size-4 text-red" /> En vivo</span></SectionTitle>
           <div className="space-y-2">
-            {officialLive.map((m) => (
-              <Link key={m.match_id} to="/quinielas" className="block"><MatchRow match={m} tz={timezone} /></Link>
-            ))}
-            {live.filter((m) => m !== hero).map((m) => <FeaturedRow key={m.external_id} match={m} tz={timezone} />)}
-            {hero && hero.status === 'live' && <FeaturedRow match={hero} tz={timezone} />}
+            {live.map((m) => <Link key={m.match_id} to="/quinielas" className="block"><MatchRow match={m} tz={timezone} /></Link>)}
           </div>
         </>
       )}
 
       {rest.length > 0 && (
         <>
-          <SectionTitle>Próximos partidos</SectionTitle>
-          <div className="space-y-2">{rest.slice(0, 8).map((m) => <FeaturedRow key={m.external_id} match={m} tz={timezone} />)}</div>
+          <SectionTitle>Más partidos de tu quiniela</SectionTitle>
+          <div className="space-y-2">
+            {rest.map((m) => <Link key={m.match_id} to="/quinielas" className="block"><MatchRow match={m} tz={timezone} /></Link>)}
+          </div>
         </>
       )}
-
     </div>
   )
 }

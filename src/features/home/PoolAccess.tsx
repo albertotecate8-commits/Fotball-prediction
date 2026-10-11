@@ -16,7 +16,7 @@ export function PoolAccess() {
   if (q.error) return <ErrorState error={q.error} onRetry={() => void q.refetch()} />
   const open = q.data!.matches.filter((m) => m.open)
   const pending = open.filter((m) => m.pick?.status !== 'submitted')
-  const noPick = open.filter((m) => !m.pick)
+  const noPick = open.filter((m) => m.pick?.status !== 'submitted' && (m.pick?.home == null || m.pick?.away == null))
   const next = open[0]
   return (
     <section className="card p-4" aria-labelledby="mi-quiniela">
@@ -26,8 +26,8 @@ export function PoolAccess() {
       </h2>
       <p className="mt-1.5 text-xs text-muted">
         {open.length === 0 ? 'Cuando haya partidos nuevos aparecerán aquí.'
-          : pending.length === 0 ? 'Ya enviaste todos tus pronósticos abiertos.'
-          : `${noPick.length ? `${noPick.length} sin elegir · ` : ''}el próximo cierra ${formatDateTime(next!.kickoff_at, timezone)}`}
+          : pending.length === 0 ? 'Ya enviaste tu quiniela.'
+          : `${noPick.length ? `${noPick.length} sin marcador · ` : ''}el próximo cierra ${formatDateTime(next!.kickoff_at, timezone)}`}
       </p>
       <ButtonLink to="/quinielas" block size="lg" className="mt-4" variant={pending.length ? 'primary' : 'secondary'} icon={<Ticket className="size-5" />}>
         {pending.length ? 'Llenar mi quiniela' : 'Ver mi quiniela'}
