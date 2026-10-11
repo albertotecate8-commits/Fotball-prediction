@@ -86,6 +86,11 @@ export async function runPlannedSync(db: SupabaseClient, provider: ApiFootballPr
         fetchedDays.add(a.date)
         dayFetchedAt[a.date] = Date.now()
         await apply(fx)
+        // Lo que el proveedor ya no devuelve para ese día queda para revisión del admin (nunca se borra).
+        if (fx.length) {
+          const { data: missing } = await db.rpc('pool_mark_missing', { p_provider: provider.id, p_date: a.date, p_present: fx.map((f) => f.external_id) })
+          if (missing) anomalies.push(`day:${a.date}: ${missing} partido(s) de la selección sin respuesta del proveedor`)
+        }
         done.push(`day:${a.date}:${fx.length}`)
       }
       // Lo aplicado ya cuenta para las decisiones siguientes de esta pasada.

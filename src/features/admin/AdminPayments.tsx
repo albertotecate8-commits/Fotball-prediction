@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Search } from 'lucide-react'
+import { Link } from 'react-router'
+import { Landmark, Search } from 'lucide-react'
 import { adminApi } from '@/services/admin'
 import { qk } from '@/services/queryKeys'
 import { useAppConfig } from '@/hooks/useAppConfig'
@@ -40,7 +41,12 @@ export function AdminPayments() {
 
   return (
     <div>
-      <h1 className="display mb-4 text-3xl font-semibold uppercase">Participantes y pagos</h1>
+      <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
+        <h1 className="display text-3xl font-semibold uppercase">Participantes y pagos</h1>
+        <Link to="/admin/datos-pago" className="inline-flex h-9 items-center gap-1.5 rounded-full border border-line-strong px-3 text-xs font-bold text-ink hover:bg-white/5">
+          <Landmark className="size-4" /> Datos de pago
+        </Link>
+      </div>
       <PillTabs label="Filtrar" value={tab} onChange={setTab} className="mb-3" options={[
         { value: 'all', label: 'Todos', count: rows.length },
         { value: 'paid', label: 'Pagados', count: rows.filter(isPaid).length },

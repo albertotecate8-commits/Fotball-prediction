@@ -35,10 +35,42 @@ export interface PoolAdminMatch {
   away: { id: string; name: string; short_name: string; code: string | null; logo_url: string | null }
   picks: number
 }
-export interface WeekPlan {
-  id: string; week_start: string; week_end: string; label: string; max_matches: number
-  team_ids: string[]; league_ids: string[]; team_weekend_only: boolean; filled: number; teams_found: string[]
+/** Partido del borrador «Próxima quiniela» (sugerido, seleccionado o descartado). */
+export interface NextPoolMatch {
+  match_id: string
+  kickoff_at: string
+  status: MatchStatus
+  elapsed: number | null
+  home_goals: number | null
+  away_goals: number | null
+  result_confirmed: boolean
+  provider: string
+  external_id: string | null
+  competition: { id: string; name: string; logo_url: string | null } | null
+  home: { id: string; name: string; short_name: string; code: string | null; logo_url: string | null; retired: boolean }
+  away: { id: string; name: string; short_name: string; code: string | null; logo_url: string | null; retired: boolean }
+  state: 'suggested' | 'selected' | 'dismissed'
+  published: boolean
+  withdrawn: boolean
+  source: 'auto' | 'admin'
+  sort_order: number | null
+  needs_review: boolean
+  review_reason: string | null
+  open: boolean
+  picks: number
 }
+export interface SelectionItem { match_id: string; selected: boolean; dismissed?: boolean; sort_order?: number | null }
+export interface TeamCatalogEntry {
+  id: string; name: string; short_name: string; logo_url: string | null; provider: string; external_id: string | null
+  retired: boolean; retired_at: string | null; retire_reason: string | null
+  matches: number; pool_picks: number; round_picks: number; selected: number; deletable: boolean
+}
+/** Equipo oficial encontrado en API-Football (escudo y datos del proveedor). */
+export interface ProviderTeamResult {
+  external_id: string; name: string; code: string | null; country: string | null; national: boolean; logo_url: string | null
+  catalog_id: string | null; catalog_retired: boolean
+}
+export interface CreateTeamResult { id: string; created: boolean; retired: boolean; match?: 'provider_id' | 'name' | 'name_upgraded' }
 export interface CatalogTeam { id: string; name: string; short_name: string; logo_url: string | null; provider: string; external_id: string | null }
 
 export interface ApiUsageRequest {
@@ -199,16 +231,25 @@ export const adminApi = {
     instructions: string | null; contact: string | null; updated_at: string } | null>(await supabase.from('payment_info').select('*').maybeSingle()),
   savePaymentInfo: (v: { bank: string; holder: string; clabe: string; account: string; amount: number | null; concept: string; instructions: string; contact: string }) =>
     rpc<void>('admin_save_payment_info', { p_bank: v.bank, p_holder: v.holder, p_clabe: v.clabe, p_account: v.account, p_amount: v.amount, p_concept: v.concept, p_instructions: v.instructions, p_contact: v.contact }),
-  weekPlans: () => rpc<WeekPlan[]>('admin_week_plans'),
-  /** Pide a la app la quiniela de la próxima semana: 12 partidos (Barcelona y Real Madrid el fin de semana + Liga MX). */
-  planNextWeek: () => rpc<{ id: string; week_start: string; added_now: number }>('admin_plan_week', {}),
+  /** Borrador de la próxima quiniela: sugerencias automáticas + selección del admin. */
+  nextPool: () => rpc<NextPoolMatch[]>('admin_next_pool'),
+  saveSelection: (items: SelectionItem[]) => rpc<{ saved: number; skipped_started: number }>('admin_save_selection', { p_items: items }),
+  publishSelection: (reason: string | null) =>
+    rpc<{ published: number; withdrawn: number; withdrawn_picks: number }>('admin_publish_selection', { p_reason: reason }),
+  teamCatalog: (q: string) => rpc<TeamCatalogEntry[]>('admin_team_catalog', { p_query: q.trim() || null, p_include_retired: true }),
+  retireTeam: (id: string, reason: string) => rpc<{ retired: boolean; suggestions_dismissed: number }>('admin_retire_team', { p_team: id, p_reason: reason }),
+  restoreTeam: (id: string) => rpc<void>('admin_restore_team', { p_team: id }),
+  deleteTeam: (id: string, reason: string) => rpc<void>('admin_delete_team', { p_team: id, p_reason: reason }),
+  /** Búsqueda oficial por nombre en API-Football (servidor, con caché y dentro de la cuota). */
+  searchProviderTeams: (query: string) =>
+    invokeFunction<{ provider: string; cached: boolean; teams: ProviderTeamResult[] }>('provider-fixtures', { action: 'teams', provider: 'api-football', query }),
   poolList: () => rpc<PoolAdminMatch[]>('admin_pool_list', { p_days_back: 14 }),
   publishMatch: (matchId: string) => rpc<void>('admin_publish_match', { p_match_id: matchId }),
   setPoolStatus: (matchId: string, status: 'published' | 'withdrawn', reason: string) =>
     rpc<void>('admin_set_pool_status', { p_match_id: matchId, p_status: status, p_reason: reason }),
   searchTeams: (q: string) => rpc<CatalogTeam[]>('admin_search_teams', { p_query: q }),
   createTeam: (name: string, shortName: string, logoUrl: string, providerId: string) =>
-    rpc<{ id: string; created: boolean }>('admin_create_team', { p_name: name, p_short_name: shortName, p_logo_url: logoUrl, p_provider_id: providerId }),
+    rpc<CreateTeamResult>('admin_create_team', { p_name: name, p_short_name: shortName, p_logo_url: logoUrl, p_provider_id: providerId }),
   createPoolMatch: (home: string, away: string, kickoff: string, competitionId: string | null, competitionName: string | null) =>
     rpc<{ match_id: string; created: boolean }>('admin_create_pool_match', { p_home: home, p_away: away, p_kickoff: kickoff, p_competition_id: competitionId, p_competition_name: competitionName }),
   updatePoolMatch: (matchId: string, kickoff: string, reason: string) =>

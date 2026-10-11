@@ -107,6 +107,21 @@ const adminPool = [...finishedMatches.slice(0, 2), ...openMatches.slice(0, 3)].m
 }))
 adminPool[1]!.status = 'scheduled'; adminPool[1]!.home_goals = null; adminPool[1]!.away_goals = null; adminPool[1]!.result_confirmed = false
 
+const nextPool = openMatches.slice(0, 6).map((m, i) => ({
+  match_id: m.match_id, kickoff_at: m.kickoff_at, status: 'scheduled', elapsed: null, home_goals: null, away_goals: null, result_confirmed: false,
+  provider: i === 2 ? 'manual' : 'api-football', external_id: i === 2 ? null : `8000${i}`,
+  competition: { id: 'c1', name: 'Liga de Prueba (datos ficticios)', logo_url: null },
+  home: { id: `h${i}`, ...m.home, retired: false }, away: { id: `a${i}`, ...m.away, retired: false },
+  state: i < 3 ? 'selected' : 'suggested', published: i < 2, withdrawn: false, source: i === 2 ? 'admin' : 'auto', sort_order: i < 3 ? i + 1 : null,
+  needs_review: i === 4, review_reason: i === 4 ? 'NOT_IN_PROVIDER' : null, open: true, picks: i === 0 ? 3 : 0,
+}))
+// Catálogo FICTICIO: uno con historial, uno sin partidos y uno retirado.
+const catalog = [
+  { id: 'tc1', name: 'Atlético Prueba', short_name: 'Atl. Prueba', logo_url: null, provider: 'api-football', external_id: '7001', retired: false, retired_at: null, retire_reason: null, matches: 4, pool_picks: 12, round_picks: 0, selected: 1, deletable: false },
+  { id: 'tc2', name: 'Club Sin Partidos', short_name: 'Sin Partidos', logo_url: null, provider: 'manual', external_id: null, retired: false, retired_at: null, retire_reason: null, matches: 0, pool_picks: 0, round_picks: 0, selected: 0, deletable: true },
+  { id: 'tc3', name: 'Estrella Beta', short_name: 'E. Beta', logo_url: null, provider: 'api-football', external_id: '7003', retired: true, retired_at: iso(-2 * 24 * H), retire_reason: 'No forma parte de la quiniela', matches: 2, pool_picks: 0, round_picks: 0, selected: 0, deletable: false },
+]
+
 const RPC: Record<string, (body: Record<string, unknown>) => unknown> = {
   get_server_time: () => JSON.stringify(new Date().toISOString()),
   get_app_config: () => ({ timezone: 'America/Mexico_City', max_goals: 15, payments_enabled: false, server_time: new Date().toISOString() }),
@@ -116,10 +131,15 @@ const RPC: Record<string, (body: Record<string, unknown>) => unknown> = {
   get_leaderboard: () => leaderboard,
   get_pool_leaderboard: () => leaderboard,
   admin_pool_list: () => adminPool,
-  // Plan semanal FICTICIO.
-  admin_week_plans: () => [{ id: 'w1', week_start: iso(2 * 24 * H).slice(0, 10), week_end: iso(8 * 24 * H).slice(0, 10), label: 'Semana', max_matches: 12,
-    team_ids: ['529', '541'], league_ids: ['262'], team_weekend_only: true, filled: 5, teams_found: ['529'] }],
-  admin_plan_week: () => ({ id: 'w1', week_start: iso(2 * 24 * H).slice(0, 10), added_now: 0 }),
+  // Borrador FICTICIO de la próxima quiniela.
+  admin_next_pool: () => nextPool,
+  admin_save_selection: (b) => ({ saved: ((b.p_items as unknown[]) ?? []).length, skipped_started: 0 }),
+  admin_publish_selection: () => ({ published: 1, withdrawn: 1, withdrawn_picks: 3 }),
+  admin_team_catalog: () => catalog,
+  admin_create_team: (b) => ({ id: 'new-team', created: true, retired: false, name: b.p_name }),
+  admin_retire_team: () => ({ retired: true, suggestions_dismissed: 0 }),
+  admin_restore_team: () => null,
+  admin_delete_team: () => null,
   // Bolsa FICTICIA.
   get_prize_pot: () => ({ pot: 1200, paid_count: 40, currency: 'MXN', configured: true }),
   get_pool_week: () => ({ label: 'Semana', week_start: iso(2 * 24 * H).slice(0, 10), week_end: iso(8 * 24 * H).slice(0, 10), max_matches: 12, filled: 5 }),
@@ -167,6 +187,15 @@ export async function mockBackend(page: Page, opts: { admin?: boolean; featured?
     const json = (body: unknown, status = 200) => route.fulfill({ status, contentType: 'application/json', body: typeof body === 'string' ? body : JSON.stringify(body) })
     if (url.pathname.startsWith('/auth/v1/user')) return json(session.user)
     if (url.pathname === '/functions/v1/provider-fixtures') {
+      const req = route.request().postDataJSON() ?? {}
+      if (req.action === 'teams') {
+        opts.calls?.push('provider-fixtures:teams')
+        // Resultados FICTICIOS de la búsqueda oficial (sin escudos inventados).
+        return json({ provider: 'api-football', cached: false, teams: [
+          { external_id: '99001', name: `${req.query} FC`, code: 'TST', country: 'País Prueba', national: false, logo_url: null, catalog_id: null, catalog_retired: false },
+          { external_id: '99002', name: `${req.query} B`, code: null, country: 'País Prueba', national: false, logo_url: null, catalog_id: 'tc1', catalog_retired: false },
+        ] })
+      }
       return json({ default_provider: 'mock', providers: [
         { id: 'api-football', is_test_data: false, configured: false, budget_daily: 90, usage: null, status: null },
         { id: 'mock', is_test_data: true, configured: true, budget_daily: null, usage: null, status: null },

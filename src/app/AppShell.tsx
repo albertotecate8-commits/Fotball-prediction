@@ -1,6 +1,7 @@
-import { Link, NavLink, Outlet, useLocation } from 'react-router'
-import { Home, Ticket, Trophy, UserRound, Shield, LogOut } from 'lucide-react'
+import { Link, Navigate, NavLink, Outlet, useNavigate } from 'react-router'
+import { Home, Ticket, Trophy, UserRound, ShieldCheck, LogOut } from 'lucide-react'
 import { cn } from '@/lib/cn'
+import { isAdminPreview, setAdminPreview } from '@/lib/adminPreview'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { useGroup } from '@/features/groups/GroupProvider'
 import { Avatar } from '@/components/ui/Avatar'
@@ -41,25 +42,28 @@ function BottomNav() {
 
 /** Cabecera móvil con el logo horizontal. */
 function TopBar() {
-  const { profile, isAdmin } = useAuth()
-  const { pathname } = useLocation()
-  const inAdmin = pathname.startsWith('/admin')
+  const { profile } = useAuth()
   return (
     <header className="glass sticky top-0 z-30 -mx-4 mb-4 flex items-center gap-3 border-b border-line px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)] lg:hidden">
       <Link to="/" aria-label="Inicio" className="min-w-0 flex-1"><BrandLogo size="sm" /></Link>
-      {isAdmin && (
-        <Link to={inAdmin ? '/' : '/admin'} className={cn('inline-flex h-9 items-center gap-1.5 rounded-full border px-3 text-xs font-bold',
-          inAdmin ? 'border-line-strong text-ink' : 'border-aqua/50 text-aqua')}>
-          <Shield className="size-4" /> {inAdmin ? 'Salir de admin' : 'Admin'}
-        </Link>
-      )}
       <Link to="/perfil" aria-label="Mi perfil" className="rounded-full"><Avatar name={profile?.display_name ?? '?'} url={profile?.avatar_url} size={36} /></Link>
     </header>
   )
 }
 
+/** El admin mirando la app como jugador: siempre a un toque de volver a su panel. */
+function PreviewBanner() {
+  const navigate = useNavigate()
+  return (
+    <div className="sticky top-0 z-40 -mx-4 flex items-center gap-2 border-b border-aqua/40 bg-aqua/15 px-4 py-2 text-xs font-semibold text-aqua backdrop-blur lg:mx-0 lg:mb-4 lg:rounded-xl lg:border">
+      <ShieldCheck className="size-4 shrink-0" /> <span className="min-w-0 flex-1">Vista de participante</span>
+      <button type="button" className="h-8 shrink-0 rounded-full bg-aqua px-3 font-bold text-black" onClick={() => { setAdminPreview(false); void navigate('/admin') }}>Volver al panel</button>
+    </div>
+  )
+}
+
 function Sidebar() {
-  const { profile, isAdmin, signOut } = useAuth()
+  const { profile, signOut } = useAuth()
   const { group } = useGroup()
   return (
     <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-r border-line bg-surface/60 px-4 py-6 lg:flex">
@@ -72,12 +76,6 @@ function Sidebar() {
             {({ isActive }) => <><Icon className={cn('size-5', isActive && 'text-red')} aria-hidden /> {label}</>}
           </NavLink>
         ))}
-        {isAdmin && (
-          <NavLink to="/admin" className={({ isActive }) => cn('mt-4 flex h-11 items-center gap-3 rounded-xl border border-line px-3 text-sm font-semibold transition',
-            isActive ? 'border-aqua/50 text-aqua' : 'text-muted hover:text-ink')}>
-            <Shield className="size-5" aria-hidden /> Administración
-          </NavLink>
-        )}
       </nav>
       <div className="mt-auto flex items-center gap-3 rounded-2xl border border-line p-3">
         <Avatar name={profile?.display_name ?? '?'} url={profile?.avatar_url} size={38} />
@@ -94,10 +92,15 @@ function Sidebar() {
 }
 
 export function AppShell() {
+  const { isAdmin } = useAuth()
+  const preview = isAdmin && isAdminPreview()
+  // El administrador entra directo a su panel; la app de jugador solo en «Vista participante».
+  if (isAdmin && !preview) return <Navigate to="/admin" replace />
   return (
     <div className="flex min-h-dvh">
       <Sidebar />
       <main className="safe-bottom mx-auto w-full max-w-3xl px-4 lg:px-8 lg:pt-8 xl:max-w-4xl">
+        {preview && <PreviewBanner />}
         <TopBar />
         <Outlet />
       </main>

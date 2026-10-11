@@ -4,6 +4,7 @@ import { ProviderError, type FootballProvider, type RequestGate } from './types.
 
 export * from './types.ts'
 export { ApiFootballProvider, MockProvider }
+export type { ProviderTeam } from './apiFootball.ts'
 
 export interface ProviderEnv {
   FOOTBALL_PROVIDER?: string

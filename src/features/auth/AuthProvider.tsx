@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { setAdminPreview } from '@/lib/adminPreview'
 import { supabase } from '@/lib/supabase'
 import { rpc } from '@/services/rpc'
 import { profileApi } from '@/services/profile'
@@ -64,6 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     recoveryMode,
     clearRecovery: () => setRecoveryMode(false),
     signOut: async () => {
+      setAdminPreview(false)
       await supabase.auth.signOut()
     },
   }), [session, loading, profileQuery.data, profileQuery.isLoading, adminQuery.data, adminQuery.isLoading, uid, recoveryMode])

@@ -39,26 +39,25 @@ export const router = createBrowserRouter([
               { path: '/quinielas/:roundId/jugar', element: <LegacyPlayRedirect /> },
               { path: '/clasificacion', element: <LeaderboardPage /> },
               { path: '/perfil', element: <ProfilePage /> },
+            ],
+          },
+          {
+            // Panel exclusivo del administrador (fuera de la navegación de jugadores).
+            element: <RequireAdmin />,
+            children: [
               {
-                element: <RequireAdmin />,
+                path: '/admin',
+                lazy: async () => ({ Component: (await import('@/features/admin/AdminShell')).AdminShell }),
+                hydrateFallbackElement: <FullPageSpinner />,
                 children: [
-                  {
-                    // El panel admin se descarga solo cuando un admin lo abre.
-                    path: '/admin',
-                    lazy: async () => ({ Component: (await import('@/features/admin/AdminLayout')).AdminLayout }),
-                    hydrateFallbackElement: <FullPageSpinner />,
-                    children: [
-                      { index: true, element: <Navigate to="/admin/partidos" replace /> },
-                      { path: 'participantes', lazy: async () => ({ Component: (await import('@/features/admin/AdminPayments')).AdminPayments }) },
-                      { path: 'datos-pago', lazy: async () => ({ Component: (await import('@/features/admin/AdminPaymentInfo')).AdminPaymentInfo }) },
-                      { path: 'partidos', lazy: async () => ({ Component: (await import('@/features/admin/AdminPool')).AdminPool }) },
-                      { path: 'consumo', lazy: async () => ({ Component: (await import('@/features/admin/AdminApiUsage')).AdminApiUsage }) },
-                      { path: 'equipos', lazy: async () => ({ Component: (await import('@/features/admin/AdminTeams')).AdminTeams }) },
-                      { path: 'jornadas', lazy: async () => ({ Component: (await import('@/features/admin/AdminRounds')).AdminRounds }) },
-                      { path: 'jornadas/:roundId', lazy: async () => ({ Component: (await import('@/features/admin/AdminRoundEditor')).AdminRoundEditor }) },
-                      { path: 'resultados', lazy: async () => ({ Component: (await import('@/features/admin/AdminResults')).AdminResults }) },
-                    ],
-                  },
+                  { index: true, lazy: async () => ({ Component: (await import('@/features/admin/AdminNextPool')).AdminNextPool }) },
+                  { path: 'equipos', lazy: async () => ({ Component: (await import('@/features/admin/AdminTeams')).AdminTeams }) },
+                  { path: 'resultados', lazy: async () => ({ Component: (await import('@/features/admin/AdminResults')).AdminResults }) },
+                  { path: 'participantes', lazy: async () => ({ Component: (await import('@/features/admin/AdminPayments')).AdminPayments }) },
+                  { path: 'datos-pago', lazy: async () => ({ Component: (await import('@/features/admin/AdminPaymentInfo')).AdminPaymentInfo }) },
+                  { path: 'consumo', lazy: async () => ({ Component: (await import('@/features/admin/AdminApiUsage')).AdminApiUsage }) },
+                  // Enlaces anteriores del panel.
+                  { path: '*', element: <Navigate to="/admin" replace /> },
                 ],
               },
             ],

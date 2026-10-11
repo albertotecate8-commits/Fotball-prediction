@@ -2,13 +2,12 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Plus, Search } from 'lucide-react'
 import { adminApi, type CatalogTeam } from '@/services/admin'
-import { errorMessage } from '@/lib/errors'
 import { TeamCrest } from '@/components/TeamCrest'
 import { Button } from '@/components/ui/Button'
-import { Field, Input } from '@/components/ui/Field'
-import { useToast } from '@/components/ui/Toast'
+import { Input } from '@/components/ui/Field'
+import { AddTeamFlow } from './AddTeamFlow'
 
-/** Busca un equipo del catálogo o registra uno nuevo (sin duplicados). */
+/** Busca un equipo del catálogo activo o añade uno nuevo (sin duplicados). */
 export function TeamPicker({ label, value, onChange }: { label: string; value: CatalogTeam | null; onChange: (t: CatalogTeam | null) => void }) {
   const [q, setQ] = useState('')
   const [creating, setCreating] = useState(false)
@@ -49,40 +48,8 @@ export function TeamPicker({ label, value, onChange }: { label: string; value: C
           {results.data && results.data.length === 0 && <li className="px-1 text-xs text-muted">Sin coincidencias en el catálogo.</li>}
         </ul>
       )}
-      {creating ? <NewTeamForm initialName={q} onCreated={(t) => { onChange(t); setCreating(false) }} onCancel={() => setCreating(false)} />
-        : <Button size="sm" variant="ghost" className="mt-2" icon={<Plus className="size-4" />} onClick={() => setCreating(true)}>Registrar equipo nuevo</Button>}
-    </div>
-  )
-}
-
-export function NewTeamForm({ initialName = '', onCreated, onCancel }: { initialName?: string; onCreated: (t: CatalogTeam) => void; onCancel?: () => void }) {
-  const toast = useToast()
-  const [name, setName] = useState(initialName)
-  const [short, setShort] = useState('')
-  const [logo, setLogo] = useState('')
-  const [pid, setPid] = useState('')
-  const [busy, setBusy] = useState(false)
-  const valid = name.trim().length >= 2 && (!logo || logo.startsWith('https://')) && (!pid || /^\d{1,10}$/.test(pid))
-  const save = async () => {
-    setBusy(true)
-    try {
-      const r = await adminApi.createTeam(name.trim(), short.trim(), logo.trim(), pid.trim())
-      toast(r.created ? 'Equipo registrado' : 'Ese equipo ya existía: se usará el del catálogo')
-      const found = await adminApi.searchTeams(name.trim())
-      const t = found.find((x) => x.id === r.id) ?? { id: r.id, name: name.trim(), short_name: short || name, logo_url: logo || null, provider: pid ? 'api-football' : 'manual', external_id: pid || null }
-      onCreated(t)
-    } catch (e) { toast(errorMessage(e), 'error') } finally { setBusy(false) }
-  }
-  return (
-    <div className="card-flat mt-2 space-y-3 p-3">
-      <Field label="Nombre del equipo">{(id) => <Input id={id} value={name} maxLength={60} onChange={(e) => setName(e.target.value)} />}</Field>
-      <Field label="Nombre corto (opcional)">{(id) => <Input id={id} value={short} maxLength={20} onChange={(e) => setShort(e.target.value)} />}</Field>
-      <Field label="Escudo: dirección https de la imagen (opcional)" hint="Si no hay escudo real se muestra un icono genérico.">{(id) => <Input id={id} value={logo} placeholder="https://…" onChange={(e) => setLogo(e.target.value)} />}</Field>
-      <Field label="Id de API-Football (solo si lo conoces)">{(id) => <Input id={id} inputMode="numeric" value={pid} onChange={(e) => setPid(e.target.value.replace(/\D/g, ''))} />}</Field>
-      <div className="flex gap-2">
-        <Button size="sm" loading={busy} disabled={!valid} onClick={() => void save()}>Guardar equipo</Button>
-        {onCancel && <Button size="sm" variant="ghost" onClick={onCancel}>Cancelar</Button>}
-      </div>
+      {creating ? <div className="mt-2"><AddTeamFlow initialName={q} onDone={(t) => { onChange(t); setCreating(false) }} onCancel={() => setCreating(false)} /></div>
+        : <Button size="sm" variant="ghost" className="mt-2" icon={<Plus className="size-4" />} onClick={() => setCreating(true)}>Añadir equipo</Button>}
     </div>
   )
 }

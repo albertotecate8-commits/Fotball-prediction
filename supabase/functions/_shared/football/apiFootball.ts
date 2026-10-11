@@ -137,6 +137,9 @@ export interface ApiFootballOptions {
   now?: () => Date
 }
 
+/** Equipo tal como lo devuelve API-Football (escudo oficial, nunca inventado). */
+export interface ProviderTeam { external_id: string; name: string; code: string | null; country: string | null; national: boolean; logo_url: string | null }
+
 export class ApiFootballProvider implements FootballProvider {
   readonly id = 'api-football'
   readonly isTestData = false
@@ -394,9 +397,12 @@ export class ApiFootballProvider implements FootballProvider {
   }
 
   /** Equipos por nombre (mín. 3 letras). 1 solicitud. */
-  async searchTeams(name: string): Promise<{ external_id: string; name: string; country: string | null; national: boolean }[]> {
-    const rows = await this.request<{ team: { id: number; name: string; country: string | null; national: boolean } }[]>('/teams', { search: name })
-    return (rows ?? []).map((r) => ({ external_id: String(r.team.id), name: r.team.name, country: r.team.country, national: r.team.national }))
+  async searchTeams(name: string): Promise<ProviderTeam[]> {
+    const rows = await this.request<{ team: { id: number; name: string; code: string | null; country: string | null; national: boolean; logo: string | null } }[]>('/teams', { search: name })
+    return (rows ?? []).filter((r) => r?.team?.id && r.team.name).map((r) => ({
+      external_id: String(r.team.id), name: r.team.name, code: r.team.code ?? null, country: r.team.country ?? null,
+      national: !!r.team.national, logo_url: typeof r.team.logo === 'string' && r.team.logo.startsWith('https://') ? r.team.logo : null,
+    }))
   }
 
   /** Próximos partidos de un equipo (puede estar restringido por el plan). 1 solicitud. */

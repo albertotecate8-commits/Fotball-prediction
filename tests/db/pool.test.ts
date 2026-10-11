@@ -24,17 +24,25 @@ describe('quiniela continua', () => {
     await asUser(admin, `select public.admin_set_payment($1, $2, 'authorized', null, 'REF-PRUEBA', 'Pago de prueba verificado')`, [official, paid])
   })
 
-  it('importación automática: publica partidos por jugar, sin duplicados ni reabrir retirados', async () => {
+  it('importación automática: solo sugiere, sin duplicados; el admin selecciona y publica', async () => {
     const list = [fx('auto-1', 'A', 'B', '262', 5), fx('auto-2', 'C', 'D', '262', 6), fx('auto-old', 'E', 'F', '262', -3, 'finished')]
     const [r1] = await asService(`select public.pool_auto_import('api-football', $1::jsonb) as r`, [JSON.stringify(list)])
-    expect(r1!.r).toMatchObject({ imported: 3, added: 2 })
+    expect(r1!.r).toMatchObject({ imported: 3, suggested: 2 })
     const [r2] = await asService(`select public.pool_auto_import('api-football', $1::jsonb) as r`, [JSON.stringify(list)])
-    expect(r2!.r.added).toBe(0)
-    const [m] = await sql(`select m.id from public.matches m where m.external_id = 'auto-2'`)
-    await asUser(admin, `select public.admin_set_pool_status($1, 'withdrawn', 'No forma parte de la quiniela')`, [m!.id])
+    expect(r2!.r.suggested).toBe(0)
+    // Nada se publica solo.
+    const ids = (await sql(`select id, external_id from public.matches where external_id in ('auto-1', 'auto-2')`)) as { id: string; external_id: string }[]
+    const id1 = ids.find((x) => x.external_id === 'auto-1')!.id
+    const id2 = ids.find((x) => x.external_id === 'auto-2')!.id
+    expect(await sql(`select 1 from public.pool_matches where match_id = any($1::uuid[])`, [[id1, id2]])).toHaveLength(0)
+    // El admin selecciona auto-1, descarta auto-2 y publica.
+    await asUser(admin, `select public.admin_save_selection($1::jsonb)`, [JSON.stringify([{ match_id: id1, selected: true, sort_order: 1 }, { match_id: id2, dismissed: true }])])
+    const [p] = await asUser(admin, `select public.admin_publish_selection(null) as r`)
+    expect(p!.r).toMatchObject({ published: 1, withdrawn: 0 })
+    // Re-sincronizar no pisa la selección ni revive lo descartado.
     await asService(`select public.pool_auto_import('api-football', $1::jsonb)`, [JSON.stringify(list)])
-    const [pm] = await sql(`select status from public.pool_matches where match_id = $1`, [m!.id])
-    expect(pm!.status).toBe('withdrawn')
+    const st = await sql(`select c.state, pm.status from public.pool_candidates c left join public.pool_matches pm on pm.match_id = c.match_id where c.match_id = any($1::uuid[]) order by c.state`, [[id1, id2]])
+    expect(st).toEqual([{ state: 'dismissed', status: null }, { state: 'selected', status: 'published' }])
     expect(await sql(`select 1 from public.matches where external_id = 'auto-1'`)).toHaveLength(1)
   })
 
@@ -42,7 +50,7 @@ describe('quiniela continua', () => {
     const [t1] = await asUser(admin, `select public.admin_create_team('Alacranes Pool Prueba', 'Alacranes', null, null) as r`)
     const [t2] = await asUser(admin, `select public.admin_create_team('  alacranes POOL prueba ', null, null, null) as r`)
     expect(t1!.r.created).toBe(true)
-    expect(t2!.r).toEqual({ id: t1!.r.id, created: false })
+    expect(t2!.r).toMatchObject({ id: t1!.r.id, created: false })
     await expectDbError(asUser(admin, `select public.admin_create_team('Logo malo', null, 'javascript:alert(1)', null)`), 'INVALID_LOGO_URL')
     const [t3] = await asUser(admin, `select public.admin_create_team('Rival Manual', null, null, null) as r`)
     const found = await asUser(admin, `select name from public.admin_search_teams('pool prueba')`)
@@ -54,6 +62,8 @@ describe('quiniela continua', () => {
     expect(c2!.r).toEqual({ match_id: c1!.r.match_id, created: false })
     const [m] = await sql(`select provider, result_source from public.matches where id = $1`, [c1!.r.match_id])
     expect(m).toEqual({ provider: 'manual', result_source: 'admin' })
+    // El alta manual entra a la selección; los jugadores la ven al publicar.
+    await asUser(admin, `select public.admin_publish_selection(null)`)
     const [p] = await asUser(free, `select public.get_pool(10) as p`)
     const mine = p!.p.matches.find((x: { match_id: string }) => x.match_id === c1!.r.match_id)
     expect(mine).toMatchObject({ is_manual: true, open: true, source: 'admin' })
