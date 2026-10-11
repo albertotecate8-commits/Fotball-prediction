@@ -59,6 +59,13 @@ export interface NextPoolMatch {
   open: boolean
   picks: number
 }
+export type WeekMode = 'off' | 'select' | 'publish'
+export interface WeekPlan {
+  id: string; week_start: string; week_end: string; label: string; max_matches: number
+  team_ids: string[]; league_ids: string[]; team_weekend_only: boolean; auto_mode: WeekMode
+  selected: number; published: number; teams_found: string[]
+}
+export interface PoolSource { kind: 'league' | 'team'; external_id: string; label: string; enabled: boolean }
 export interface SelectionItem { match_id: string; selected: boolean; dismissed?: boolean; sort_order?: number | null }
 export interface TeamCatalogEntry {
   id: string; name: string; short_name: string; logo_url: string | null; provider: string; external_id: string | null
@@ -231,6 +238,10 @@ export const adminApi = {
     instructions: string | null; contact: string | null; updated_at: string } | null>(await supabase.from('payment_info').select('*').maybeSingle()),
   savePaymentInfo: (v: { bank: string; holder: string; clabe: string; account: string; amount: number | null; concept: string; instructions: string; contact: string }) =>
     rpc<void>('admin_save_payment_info', { p_bank: v.bank, p_holder: v.holder, p_clabe: v.clabe, p_account: v.account, p_amount: v.amount, p_concept: v.concept, p_instructions: v.instructions, p_contact: v.contact }),
+  weekPlans: () => rpc<{ plans: WeekPlan[]; sources: PoolSource[]; today: string }>('admin_week_plans'),
+  planWeek: (weekStart: string, max: number, teams: string[], leagues: string[], weekendOnly: boolean) =>
+    rpc<{ id: string; week_start: string; added_now: number }>('admin_plan_week', { p_week_start: weekStart, p_max: max, p_teams: teams, p_leagues: leagues, p_team_weekend_only: weekendOnly }),
+  setWeekMode: (weekId: string, mode: WeekMode) => rpc<{ mode: WeekMode; selected_now: number }>('admin_set_week_mode', { p_week: weekId, p_mode: mode }),
   /** Borrador de la próxima quiniela: sugerencias automáticas + selección del admin. */
   nextPool: () => rpc<NextPoolMatch[]>('admin_next_pool'),
   saveSelection: (items: SelectionItem[]) => rpc<{ saved: number; skipped_started: number }>('admin_save_selection', { p_items: items }),

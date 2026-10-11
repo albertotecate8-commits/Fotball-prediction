@@ -17,6 +17,7 @@ import { CardSkeleton } from '@/components/ui/Skeleton'
 import { EmptyState, ErrorState } from '@/components/ui/States'
 import { useToast } from '@/components/ui/Toast'
 import { AddMatchSheet, NEXT_POOL_KEY } from './AddMatchSheet'
+import { AutoWeekCard, WEEKS_KEY } from './AutoWeekCard'
 
 type Draft = Record<string, { state: NextPoolMatch['state']; sort: number | null }>
 
@@ -114,6 +115,7 @@ export function AdminNextPool() {
   const refresh = async () => {
     await qc.invalidateQueries({ queryKey: NEXT_POOL_KEY })
     await qc.invalidateQueries({ queryKey: ['pool'] })
+    await qc.invalidateQueries({ queryKey: WEEKS_KEY })
   }
   const persist = async () => {
     const items = changedItems()
@@ -152,6 +154,7 @@ export function AdminNextPool() {
     <div className="pb-28">
       <h1 className="display mb-1 text-3xl font-semibold uppercase">Próxima quiniela</h1>
       <p className="mb-4 text-sm text-muted">La API encuentra partidos reales y los deja como sugerencia. Tú eliges, ordenas y publicas. Cada partido cierra a su hora de inicio (hora de Ciudad de México).</p>
+      <AutoWeekCard />
 
       <section aria-labelledby="sel-h" className="mb-7">
         <div className="mb-2 flex items-baseline justify-between gap-2">

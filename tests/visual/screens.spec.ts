@@ -178,6 +178,25 @@ test.describe('pantallas', () => {
     expect(calls.indexOf('admin_save_selection')).toBeLessThan(calls.indexOf('admin_publish_selection'))
   })
 
+  test('admin: quinielas automáticas por semana (modo y armado)', async ({ page }, info) => {
+    const calls: string[] = []
+    await mockBackend(page, { admin: true, calls })
+    await page.goto('/admin')
+    await expect(page.getByRole('heading', { name: 'Armado automático por semana' })).toBeVisible()
+    await expect(page.getByText('3/12 elegidos · 2 publicados')).toBeVisible()
+    await expect(page.getByText(/Liga MX · Barcelona \(fin de semana\) ✓ · Real Madrid \(fin de semana\)/)).toBeVisible()
+    await expect(page.getByRole('radio', { name: 'Automática' })).toHaveAttribute('aria-checked', 'true')
+    await page.getByRole('radio', { name: 'Solo seleccionar' }).click()
+    await expect.poll(() => calls.includes('admin_set_week_mode')).toBe(true)
+    await page.getByRole('button', { name: 'Armar una semana' }).click()
+    const sheet = page.getByRole('dialog', { name: 'Armar una semana' })
+    await expect(sheet.getByRole('button', { name: 'Durango (Alacranes)' })).toHaveCount(0)
+    await expect(sheet.getByRole('button', { name: 'Liga MX (liga)' })).toHaveAttribute('aria-pressed', 'true')
+    await page.screenshot({ path: shot('08g-armado-automatico', info.project.name) })
+    await sheet.getByRole('button', { name: 'Guardar semana' }).click()
+    await expect.poll(() => calls.includes('admin_plan_week')).toBe(true)
+  })
+
   test('admin: vista participante y volver al panel', async ({ page }) => {
     await mockBackend(page, { admin: true })
     await page.goto('/admin')
