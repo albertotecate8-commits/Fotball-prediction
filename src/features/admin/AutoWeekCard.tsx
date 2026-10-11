@@ -57,7 +57,7 @@ function PlanRow({ w, sources, onEdit }: { w: WeekPlan; sources: PoolSource[]; o
     setBusy(true)
     try {
       const r = await adminApi.setWeekMode(w.id, mode)
-      toast(`${MODES.find((m) => m.value === mode)!.label}${r.selected_now ? ` · ${r.selected_now} partido(s) agregados` : ''}`)
+      toast(`${MODES.find((m) => m.value === mode)!.label} · ${r.selected_now ? `${r.selected_now} partido(s) agregados` : 'por ahora sin partidos nuevos en la API'}`)
       await Promise.all([qc.invalidateQueries({ queryKey: WEEKS_KEY }), qc.invalidateQueries({ queryKey: NEXT_POOL_KEY }), qc.invalidateQueries({ queryKey: ['pool'] })])
     } catch (e) { toast(errorMessage(e), 'error') } finally { setBusy(false) }
   }
@@ -79,6 +79,11 @@ function PlanRow({ w, sources, onEdit }: { w: WeekPlan; sources: PoolSource[]; o
           </button>
         ))}
       </div>
+      {w.selected === 0 && w.auto_mode !== 'off' && (
+        <p className="mb-1.5 rounded-xl border border-gold/40 bg-gold/10 p-2 text-[11px] text-gold">
+          Aún no hay partidos de estas ligas y equipos en la API para esa semana. La API gratuita los da a conocer un día antes: en cuanto aparezcan se {w.auto_mode === 'publish' ? 'agregarán y publicarán' : 'agregarán a la selección'} solos. Si quieres adelantar uno, usa «Agregar partido que no aparece».
+        </p>
+      )}
       <div className="flex items-center justify-between gap-2">
         <p className="text-[11px] text-faint">{MODES.find((m) => m.value === w.auto_mode)!.hint}</p>
         <Button size="sm" variant="ghost" onClick={onEdit}>Editar</Button>
@@ -108,7 +113,8 @@ function PlanSheet({ open, plan, sources, today, onClose }: { open: boolean; pla
       const of = (kind: string) => picked.filter((k) => k.startsWith(`${kind}:`)).map((k) => k.split(':')[1]!)
       const r = await adminApi.planWeek(start, n, of('team'), of('league'), weekendOnly)
       const m = await adminApi.setWeekMode(r.id, mode)
-      toast(`Semana guardada · ${MODES.find((x) => x.value === mode)!.label}${m.selected_now + r.added_now ? ` · ${m.selected_now + r.added_now} partido(s) agregados` : ''}`)
+      const added = m.selected_now + r.added_now
+      toast(`Semana guardada · ${MODES.find((x) => x.value === mode)!.label} · ${added ? `${added} partido(s) agregados` : 'aún no hay partidos en la API; se agregarán solos'}`)
       await Promise.all([qc.invalidateQueries({ queryKey: WEEKS_KEY }), qc.invalidateQueries({ queryKey: NEXT_POOL_KEY }), qc.invalidateQueries({ queryKey: ['pool'] })])
       onClose()
     } catch (e) { toast(errorMessage(e), 'error') } finally { setBusy(false) }
