@@ -163,16 +163,15 @@ test.describe('pantallas', () => {
     await page.getByLabel('Buscar participante').fill('maria lopez')
     await expect(page.getByText('SHABEX-MARIA-LOPEZ')).toBeVisible()
     await page.getByLabel('Buscar participante').fill('')
-    await page.getByRole('button', { name: 'Confirmar pago' }).first().click()
-    const sheet = page.getByRole('dialog', { name: 'Pago de Alberto' })
-    await expect(sheet.getByText('SHABEX-ALBERTO')).toBeVisible()
-    await expect(sheet.getByRole('button', { name: 'Guardar' })).toBeDisabled()
-    await sheet.getByLabel('Folio o clave de rastreo de la transferencia').fill('TR-123456')
-    await sheet.getByLabel('Motivo').fill('Transferencia verificada en el banco')
-    await page.screenshot({ path: shot('08h-confirmar-pago', info.project.name) })
+    // Un toque: confirma directamente.
     page.once('dialog', (d) => void d.accept())
-    await sheet.getByRole('button', { name: 'Guardar' }).click()
+    await page.getByRole('button', { name: 'Confirmar pago' }).first().click()
     await expect.poll(() => calls.includes('admin_confirm_payment')).toBe(true)
+    // Más opciones: todo opcional.
+    await page.getByRole('button', { name: 'Más opciones' }).first().click()
+    const sheet = page.getByRole('dialog', { name: /^Pago de / })
+    await expect(sheet.getByRole('button', { name: 'Guardar' })).toBeEnabled()
+    await page.screenshot({ path: shot('08h-confirmar-pago', info.project.name) })
   })
 
   test('perfil', async ({ page }, info) => {

@@ -36,8 +36,13 @@ describe('referencias de pago', () => {
   it('confirmación manual con importe, método, vigencia y quién confirmó; vencido y revocado', async () => {
     const u = await createUser('Pagador Ref')
     await expectDbError(asUser(u, `select public.admin_confirm_payment($1, 'authorized', null, 50, 'SPEI', 'TR-1', 'Captura enviada')`, [u]), 'FORBIDDEN')
-    await expectDbError(asUser(admin, `select public.admin_confirm_payment($1, 'authorized', null, 50, 'SPEI', '', 'Transferencia revisada')`, [u]), 'PAYMENT_REFERENCE_REQUIRED')
-    await expectDbError(asUser(admin, `select public.admin_confirm_payment($1, 'authorized', null, 50, 'SPEI', 'TR-1', 'ok')`, [u]), 'REASON_REQUIRED')
+    // Un solo toque: sin folio ni motivo también confirma (manual, por el admin, auditado).
+    const quick = await createUser('Rapido Ref')
+    const [qr] = await asUser(admin, `select public.admin_confirm_payment($1, 'authorized', null, null, null, null, null) as r`, [quick])
+    expect(qr!.r.state).toBe('confirmed')
+    const [qa] = await sql(`select actor_id, details from public.audit_logs where action = 'member.payment_changed' and entity_id like '%' || $1 order by id desc limit 1`, [quick])
+    expect(qa!.actor_id).toBe(admin)
+    expect(qa!.details.reason).toBe('Pago confirmado por el administrador')
     const [r] = await asUser(admin, `select public.admin_confirm_payment($1, 'authorized', now() + interval '7 days', 50, 'SPEI', 'TR-998877', 'Transferencia revisada en el banco') as r`, [u])
     expect(r!.r).toMatchObject({ reference: 'SHABEX-PAGADOR-REF', state: 'confirmed', amount: 50 })
     const [l] = await asUser(admin, `select public.admin_payment_list() as l`)

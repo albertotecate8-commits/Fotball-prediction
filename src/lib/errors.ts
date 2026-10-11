@@ -12,6 +12,7 @@ const MESSAGES: Record<string, string> = {
   INVALID_MATCH: 'Partido no válido.',
   MATCH_NOT_IN_ROUND: 'Uno de los partidos no pertenece a esta jornada.',
   DUPLICATE_MATCH: 'Un partido aparece repetido.',
+  DUPLICATE_FIXTURE: 'Ese partido ya está en la quiniela (mismos equipos y fecha).',
   PREDICTION_LOCKED: 'Tu quiniela ya fue enviada y no puede modificarse.',
   INVALID_INVITE_CODE: 'El código de invitación no es válido.',
   ROUND_HAS_SUBMISSIONS: 'Ya hay quinielas enviadas: los partidos de esta jornada están bloqueados.',

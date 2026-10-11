@@ -91,9 +91,12 @@ export function AdminPayments() {
                   <div><dt className="text-muted">Confirmó</dt><dd>{r.confirmed_by ?? '—'}</dd></div>
                 </dl>
               )}
-              <Button size="sm" variant={r.state === 'confirmed' ? 'secondary' : 'primary'} className="mt-2" disabled={!r.in_group} onClick={() => setEditing(r)}>
-                {r.state === 'confirmed' ? 'Cambiar pago' : 'Confirmar pago'}
-              </Button>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                {r.state !== 'confirmed' && <QuickConfirm row={r} />}
+                <Button size="sm" variant="secondary" disabled={!r.in_group} onClick={() => setEditing(r)}>
+                  {r.state === 'confirmed' ? 'Cambiar pago' : 'Más opciones'}
+                </Button>
+              </div>
               {!r.in_group && <p className="mt-1 text-[11px] text-muted">Aún no está en la quiniela oficial.</p>}
             </li>
           ))}
@@ -104,6 +107,23 @@ export function AdminPayments() {
   )
 }
 
+/** Un toque: confirma el pago (manual, por el admin, queda registrado). */
+function QuickConfirm({ row }: { row: PaymentRow }) {
+  const qc = useQueryClient()
+  const toast = useToast()
+  const [busy, setBusy] = useState(false)
+  const go = async () => {
+    if (!confirm(`¿Confirmar el pago de ${row.alias}?`)) return
+    setBusy(true)
+    try {
+      await adminApi.confirmPayment({ user: row.user_id, status: 'authorized', validUntil: null, amount: null, method: '', bankReference: '', reason: '' })
+      toast(`Pago de ${row.alias} confirmado`)
+      await qc.invalidateQueries({ queryKey: ['admin'] })
+    } catch (e) { toast(errorMessage(e), 'error') } finally { setBusy(false) }
+  }
+  return <Button size="sm" loading={busy} disabled={!row.in_group} icon={<Check className="size-4" />} onClick={() => void go()}>Confirmar pago</Button>
+}
+
 function ConfirmSheet({ row, onClose }: { row: PaymentRow; onClose: () => void }) {
   const qc = useQueryClient()
   const toast = useToast()
@@ -111,14 +131,13 @@ function ConfirmSheet({ row, onClose }: { row: PaymentRow; onClose: () => void }
   const [status, setStatus] = useState<PaymentStatus>('authorized')
   const [bankRef, setBankRef] = useState(row.bank_reference ?? '')
   const [amount, setAmount] = useState('')
-  const [method, setMethod] = useState(row.method ?? 'Transferencia SPEI')
+  const [method, setMethod] = useState(row.method ?? '')
   const [until, setUntil] = useState('')
   const [reason, setReason] = useState('')
   const [busy, setBusy] = useState(false)
   const amt = amount.trim() ? Number(amount) : null
-  const valid = reason.trim().length >= 5 && (status !== 'authorized' || (bankRef.trim().length >= 3 && (amt === null || amt > 0)))
+  const valid = status !== 'authorized' || amt === null || amt > 0
   const save = async () => {
-    if (status === 'authorized' && !confirm(`¿Confirmar el pago de ${row.alias} (${row.reference})? Solo confirma pagos verificados en tu banco.`)) return
     setBusy(true)
     try {
       await adminApi.confirmPayment({ user: row.user_id, status, validUntil: status === 'authorized' && until ? new Date(`${until}T23:59:59-06:00`).toISOString() : null,
@@ -132,7 +151,7 @@ function ConfirmSheet({ row, onClose }: { row: PaymentRow; onClose: () => void }
     <Sheet open onClose={onClose} title={`Pago de ${row.alias}`}
       footer={<Button block size="lg" loading={busy} disabled={!valid} onClick={() => void save()}>Guardar</Button>}>
       <div className="space-y-4">
-        <p className="text-sm text-muted">Referencia del participante: <span className="font-mono font-bold text-aqua">{row.reference}</span>. Busca esta referencia en el concepto de la transferencia. Una captura o un aviso del participante no confirma el pago: verifícalo en tu banco. Queda registrado con tu nombre.</p>
+        <p className="text-sm text-muted">Referencia: <span className="font-mono font-bold text-aqua">{row.reference}</span>. Todo lo de abajo es opcional.</p>
         <Field label="Estado">{(id) => (
           <Select id={id} value={status} onChange={(e) => setStatus(e.target.value as PaymentStatus)}>
             <option value="authorized">Confirmado (puede enviar pronósticos)</option>
@@ -143,15 +162,15 @@ function ConfirmSheet({ row, onClose }: { row: PaymentRow; onClose: () => void }
         )}</Field>
         {status === 'authorized' && (
           <>
-            <Field label="Folio o clave de rastreo de la transferencia">{(id) => <Input id={id} value={bankRef} maxLength={120} onChange={(e) => setBankRef(e.target.value)} />}</Field>
-            <Field label="Importe recibido (MXN)" hint={info.data?.amount ? `Si lo dejas vacío se usa el importe configurado: $${info.data.amount}` : 'Configura el importe en «Datos de pago» o escríbelo aquí.'}>
+            <Field label="Folio de la transferencia (opcional)">{(id) => <Input id={id} value={bankRef} maxLength={120} onChange={(e) => setBankRef(e.target.value)} />}</Field>
+            <Field label="Importe recibido (MXN, opcional)" hint={info.data?.amount ? `Si lo dejas vacío se usa el importe configurado: $${info.data.amount}` : 'Configura el importe en «Datos de pago» o escríbelo aquí.'}>
               {(id) => <Input id={id} inputMode="decimal" value={amount} placeholder={info.data?.amount ? String(info.data.amount) : ''} onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ''))} />}
             </Field>
-            <Field label="Método">{(id) => <Input id={id} value={method} maxLength={40} onChange={(e) => setMethod(e.target.value)} />}</Field>
+            <Field label="Método (opcional)">{(id) => <Input id={id} value={method} maxLength={40} onChange={(e) => setMethod(e.target.value)} />}</Field>
             <Field label="Vigente hasta (opcional)">{(id) => <Input id={id} type="date" value={until} onChange={(e) => setUntil(e.target.value)} />}</Field>
           </>
         )}
-        <Field label="Motivo">{(id) => <Input id={id} value={reason} maxLength={200} placeholder="Ej. Transferencia verificada en el banco" onChange={(e) => setReason(e.target.value)} />}</Field>
+        <Field label="Nota (opcional)">{(id) => <Input id={id} value={reason} maxLength={200} placeholder="Ej. Transferencia verificada en el banco" onChange={(e) => setReason(e.target.value)} />}</Field>
       </div>
     </Sheet>
   )
