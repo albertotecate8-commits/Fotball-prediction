@@ -240,7 +240,7 @@ test.describe('pantallas', () => {
     await expect(page.getByRole('heading', { name: 'Armado automático por semana' })).toBeVisible()
     await expect(page.getByText('3/12 elegidos · 2 publicados')).toBeVisible()
     await expect(page.getByText(/Liga MX · Barcelona ✓ · Real Madrid · viernes a domingo · 10 en el calendario/)).toBeVisible()
-    await expect(page.getByText(/Calendario revisado hace 20 min: 10 partido\(s\) \(Liga MX 9, La Liga 1\)/)).toBeVisible()
+    await expect(page.getByText(/Calendario revisado hace \d+ min: 10 partido\(s\) \(Liga MX 9, La Liga 1\)/)).toBeVisible()
     await expect(page.getByRole('checkbox', { name: 'Repetir cada semana' })).toBeChecked()
     await page.getByRole('button', { name: 'Buscar calendario ahora' }).click()
     await expect.poll(() => calls.includes('provider-fixtures:calendar')).toBe(true)

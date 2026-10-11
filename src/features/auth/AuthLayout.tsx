@@ -15,7 +15,6 @@ export function AuthLayout({ title, subtitle, children, footer }: { title: strin
         {children}
         {footer && <div className="mt-6 text-center text-sm text-muted">{footer}</div>}
       </section>
-      <p className="mt-6 text-center text-[11px] text-faint lg:hidden">{brand.legalNotice}</p>
     </div>
   )
 }

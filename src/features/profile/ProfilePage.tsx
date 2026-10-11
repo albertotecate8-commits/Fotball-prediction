@@ -120,7 +120,7 @@ export function ProfilePage() {
           <LogOut className="size-4" /> Cerrar sesión
         </button>
       </div>
-      <p className="mt-6 text-center text-[11px] text-faint">{brand.name} · {brand.legalNotice}</p>
+      <p className="mt-10 pb-2 text-center text-[9px] leading-snug text-faint/80">{brand.legalNotice}</p>
     </div>
   )
 }
