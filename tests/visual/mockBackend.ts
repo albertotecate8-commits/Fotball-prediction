@@ -125,6 +125,32 @@ const catalog = [
   { id: 'tc3', name: 'Estrella Beta', short_name: 'E. Beta', logo_url: null, provider: 'api-football', external_id: '7003', retired: true, retired_at: iso(-2 * 24 * H), retire_reason: 'No forma parte de la quiniela', aliases: [], followed: false, matches: 2, pool_picks: 0, round_picks: 0, selected: 0, deletable: false },
 ]
 
+const detailMatch = (i: number, status: string, h: number | null, a: number | null) => ({
+  match_id: `d-${i}`, kickoff_at: iso((i - 2) * 2 * H), status, elapsed: status === 'live' ? 55 : null, home_goals: h, away_goals: a,
+  result_confirmed: status === 'finished', started: status !== 'scheduled', competition: { name: 'Liga de Prueba (datos ficticios)' },
+  home: T[i % 10], away: T[(i + 4) % 10],
+})
+const standings = (empty: boolean) => ({
+  week: { id: 'w1', label: 'Semana 12–18/10', week_start: '2026-10-12', week_end: '2026-10-18', goals_open: false,
+    real: { goals: 9, counted: 6, total: 11, final: false, first_kickoff: iso(-30 * H) } },
+  summary: { total: 11, finished: 4, confirmed: 4, live: 2, pending: 5, void: 0 },
+  updated_at: iso(-2 * 60e3), delayed: false,
+  weeks: [{ id: 'w1', label: 'Semana 12–18/10', week_start: '2026-10-12' }],
+  rows: empty ? [] : [
+    { rank_position: 1, user_id: 'u2', display_name: 'Lucía', avatar_url: null, points: 9, hits: 3, misses: 1, live: 2, pending: 7, picks: 11, guess: 25, diff: 16, is_me: false },
+    { rank_position: 2, user_id: UID, display_name: 'Alberto', avatar_url: null, points: 6, hits: 2, misses: 2, live: 2, pending: 7, picks: 11, guess: 21, diff: 12, is_me: true },
+    { rank_position: 3, user_id: 'u3', display_name: 'Pedro', avatar_url: null, points: 3, hits: 1, misses: 3, live: 2, pending: 7, picks: 11, guess: null, diff: null, is_me: false },
+  ],
+})
+const paymentRows = [
+  { user_id: UID, alias: 'Alberto', email: 'alberto@example.test', reference: 'SHABEX-ALBERTO', legacy_reference: 'SHX-000000', state: 'none', payment_status: 'not_applicable',
+    amount: null, method: null, bank_reference: null, confirmed_at: null, valid_until: null, confirmed_by: null, joined_at: iso(-90 * 24 * H), in_group: true },
+  { user_id: 'u2', alias: 'María López', email: 'maria@example.test', reference: 'SHABEX-MARIA-LOPEZ', legacy_reference: null, state: 'confirmed', payment_status: 'authorized',
+    amount: 50, method: 'Transferencia SPEI', bank_reference: 'TR-PRUEBA-1', confirmed_at: iso(-2 * 24 * H), valid_until: null, confirmed_by: 'Admin', joined_at: iso(-60 * 24 * H), in_group: true },
+  { user_id: 'u3', alias: 'Pedro', email: 'pedro@example.test', reference: 'SHABEX-PEDRO', legacy_reference: null, state: 'expired', payment_status: 'authorized',
+    amount: 50, method: 'Efectivo', bank_reference: 'REC-7', confirmed_at: iso(-40 * 24 * H), valid_until: iso(-24 * H), confirmed_by: 'Admin', joined_at: iso(-50 * 24 * H), in_group: true },
+]
+
 const RPC: Record<string, (body: Record<string, unknown>) => unknown> = {
   get_server_time: () => JSON.stringify(new Date().toISOString()),
   get_app_config: () => ({ timezone: 'America/Mexico_City', max_goals: 15, payments_enabled: false, server_time: new Date().toISOString() }),
@@ -142,6 +168,17 @@ const RPC: Record<string, (body: Record<string, unknown>) => unknown> = {
       { rank_position: 2, user_id: UID, display_name: 'Alberto', avatar_url: null, hits: 7, scored: 9, picks: 9, guess: 21, diff: 6, is_me: true },
       { rank_position: 3, user_id: 'u3', display_name: 'Pedro', avatar_url: null, hits: 5, scored: 9, picks: 9, guess: 27, diff: 0, is_me: false },
       { rank_position: 4, user_id: 'u4', display_name: 'Marta', avatar_url: null, hits: 4, scored: 9, picks: 9, guess: null, diff: null, is_me: false },
+    ],
+  }),
+  // Clasificación en vivo FICTICIA: 11 partidos (4 finalizados, 2 en vivo, 5 pendientes).
+  get_week_participant: (b) => ({
+    user: { user_id: b.p_user, display_name: b.p_user === UID ? 'Alberto' : 'Lucía', avatar_url: null, is_me: b.p_user === UID },
+    guess: 25,
+    matches: [
+      { ...detailMatch(0, 'finished', 2, 1), pick: '1', hidden: false, result: 'hit', points: 3 },
+      { ...detailMatch(1, 'finished', 0, 0), pick: '2', hidden: false, result: 'miss', points: 0 },
+      { ...detailMatch(2, 'live', 1, 1), pick: 'X', hidden: false, result: 'live', points: null },
+      { ...detailMatch(3, 'scheduled', null, null), pick: null, hidden: true, result: 'pending', points: null },
     ],
   }),
   save_week_goals: (b) => ({ saved: true, total_goals: b.p_goals, saved_at: new Date().toISOString() }),
@@ -199,7 +236,7 @@ const RPC: Record<string, (body: Record<string, unknown>) => unknown> = {
     last_sync: { id: 12, provider: 'mock', status: 'success', started_at: iso(-10 * 60e3), finished_at: iso(-10 * 60e3 + 3000), matches_checked: 10, matches_updated: 2, error_message: null } }),
 }
 
-export async function mockBackend(page: Page, opts: { admin?: boolean; featured?: unknown[]; noGroup?: boolean; paid?: boolean; calls?: string[]; payInfo?: boolean } = {}) {
+export async function mockBackend(page: Page, opts: { admin?: boolean; featured?: unknown[]; noGroup?: boolean; paid?: boolean; calls?: string[]; payInfo?: boolean; emptyBoard?: boolean } = {}) {
   await page.emulateMedia({ reducedMotion: 'reduce' })
   const session = {
     access_token: 'mock.jwt.token', token_type: 'bearer', expires_in: 3600 * 24 * 365, expires_at: Math.floor(now / 1000) + 3600 * 24 * 365,
@@ -246,9 +283,12 @@ export async function mockBackend(page: Page, opts: { admin?: boolean; featured?
         const paid = opts.paid ?? true
         // Datos de pago FICTICIOS para la prueba visual.
         return json(opts.payInfo
-          ? { configured: true, bank: 'Banco de Prueba', holder: 'Titular Ficticio', clabe: '000000000000000000', account: null, amount: 100, currency: 'MXN', concept: 'Quiniela', instructions: 'Instrucciones de prueba', contact: null, reference: 'SHX-ABC123', payment_status: paid ? 'authorized' : 'not_applicable', valid_until: null }
-          : { configured: false, bank: null, holder: null, clabe: null, account: null, amount: null, currency: 'MXN', concept: null, instructions: null, contact: null, reference: 'SHX-ABC123', payment_status: paid ? 'authorized' : 'not_applicable', valid_until: null })
+          ? { configured: true, bank: 'Banco de Prueba', holder: 'Titular Ficticio', clabe: '000000000000000000', account: null, amount: 100, currency: 'MXN', concept: 'Quiniela', instructions: 'Instrucciones de prueba', contact: null, reference: 'SHABEX-ALBERTO', alias: 'Alberto', state: paid ? 'confirmed' : 'none', payment_status: paid ? 'authorized' : 'not_applicable', valid_until: null }
+          : { configured: false, bank: null, holder: null, clabe: null, account: null, amount: null, currency: 'MXN', concept: null, instructions: null, contact: null, reference: 'SHABEX-ALBERTO', alias: 'Alberto', state: paid ? 'confirmed' : 'none', payment_status: paid ? 'authorized' : 'not_applicable', valid_until: null })
       }
+      if (fn === 'get_week_standings') return json(standings(!!opts.emptyBoard))
+      if (fn === 'admin_payment_list') return json(paymentRows)
+      if (fn === 'admin_confirm_payment') return json({ reference: 'SHABEX-ALBERTO', state: 'confirmed', amount: 50 })
       if (fn === 'admin_payments') return json([{ user_id: UID, display_name: 'Alberto', email: 'alberto@example.test', reference: 'SHX-ABC123', payment_status: 'not_applicable', valid_until: null, payment_reference: null, confirmed_at: null, confirmed_by: null, joined_at: iso(-90 * 24 * H) }])
       if (fn === 'get_my_participation') {
         const paid = opts.paid ?? true

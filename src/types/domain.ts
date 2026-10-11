@@ -213,6 +213,10 @@ export interface MyPayment {
   instructions: string | null
   contact: string | null
   reference: string
+  alias?: string | null
+  state?: 'confirmed' | 'pending' | 'expired' | 'revoked' | 'none'
+  paid_amount?: number | null
+  confirmed_at?: string | null
   payment_status: PaymentStatus
   valid_until: string | null
 }
@@ -262,4 +266,29 @@ export interface WeekBoard {
   week: (Omit<PoolWeek, 'my_goals' | 'my_goals_status'>) | null
   rows: WeekBoardRow[]
   weeks: { id: string; label: string; week_start: string }[]
+}
+
+/** Clasificación en vivo de la semana (puntos confirmados; en vivo no cuenta todavía). */
+export interface StandingsRow {
+  rank_position: number; user_id: string; display_name: string; avatar_url: string | null
+  points: number; hits: number; misses: number; live: number; pending: number; picks: number
+  guess: number | null; diff: number | null; is_me: boolean
+}
+export interface WeekStandings {
+  week: { id: string; label: string; week_start: string; week_end: string; goals_open: boolean; real: PoolWeek['real'] } | null
+  summary: { total: number; finished: number; confirmed: number; live: number; pending: number; void: number } | null
+  updated_at: string | null
+  delayed?: boolean
+  rows: StandingsRow[]
+  weeks: { id: string; label: string; week_start: string }[]
+}
+export type PickResult = 'hit' | 'miss' | 'live' | 'pending' | 'unconfirmed' | 'void' | 'none'
+export interface ParticipantDetail {
+  user: { user_id: string; display_name: string; avatar_url: string | null; is_me: boolean }
+  guess: number | null
+  matches: {
+    match_id: string; kickoff_at: string; status: MatchStatus; elapsed: number | null; home_goals: number | null; away_goals: number | null
+    result_confirmed: boolean; started: boolean; competition: { name: string } | null; home: Team; away: Team
+    pick: Outcome | null; hidden: boolean; result: PickResult; points: number | null
+  }[]
 }

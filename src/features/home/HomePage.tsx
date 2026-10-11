@@ -8,6 +8,7 @@ import { CardSkeleton } from '@/components/ui/Skeleton'
 import { EmptyState, ErrorState } from '@/components/ui/States'
 import { ButtonLink } from '@/components/ui/Button'
 import { SectionTitle } from '@/components/PageHeader'
+import { InstallCard } from '@/features/install/InstallCard'
 import { MatchCard, MatchRow } from '@/components/MatchCard'
 import { PoolAccess } from './PoolAccess'
 import { PrizePot } from './PrizePot'
@@ -28,6 +29,7 @@ export function HomePage() {
     <div>
       <PrizePot />
       <PoolAccess />
+      <div className="mt-4"><InstallCard variant="home" /></div>
 
       <h2 className="display mb-3 mt-6 text-xl font-semibold uppercase tracking-wide">Próximo partido</h2>
       {pool.isLoading ? (

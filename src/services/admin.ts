@@ -70,6 +70,12 @@ export interface CalendarStatus {
   summary: { at?: string; weeks?: number; found?: number; new_matches?: number; week_selected?: number; by_league?: Record<string, number>; missing_teams?: number; incomplete?: boolean }
 }
 export interface PoolSource { kind: 'league' | 'team'; external_id: string; label: string; enabled: boolean }
+export type PaymentState = 'confirmed' | 'pending' | 'expired' | 'revoked' | 'none'
+export interface PaymentRow {
+  user_id: string; alias: string; email: string; reference: string; legacy_reference: string | null
+  state: PaymentState; payment_status: PaymentStatus; amount: number | null; method: string | null; bank_reference: string | null
+  confirmed_at: string | null; valid_until: string | null; confirmed_by: string | null; joined_at: string; in_group: boolean
+}
 export interface SelectionItem { match_id: string; selected: boolean; dismissed?: boolean; sort_order?: number | null }
 export interface TeamCatalogEntry {
   id: string; name: string; short_name: string; logo_url: string | null; provider: string; external_id: string | null
@@ -239,6 +245,11 @@ export const adminApi = {
     ),
   paymentList: () => rpc<{ user_id: string; display_name: string; email: string; reference: string; payment_status: PaymentStatus; valid_until: string | null;
     payment_reference: string | null; confirmed_at: string | null; confirmed_by: string | null; joined_at: string }[]>('admin_payments'),
+  paymentRows: () => rpc<PaymentRow[]>('admin_payment_list'),
+  /** Confirmación manual auditada: importe, método, folio bancario, vigencia y motivo. */
+  confirmPayment: (v: { user: string; status: PaymentStatus; validUntil: string | null; amount: number | null; method: string; bankReference: string; reason: string }) =>
+    rpc<{ reference: string; state: PaymentState; amount: number | null }>('admin_confirm_payment', {
+      p_user: v.user, p_status: v.status, p_valid_until: v.validUntil, p_amount: v.amount, p_method: v.method, p_bank_reference: v.bankReference, p_reason: v.reason }),
   paymentInfo: async () => unwrap<{ bank: string | null; holder: string | null; clabe: string | null; account: string | null; amount: number | null; concept: string | null;
     instructions: string | null; contact: string | null; updated_at: string } | null>(await supabase.from('payment_info').select('*').maybeSingle()),
   savePaymentInfo: (v: { bank: string; holder: string; clabe: string; account: string; amount: number | null; concept: string; instructions: string; contact: string }) =>

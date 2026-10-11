@@ -1,9 +1,8 @@
-import { useState } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router'
-import { Landmark, Search } from 'lucide-react'
-import { adminApi } from '@/services/admin'
-import { qk } from '@/services/queryKeys'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Check, Copy, Landmark, Search } from 'lucide-react'
+import { adminApi, type PaymentRow, type PaymentState } from '@/services/admin'
 import { useAppConfig } from '@/hooks/useAppConfig'
 import { formatDate } from '@/lib/time'
 import { errorMessage } from '@/lib/errors'
@@ -17,27 +16,38 @@ import { EmptyState, ErrorState } from '@/components/ui/States'
 import { useToast } from '@/components/ui/Toast'
 import type { PaymentStatus } from '@/types/domain'
 
-const LABEL: Record<PaymentStatus, { l: string; tone: 'success' | 'warning' | 'danger' | 'neutral' }> = {
-  authorized: { l: 'Pagado', tone: 'success' }, pending: { l: 'Pendiente', tone: 'warning' },
-  rejected: { l: 'Rechazado', tone: 'danger' }, not_applicable: { l: 'Sin pago', tone: 'neutral' },
+const STATE: Record<PaymentState, { l: string; tone: 'success' | 'warning' | 'danger' | 'neutral' }> = {
+  confirmed: { l: 'Confirmado', tone: 'success' }, pending: { l: 'Pendiente', tone: 'warning' },
+  expired: { l: 'Vencido', tone: 'danger' }, revoked: { l: 'Revocado', tone: 'danger' }, none: { l: 'Sin pago', tone: 'neutral' },
 }
-type Row = Awaited<ReturnType<typeof adminApi.paymentList>>[number]
-type Tab = 'all' | 'paid' | 'unpaid'
+type Tab = 'all' | 'confirmed' | 'unpaid' | 'expired'
+const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/\p{M}/gu, '')
 
-/** Participantes con su estado de pago; confirmación manual auditada. */
+function CopyChip({ value, label }: { value: string; label: string }) {
+  const toast = useToast()
+  const [done, setDone] = useState(false)
+  return (
+    <button type="button" aria-label={`Copiar ${label}`} title={`Copiar ${label}`}
+      onClick={() => void navigator.clipboard.writeText(value).then(() => { setDone(true); toast(`${label} copiado`); setTimeout(() => setDone(false), 1500) }).catch(() => toast('No se pudo copiar', 'error'))}
+      className="inline-grid size-7 place-items-center rounded-full text-muted hover:bg-white/5 hover:text-ink">
+      {done ? <Check className="size-3.5 text-success" /> : <Copy className="size-3.5" />}
+    </button>
+  )
+}
+
+/** Participantes y pagos: la referencia SHABEX-ALIAS identifica cada transferencia; la confirmación es manual y auditada. */
 export function AdminPayments() {
   const { timezone } = useAppConfig()
-  const q = useQuery({ queryKey: ['admin', 'paymentList'], queryFn: adminApi.paymentList })
-  const groups = useQuery({ queryKey: qk.admin.groups, queryFn: adminApi.groups })
-  const officialId = groups.data?.find((g) => g.is_default)?.id
+  const q = useQuery({ queryKey: ['admin', 'paymentRows'], queryFn: adminApi.paymentRows })
   const [tab, setTab] = useState<Tab>('all')
   const [search, setSearch] = useState('')
-  const [editing, setEditing] = useState<Row | null>(null)
-  const rows = q.data ?? []
-  const isPaid = (r: Row) => r.payment_status === 'authorized' && (!r.valid_until || Date.parse(r.valid_until) > Date.now())
-  const list = rows
-    .filter((r) => tab === 'all' || (tab === 'paid' ? isPaid(r) : !isPaid(r)))
-    .filter((r) => { const s = search.trim().toLowerCase(); return !s || r.display_name.toLowerCase().includes(s) || r.email.toLowerCase().includes(s) || r.reference.toLowerCase().includes(s) })
+  const [editing, setEditing] = useState<PaymentRow | null>(null)
+  const rows = useMemo(() => q.data ?? [], [q.data])
+  const money = (n: number | null) => (n == null ? '—' : new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(n))
+  const inTab = (r: PaymentRow, t: Tab = tab) => t === 'all' || (t === 'confirmed' ? r.state === 'confirmed' : t === 'expired' ? r.state === 'expired' || r.state === 'revoked' : r.state === 'pending' || r.state === 'none')
+  const term = norm(search.trim())
+  const list = rows.filter((r) => inTab(r)).filter((r) => !term || [r.alias, r.reference, r.legacy_reference ?? '', r.email, r.bank_reference ?? ''].some((x) => norm(x).includes(term)))
+  const count = (t: Tab) => rows.filter((r) => inTab(r, t)).length
 
   return (
     <div>
@@ -48,85 +58,100 @@ export function AdminPayments() {
         </Link>
       </div>
       <PillTabs label="Filtrar" value={tab} onChange={setTab} className="mb-3" options={[
-        { value: 'all', label: 'Todos', count: rows.length },
-        { value: 'paid', label: 'Pagados', count: rows.filter(isPaid).length },
-        { value: 'unpaid', label: 'Sin pago', count: rows.filter((r) => !isPaid(r)).length },
+        { value: 'all', label: 'Todos', count: count('all') },
+        { value: 'confirmed', label: 'Confirmados', count: count('confirmed') },
+        { value: 'unpaid', label: 'Pendientes', count: count('unpaid') },
+        { value: 'expired', label: 'Vencidos o revocados', count: count('expired') },
       ]} />
       <div className="relative mb-4">
         <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-muted" />
-        <Input aria-label="Buscar" placeholder="Nombre, correo o referencia" className="pl-11" value={search} onChange={(e) => setSearch(e.target.value)} />
+        <Input aria-label="Buscar participante" placeholder="Alias, referencia (SHABEX-…) o folio" className="pl-11" value={search} onChange={(e) => setSearch(e.target.value)} />
       </div>
       {q.isLoading ? <CardSkeleton lines={4} /> : q.error ? <ErrorState error={q.error} onRetry={() => void q.refetch()} /> : list.length === 0 ? (
-        <EmptyState title="Sin resultados" description="No hay participantes en este filtro." />
+        <EmptyState title="Sin resultados" description={term ? `Nadie coincide con «${search.trim()}».` : 'No hay participantes en este filtro.'} />
       ) : (
         <ul className="space-y-2">
           {list.map((r) => (
             <li key={r.user_id} className="card p-3">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <div className="truncate font-semibold">{r.display_name}</div>
-                  <div className="truncate text-xs text-muted">{r.email}</div>
-                  <div className="mt-1 font-mono text-xs text-aqua">{r.reference}</div>
+                  <div className="flex items-center gap-1"><span className="truncate font-semibold">{r.alias}</span><CopyChip value={r.alias} label="alias" /></div>
+                  <div className="flex items-center gap-1"><span className="font-mono text-sm font-bold text-aqua">{r.reference}</span><CopyChip value={r.reference} label="referencia" /></div>
+                  <div className="truncate text-[11px] text-faint">{r.email}{r.legacy_reference ? ` · antes ${r.legacy_reference}` : ''}</div>
                 </div>
-                <Badge tone={LABEL[r.payment_status].tone}>{LABEL[r.payment_status].l}</Badge>
+                <Badge tone={STATE[r.state].tone}>{STATE[r.state].l}</Badge>
               </div>
-              {r.payment_status === 'authorized' && (
-                <p className="mt-2 text-xs text-muted">
-                  {r.valid_until ? `Vence ${formatDate(r.valid_until, timezone)}` : 'Sin vencimiento'}
-                  {r.payment_reference ? ` · Ref. ${r.payment_reference}` : ''}
-                  {r.confirmed_by ? ` · confirmó ${r.confirmed_by}` : ''}{r.confirmed_at ? ` el ${formatDate(r.confirmed_at, timezone)}` : ''}
-                </p>
+              {(r.state === 'confirmed' || r.state === 'expired') && (
+                <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] sm:grid-cols-3">
+                  <div><dt className="text-muted">Importe</dt><dd className="font-semibold">{money(r.amount)}</dd></div>
+                  <div><dt className="text-muted">Confirmado</dt><dd>{r.confirmed_at ? formatDate(r.confirmed_at, timezone) : '—'}</dd></div>
+                  <div><dt className="text-muted">Vence</dt><dd>{r.valid_until ? formatDate(r.valid_until, timezone) : 'Sin vencimiento'}</dd></div>
+                  <div><dt className="text-muted">Folio bancario</dt><dd className="break-all font-mono">{r.bank_reference ?? '—'}</dd></div>
+                  <div><dt className="text-muted">Método</dt><dd>{r.method ?? '—'}</dd></div>
+                  <div><dt className="text-muted">Confirmó</dt><dd>{r.confirmed_by ?? '—'}</dd></div>
+                </dl>
               )}
-              <Button size="sm" variant={isPaid(r) ? 'secondary' : 'primary'} className="mt-2" disabled={!officialId} onClick={() => setEditing(r)}>
-                {isPaid(r) ? 'Cambiar pago' : 'Confirmar pago'}
+              <Button size="sm" variant={r.state === 'confirmed' ? 'secondary' : 'primary'} className="mt-2" disabled={!r.in_group} onClick={() => setEditing(r)}>
+                {r.state === 'confirmed' ? 'Cambiar pago' : 'Confirmar pago'}
               </Button>
+              {!r.in_group && <p className="mt-1 text-[11px] text-muted">Aún no está en la quiniela oficial.</p>}
             </li>
           ))}
         </ul>
       )}
-      {editing && officialId && <ConfirmSheet row={editing} groupId={officialId} onClose={() => setEditing(null)} />}
+      {editing && <ConfirmSheet row={editing} onClose={() => setEditing(null)} />}
     </div>
   )
 }
 
-function ConfirmSheet({ row, groupId, onClose }: { row: Row; groupId: string; onClose: () => void }) {
+function ConfirmSheet({ row, onClose }: { row: PaymentRow; onClose: () => void }) {
   const qc = useQueryClient()
   const toast = useToast()
+  const info = useQuery({ queryKey: ['admin', 'paymentInfo'], queryFn: adminApi.paymentInfo })
   const [status, setStatus] = useState<PaymentStatus>('authorized')
-  const [reference, setReference] = useState(row.payment_reference ?? '')
+  const [bankRef, setBankRef] = useState(row.bank_reference ?? '')
+  const [amount, setAmount] = useState('')
+  const [method, setMethod] = useState(row.method ?? 'Transferencia SPEI')
   const [until, setUntil] = useState('')
   const [reason, setReason] = useState('')
   const [busy, setBusy] = useState(false)
-  const valid = reason.trim().length >= 5 && (status !== 'authorized' || reference.trim().length >= 3)
+  const amt = amount.trim() ? Number(amount) : null
+  const valid = reason.trim().length >= 5 && (status !== 'authorized' || (bankRef.trim().length >= 3 && (amt === null || amt > 0)))
   const save = async () => {
+    if (status === 'authorized' && !confirm(`¿Confirmar el pago de ${row.alias} (${row.reference})? Solo confirma pagos verificados en tu banco.`)) return
     setBusy(true)
     try {
-      await adminApi.setPayment(groupId, row.user_id, status, status === 'authorized' && until ? new Date(`${until}T23:59:59-06:00`).toISOString() : null, reference, reason)
-      toast('Pago actualizado')
+      await adminApi.confirmPayment({ user: row.user_id, status, validUntil: status === 'authorized' && until ? new Date(`${until}T23:59:59-06:00`).toISOString() : null,
+        amount: status === 'authorized' ? amt : null, method, bankReference: bankRef, reason })
+      toast(status === 'authorized' ? `Pago de ${row.alias} confirmado` : 'Pago actualizado')
       await qc.invalidateQueries({ queryKey: ['admin'] })
       onClose()
     } catch (e) { toast(errorMessage(e), 'error') } finally { setBusy(false) }
   }
   return (
-    <Sheet open onClose={onClose} title={`Pago de ${row.display_name}`}
+    <Sheet open onClose={onClose} title={`Pago de ${row.alias}`}
       footer={<Button block size="lg" loading={busy} disabled={!valid} onClick={() => void save()}>Guardar</Button>}>
       <div className="space-y-4">
-        <p className="text-sm text-muted">Confirma solo pagos que hayas verificado en tu banco. Su referencia es <span className="font-mono text-aqua">{row.reference}</span>. El cambio queda registrado con tu nombre.</p>
+        <p className="text-sm text-muted">Referencia del participante: <span className="font-mono font-bold text-aqua">{row.reference}</span>. Busca esta referencia en el concepto de la transferencia. Una captura o un aviso del participante no confirma el pago: verifícalo en tu banco. Queda registrado con tu nombre.</p>
         <Field label="Estado">{(id) => (
           <Select id={id} value={status} onChange={(e) => setStatus(e.target.value as PaymentStatus)}>
-            <option value="authorized">Pagado (puede enviar pronósticos)</option>
+            <option value="authorized">Confirmado (puede enviar pronósticos)</option>
             <option value="pending">Pendiente</option>
-            <option value="rejected">Rechazado</option>
+            <option value="rejected">Revocado</option>
             <option value="not_applicable">Sin pago</option>
           </Select>
         )}</Field>
         {status === 'authorized' && (
           <>
-            <Field label="Referencia o folio de la transferencia">{(id) => <Input id={id} value={reference} maxLength={120} onChange={(e) => setReference(e.target.value)} />}</Field>
+            <Field label="Folio o clave de rastreo de la transferencia">{(id) => <Input id={id} value={bankRef} maxLength={120} onChange={(e) => setBankRef(e.target.value)} />}</Field>
+            <Field label="Importe recibido (MXN)" hint={info.data?.amount ? `Si lo dejas vacío se usa el importe configurado: $${info.data.amount}` : 'Configura el importe en «Datos de pago» o escríbelo aquí.'}>
+              {(id) => <Input id={id} inputMode="decimal" value={amount} placeholder={info.data?.amount ? String(info.data.amount) : ''} onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ''))} />}
+            </Field>
+            <Field label="Método">{(id) => <Input id={id} value={method} maxLength={40} onChange={(e) => setMethod(e.target.value)} />}</Field>
             <Field label="Vigente hasta (opcional)">{(id) => <Input id={id} type="date" value={until} onChange={(e) => setUntil(e.target.value)} />}</Field>
           </>
         )}
-        <Field label="Motivo">{(id) => <Input id={id} value={reason} maxLength={200} placeholder="Ej. Transferencia verificada en banco" onChange={(e) => setReason(e.target.value)} />}</Field>
+        <Field label="Motivo">{(id) => <Input id={id} value={reason} maxLength={200} placeholder="Ej. Transferencia verificada en el banco" onChange={(e) => setReason(e.target.value)} />}</Field>
       </div>
     </Sheet>
   )

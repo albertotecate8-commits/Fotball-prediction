@@ -13,6 +13,7 @@ import { formatDate } from '@/lib/time'
 import { brand } from '@/config/brand'
 import { appUrl } from '@/lib/appUrl'
 import { PageHeader, SectionTitle } from '@/components/PageHeader'
+import { InstallCard } from '@/features/install/InstallCard'
 import { Avatar } from '@/components/ui/Avatar'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
@@ -86,6 +87,7 @@ export function ProfilePage() {
       </section>
 
       <PaymentCard />
+      <div className="mb-6"><InstallCard variant="profile" /></div>
 
       {played.length > 0 && (
         <>

@@ -13,14 +13,18 @@ import { ErrorState } from '@/components/ui/States'
 import { useToast } from '@/components/ui/Toast'
 import type { MyPayment } from '@/types/domain'
 
-const STATUS: Record<MyPayment['payment_status'], { label: string; tone: 'success' | 'warning' | 'danger' | 'neutral' }> = {
-  authorized: { label: 'Pagado', tone: 'success' },
+type State = NonNullable<MyPayment['state']>
+const STATUS: Record<State, { label: string; tone: 'success' | 'warning' | 'danger' | 'neutral' }> = {
+  confirmed: { label: 'Pago confirmado', tone: 'success' },
   pending: { label: 'Pendiente de confirmar', tone: 'warning' },
-  rejected: { label: 'Rechazado', tone: 'danger' },
-  not_applicable: { label: 'Sin pago', tone: 'neutral' },
+  expired: { label: 'Pago vencido', tone: 'danger' },
+  revoked: { label: 'Pago revocado', tone: 'danger' },
+  none: { label: 'Sin pago', tone: 'neutral' },
 }
+const legacyState = (p: MyPayment): State =>
+  p.payment_status === 'authorized' ? 'confirmed' : p.payment_status === 'pending' ? 'pending' : p.payment_status === 'rejected' ? 'revoked' : 'none'
 
-function CopyRow({ label, value, copyLabel }: { label: string; value: string; copyLabel: string }) {
+function CopyRow({ label, value, copyLabel, big }: { label: string; value: string; copyLabel: string; big?: boolean }) {
   const toast = useToast()
   const [done, setDone] = useState(false)
   const copy = async () => {
@@ -37,7 +41,7 @@ function CopyRow({ label, value, copyLabel }: { label: string; value: string; co
     <div className="flex items-center gap-3 py-2.5">
       <div className="min-w-0 flex-1">
         <div className="text-[11px] font-semibold uppercase tracking-wider text-muted">{label}</div>
-        <div className="select-all break-all font-mono text-base text-ink">{value}</div>
+        <div className={`select-all break-all font-mono text-ink ${big ? 'text-lg font-bold text-aqua' : 'text-base'}`}>{value}</div>
       </div>
       <Button size="sm" variant="secondary" icon={done ? <Check className="size-4" /> : <Copy className="size-4" />} onClick={() => void copy()}>{copyLabel}</Button>
     </div>
@@ -49,12 +53,20 @@ export function PaymentCard() {
   const { timezone } = useAppConfig()
   const q = useQuery({ queryKey: qk.myPayment, queryFn: playerApi.myPayment })
   const [open, setOpen] = useState(false)
+  const toast = useToast()
   if (q.isLoading) return <CardSkeleton lines={3} />
   if (q.error) return <ErrorState error={q.error} onRetry={() => void q.refetch()} />
   const p = q.data!
-  const st = STATUS[p.payment_status]
-  const paid = p.payment_status === 'authorized'
-  const money = p.amount ? new Intl.NumberFormat('es-MX', { style: 'currency', currency: p.currency || 'MXN' }).format(p.amount) : null
+  const state = p.state ?? legacyState(p)
+  const st = STATUS[state]
+  const paid = state === 'confirmed'
+  const fmt = (n: number | null | undefined) => (n ? new Intl.NumberFormat('es-MX', { style: 'currency', currency: p.currency || 'MXN' }).format(n) : null)
+  const money = fmt(p.amount)
+  const bankText = [p.bank && `Banco: ${p.bank}`, p.holder && `Titular: ${p.holder}`, p.clabe && `CLABE: ${p.clabe}`, p.account && `Cuenta: ${p.account}`,
+    money && `Monto: ${money}`, `Referencia: ${p.reference}`].filter(Boolean).join('\n')
+  const copyBank = async () => {
+    try { await navigator.clipboard.writeText(bankText); toast('Datos bancarios copiados') } catch { toast('No se pudo copiar. Mantén presionado el texto para copiarlo.', 'error') }
+  }
 
   return (
     <section id="pago" className="card scroll-mt-24 p-4">
@@ -62,19 +74,30 @@ export function PaymentCard() {
         <h2 className="flex items-center gap-2 font-semibold"><CreditCard className="size-5 text-aqua" /> Mi pago</h2>
         <Badge tone={st.tone}>{st.label}</Badge>
       </div>
+      {/* La referencia identifica tu transferencia: ponla en el concepto. */}
+      <div className="mt-3 rounded-2xl border border-aqua/40 bg-aqua/[0.07] px-3">
+        <CopyRow label="Tu referencia de pago" value={p.reference} copyLabel="Copiar referencia" big />
+        {p.alias && <p className="-mt-1 pb-2.5 text-[11px] text-muted">Participante: <span className="font-semibold text-ink">{p.alias}</span> · escríbela en el <strong>concepto o referencia</strong> de tu transferencia.</p>}
+      </div>
       {paid ? (
-        <p className="mt-2 flex items-center gap-2 text-sm text-success"><ShieldCheck className="size-4" /> Puedes enviar tus pronósticos{p.valid_until ? ` hasta el ${formatDate(p.valid_until, timezone)}` : ''}.</p>
+        <p className="mt-3 flex items-center gap-2 text-sm text-success"><ShieldCheck className="size-4" />
+          Pago confirmado{p.paid_amount ? ` (${fmt(p.paid_amount)})` : ''}{p.confirmed_at ? ` el ${formatDate(p.confirmed_at, timezone)}` : ''}. Puedes enviar tus pronósticos{p.valid_until ? ` hasta el ${formatDate(p.valid_until, timezone)}` : ''}.</p>
       ) : !p.configured ? (
-        <p className="mt-2 text-sm text-muted">Los datos para pagar aún no están configurados. El administrador los publicará aquí.</p>
+        <p className="mt-3 text-sm text-muted">Los datos para pagar aún no están configurados. El administrador los publicará aquí.</p>
       ) : (
         <>
-          <p className="mt-2 text-sm text-muted">Paga {money ? <strong className="text-ink">{money}</strong> : 'tu participación'} por transferencia. Usa tu referencia para que podamos identificar tu pago.</p>
-          <div className="mt-2 divide-y divide-line">
+          <p className="mt-3 text-sm text-muted">
+            {state === 'expired' ? 'Tu pago anterior venció. ' : state === 'revoked' ? 'Tu pago anterior fue revocado. ' : state === 'pending' ? 'Tu pago está pendiente de confirmar por el administrador. ' : ''}
+            Paga {money ? <strong className="text-ink">{money}</strong> : 'tu participación'} por transferencia con tu referencia.
+          </p>
+          <div className="mt-1 divide-y divide-line">
             {p.clabe && <CopyRow label="CLABE" value={p.clabe} copyLabel="Copiar CLABE" />}
             {!p.clabe && p.account && <CopyRow label="Cuenta" value={p.account} copyLabel="Copiar cuenta" />}
-            <CopyRow label="Referencia" value={p.reference} copyLabel="Copiar referencia" />
           </div>
-          <Button block className="mt-3" variant="secondary" icon={<Info className="size-4" />} onClick={() => setOpen(true)}>Ver instrucciones de pago</Button>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            <Button block variant="secondary" icon={<Copy className="size-4" />} onClick={() => void copyBank()}>Copiar datos bancarios</Button>
+            <Button block variant="secondary" icon={<Info className="size-4" />} onClick={() => setOpen(true)}>Ver instrucciones de pago</Button>
+          </div>
         </>
       )}
 
