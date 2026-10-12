@@ -12,6 +12,7 @@ import { InstallCard } from '@/features/install/InstallCard'
 import { MatchCard, MatchRow } from '@/components/MatchCard'
 import { PoolAccess } from './PoolAccess'
 import { PrizePot } from './PrizePot'
+import { outcomeLabel } from '@/features/quiniela/PickCard'
 
 /** Inicio: solo equipos y partidos de la quiniela (nada de otras ligas). */
 export function HomePage() {
@@ -39,7 +40,7 @@ export function HomePage() {
       ) : hero ? (
         <MatchCard match={hero} tz={timezone}
           footer={<ButtonLink to="/quinielas" variant={hero.pick?.status === 'submitted' ? 'secondary' : 'primary'} block className="mt-4" icon={<Ticket className="size-4" />}>
-            {hero.pick?.status === 'submitted' ? `Tu pronóstico: ${hero.pick.home ?? '–'}-${hero.pick.away ?? '–'}` : 'Hacer pronóstico'}
+            {hero.pick?.status === 'submitted' ? `Tu pronóstico: ${outcomeLabel(hero.pick.outcome, hero)}` : 'Hacer pronóstico'}
           </ButtonLink>} />
       ) : (
         <EmptyState icon={<CalendarDays className="size-6" />} title="Aún no hay partidos en la quiniela"

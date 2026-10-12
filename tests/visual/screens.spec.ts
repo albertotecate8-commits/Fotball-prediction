@@ -8,9 +8,11 @@ test.describe('pantallas', () => {
     await mockBackend(page)
     await page.goto('/')
     await expect(page.getByRole('heading', { name: '10 partidos abiertos' })).toBeVisible()
-    await expect(page.getByText('Bolsa acumulada')).toBeVisible()
+    await expect(page.getByText('Bolsa en juego')).toBeVisible()
     await expect(page.getByText(/\$1,200/)).toBeVisible()
-    await expect(page.getByText('Premio de esta semana')).toBeVisible()
+    await expect(page.getByText('40 participantes ya están dentro · crece con cada pago')).toBeVisible()
+    await expect(page.getByRole('timer')).toBeVisible()
+    await expect(page.getByText('Ya estás dentro. ¡Suerte por la bolsa!')).toBeVisible()
     await expect(page.getByRole('link', { name: /Llenar mi quiniela/ })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Próximo partido' })).toBeVisible()
     await expect(page.getByRole('link', { name: 'Hacer pronóstico' })).toHaveAttribute('href', /\/quinielas$/)
@@ -20,6 +22,15 @@ test.describe('pantallas', () => {
     await expect(page.getByText(/API-Football|proveedor|sincroniz/i)).toHaveCount(0)
     await expect(page.getByRole('img', { name: 'SHABEX — La Quiniela' }).first()).toBeVisible()
     await page.screenshot({ path: shot('01-inicio', info.project.name), fullPage: true })
+  })
+
+  test('inicio sin pago: cuenta regresiva e invitación a pagar', async ({ page }, info) => {
+    await mockBackend(page, { paid: false, payInfo: true })
+    await page.goto('/')
+    await expect(page.getByRole('timer')).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Entra por $100 y juega por la bolsa' })).toHaveAttribute('href', '/perfil#pago')
+    await expect(page.getByText('Ya estás dentro')).toHaveCount(0)
+    await page.screenshot({ path: shot('01c-inicio-sin-pago', info.project.name) })
   })
 
   test('inicio sin partidos: estados vacíos con acciones reales', async ({ page }, info) => {
