@@ -133,16 +133,16 @@ describe('clasificación en vivo y privacidad de pronósticos', () => {
     let s = await standings(p1)
     expect(s.summary).toMatchObject({ finished: 1, confirmed: 1, pending: 1 })
     let rows = s.rows as { user_id: string; rank_position: number; points: number; hits: number; misses: number; pending: number }[]
-    expect(rows.find((x) => x.user_id === p1)).toMatchObject({ rank_position: 1, points: 3, hits: 1, misses: 0, pending: 1 })
+    expect(rows.find((x) => x.user_id === p1)).toMatchObject({ rank_position: 1, points: 1, hits: 1, misses: 0, pending: 1 })
     expect(rows.find((x) => x.user_id === p2)).toMatchObject({ rank_position: 2, points: 0, hits: 0, misses: 1 })
     const d = await detail(p2, p1)
-    expect(d.matches[0]).toMatchObject({ result: 'hit', points: 3, home_goals: 2, away_goals: 0 })
+    expect(d.matches[0]).toMatchObject({ result: 'hit', points: 1, home_goals: 2, away_goals: 0 })
     // Corrección del admin: ganó el visitante.
     await asUser(admin, `select public.admin_record_result($1, 0, 1, 'finished', 'Corrección de prueba')`, [a])
     s = await standings(p1)
     rows = s.rows as typeof rows
     expect(rows.find((x) => x.user_id === p1)).toMatchObject({ points: 0, hits: 0, misses: 1 })
-    expect(rows.find((x) => x.user_id === p2)).toMatchObject({ rank_position: 1, points: 3, hits: 1 })
+    expect(rows.find((x) => x.user_id === p2)).toMatchObject({ rank_position: 1, points: 1, hits: 1 })
     expect(await sql(`select count(*)::int as n from public.pool_scores where match_id = $1`, [a])).toEqual([{ n: 2 }])
   })
 })

@@ -54,7 +54,7 @@ export function LeaderboardPage() {
                 {rows.map((r) => <Row key={r.user_id} r={r} onOpen={() => setDetail(r)} />)}
               </ol>
               <p className="mt-4 text-xs text-faint">
-                Acertar quién gana (o el empate) vale 3 puntos. Solo cuentan resultados confirmados; los partidos en vivo se suman al terminar.
+                Acertar quién gana (o el empate) vale 1 punto. Solo cuentan resultados confirmados; los partidos en vivo se suman al terminar.
                 Si hay empate en puntos, gana quien más se acerque al total de goles de la jornada.
               </p>
             </>

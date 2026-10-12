@@ -137,9 +137,9 @@ const standings = (empty: boolean) => ({
   updated_at: iso(-2 * 60e3), delayed: false,
   weeks: [{ id: 'w1', label: 'Semana 12–18/10', week_start: '2026-10-12' }],
   rows: empty ? [] : [
-    { rank_position: 1, user_id: 'u2', display_name: 'Lucía', avatar_url: null, points: 9, hits: 3, misses: 1, live: 2, pending: 7, picks: 11, guess: 25, diff: 16, is_me: false },
-    { rank_position: 2, user_id: UID, display_name: 'Alberto', avatar_url: null, points: 6, hits: 2, misses: 2, live: 2, pending: 7, picks: 11, guess: 21, diff: 12, is_me: true },
-    { rank_position: 3, user_id: 'u3', display_name: 'Pedro', avatar_url: null, points: 3, hits: 1, misses: 3, live: 2, pending: 7, picks: 11, guess: null, diff: null, is_me: false },
+    { rank_position: 1, user_id: 'u2', display_name: 'Lucía', avatar_url: null, points: 3, hits: 3, misses: 1, live: 2, pending: 7, picks: 11, guess: 25, diff: 16, is_me: false },
+    { rank_position: 2, user_id: UID, display_name: 'Alberto', avatar_url: null, points: 2, hits: 2, misses: 2, live: 2, pending: 7, picks: 11, guess: 21, diff: 12, is_me: true },
+    { rank_position: 3, user_id: 'u3', display_name: 'Pedro', avatar_url: null, points: 1, hits: 1, misses: 3, live: 2, pending: 7, picks: 11, guess: null, diff: null, is_me: false },
   ],
 })
 const paymentRows = [
@@ -175,7 +175,7 @@ const RPC: Record<string, (body: Record<string, unknown>) => unknown> = {
     user: { user_id: b.p_user, display_name: b.p_user === UID ? 'Alberto' : 'Lucía', avatar_url: null, is_me: b.p_user === UID },
     guess: 25,
     matches: [
-      { ...detailMatch(0, 'finished', 2, 1), pick: '1', hidden: false, result: 'hit', points: 3 },
+      { ...detailMatch(0, 'finished', 2, 1), pick: '1', hidden: false, result: 'hit', points: 1 },
       { ...detailMatch(1, 'finished', 0, 0), pick: '2', hidden: false, result: 'miss', points: 0 },
       { ...detailMatch(2, 'live', 1, 1), pick: 'X', hidden: false, result: 'live', points: null },
       { ...detailMatch(3, 'scheduled', null, null), pick: null, hidden: true, result: 'pending', points: null },

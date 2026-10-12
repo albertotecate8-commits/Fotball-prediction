@@ -129,7 +129,7 @@ test.describe('pantallas', () => {
     const board = page.getByRole('list', { name: 'Clasificación' })
     await expect(board.getByRole('button')).toHaveCount(3)
     await expect(board.getByRole('button', { name: 'Ver pronósticos de Alberto' })).toContainText('TÚ')
-    await expect(board.getByRole('button', { name: 'Ver pronósticos de Lucía' })).toContainText('9')
+    await expect(board.getByRole('button', { name: 'Ver pronósticos de Lucía' })).toContainText('3')
     await page.screenshot({ path: shot('06-clasificacion', info.project.name), fullPage: true })
     await board.getByRole('button', { name: 'Ver pronósticos de Lucía' }).click()
     const sheet = page.getByRole('dialog', { name: 'Pronósticos de Lucía' })

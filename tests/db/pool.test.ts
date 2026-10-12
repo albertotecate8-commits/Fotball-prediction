@@ -105,20 +105,20 @@ describe('quiniela continua', () => {
     const [{ id: mid }] = (await sql(`select id from public.matches where external_id = 'auto-1'`)) as { id: string }[]
     await asService(`select public.apply_provider_update($1, '{"status":"finished","status_detail":"FT","home_goals":2,"away_goals":1}'::jsonb)`, [mid])
     await asService(`select public.apply_provider_update($1, '{"status":"finished","status_detail":"FT","home_goals":2,"away_goals":1}'::jsonb)`, [mid])
-    // Solo 1/X/2: acertar quién gana vale 3 (ya no hay marcador exacto).
+    // Solo 1/X/2: acertar quién gana vale 1 (ya no hay marcador exacto).
     let [b] = await asUser(free, `select points, exact_hits, outcome_hits from public.get_pool_leaderboard() where user_id = $1`, [paid])
-    expect(b).toMatchObject({ points: 3, exact_hits: 0, outcome_hits: 1 })
+    expect(b).toMatchObject({ points: 1, exact_hits: 0, outcome_hits: 1 })
     await asUser(admin, `select public.admin_record_result($1, 0, 1, 'finished', 'Corrección de prueba')`, [mid])
     ;[b] = await asUser(free, `select points from public.get_pool_leaderboard() where user_id = $1`, [paid])
     expect(b!.points).toBe(0)
     await asUser(admin, `select public.admin_record_result($1, 1, 0, 'finished', 'Corrección de prueba')`, [mid])
     ;[b] = await asUser(free, `select points from public.get_pool_leaderboard() where user_id = $1`, [paid])
-    expect(b!.points).toBe(3)
+    expect(b!.points).toBe(1)
     await asUser(admin, `select public.admin_set_pool_status($1, 'withdrawn', 'Partido retirado de prueba')`, [mid])
     expect(await asUser(free, `select 1 from public.get_pool_leaderboard() where user_id = $1`, [paid])).toHaveLength(0)
     await asUser(admin, `select public.admin_set_pool_status($1, 'published', 'Se vuelve a publicar')`, [mid])
     ;[b] = await asUser(free, `select points from public.get_pool_leaderboard() where user_id = $1`, [paid])
-    expect(b!.points).toBe(3)
+    expect(b!.points).toBe(1)
     const [{ c }] = (await sql(`select count(*)::int c from public.pool_scores where user_id = $1 and match_id = $2`, [paid, mid])) as { c: number }[]
     expect(c).toBe(1)
   })
