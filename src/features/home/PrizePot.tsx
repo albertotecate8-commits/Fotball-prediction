@@ -97,13 +97,21 @@ export function PrizePot() {
       <div className="relative flex items-center gap-4">
         <LuckyTrophy />
         <div className="min-w-0">
-          <p id="bolsa" className="text-[11px] font-bold uppercase tracking-[0.16em] text-gold">{open ? 'Bolsa en juego' : 'Bolsa acumulada'}</p>
-          <p className="scoreline bg-gradient-to-b from-[#fff6dc] to-gold bg-clip-text text-4xl leading-tight text-transparent">
-            {money(Number(pot), currency)} <span className="text-base text-muted [-webkit-text-fill-color:currentColor]">{currency}</span>
-          </p>
-          <p className="text-xs text-muted">
-            {paid_count > 0 ? `${paid_count} ${paid_count === 1 ? 'participante ya está dentro' : 'participantes ya están dentro'} · crece con cada pago` : 'Premio de esta semana · crece con cada pago'}
-          </p>
+          <p id="bolsa" className="text-[11px] font-bold uppercase tracking-[0.16em] text-gold">{open ? 'Bolsa de la semana' : 'Bolsa final'}</p>
+          {open ? (
+            <>
+              {/* Hasta el cierre el monto es sorpresa: se revela cuando cierra la quiniela. */}
+              <p className="scoreline bg-gradient-to-b from-[#fff6dc] to-gold bg-clip-text text-4xl leading-tight tracking-widest text-transparent [animation:pulse-soft_2.4s_ease-in-out_infinite]" aria-label="Monto sorpresa">$ ? ? ?</p>
+              <p className="text-xs text-muted">Crece con cada pago · se revela al cierre</p>
+            </>
+          ) : (
+            <>
+              <p className="scoreline bg-gradient-to-b from-[#fff6dc] to-gold bg-clip-text text-4xl leading-tight text-transparent">
+                {money(Number(pot), currency)} <span className="text-base text-muted [-webkit-text-fill-color:currentColor]">{currency}</span>
+              </p>
+              <p className="text-xs text-muted">{paid_count > 0 ? `${paid_count} ${paid_count === 1 ? 'participante' : 'participantes'} en juego` : 'Premio de esta semana'}</p>
+            </>
+          )}
         </div>
       </div>
 
