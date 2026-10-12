@@ -1,4 +1,4 @@
-import{H as e,R as t,V as n,z as r}from"./index-IViamCtm.js";var i=({data:e,error:t})=>{if(t)throw n(t);return e},a=`id, provider, external_id, kickoff_at, status, status_detail, elapsed, home_goals, away_goals,
+import{H as e,R as t,V as n,z as r}from"./index-CLzDWR0_.js";var i=({data:e,error:t})=>{if(t)throw n(t);return e},a=`id, provider, external_id, kickoff_at, status, status_detail, elapsed, home_goals, away_goals,
   result_confirmed, result_source, confirmed_at, last_synced_at, last_sync_error, is_test_data,
   competition:competitions(id, name, logo_url),
   home:teams!matches_home_team_id_fkey(id, name, short_name, code, logo_url),
