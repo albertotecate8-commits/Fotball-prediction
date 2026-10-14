@@ -25,6 +25,7 @@ const MESSAGES: Record<string, string> = {
   ROUND_LOCKED: 'Esta jornada ya no puede modificarse.',
   RESULTS_PENDING: 'Aún hay partidos sin resultado oficial.',
   REASON_REQUIRED: 'Escribe un motivo (mínimo 5 caracteres). Quedará en la auditoría.',
+  NOTHING_TO_UNLOCK: 'Este participante no tiene pronósticos enviados de partidos que aún no empiezan.',
   INVALID_TRANSITION: 'Ese cambio de estado no está permitido.',
   CANNOT_CHANGE_SELF: 'No puedes cambiar tu propio rol o estado.',
   USER_NOT_FOUND: 'No existe una cuenta con ese correo.',

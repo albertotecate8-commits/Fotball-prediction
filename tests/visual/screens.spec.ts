@@ -183,6 +183,10 @@ test.describe('pantallas', () => {
     page.once('dialog', (d) => void d.accept())
     await page.getByRole('button', { name: 'Confirmar pago' }).first().click()
     await expect.poll(() => calls.includes('admin_confirm_payment')).toBe(true)
+    // Permitir editar una quiniela ya enviada.
+    page.once('dialog', (d) => void d.accept())
+    await page.getByRole('button', { name: 'Permitir editar quiniela' }).click()
+    await expect.poll(() => calls.includes('admin_unlock_quiniela')).toBe(true)
     // Más opciones: todo opcional.
     await page.getByRole('button', { name: 'Más opciones' }).first().click()
     const sheet = page.getByRole('dialog', { name: /^Pago de / })

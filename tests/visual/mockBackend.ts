@@ -146,7 +146,7 @@ const paymentRows = [
   { user_id: UID, alias: 'Alberto', email: 'alberto@example.test', reference: 'SHABEX-ALBERTO', legacy_reference: 'SHX-000000', state: 'none', payment_status: 'not_applicable',
     amount: null, method: null, bank_reference: null, confirmed_at: null, valid_until: null, confirmed_by: null, joined_at: iso(-90 * 24 * H), in_group: true },
   { user_id: 'u2', alias: 'María López', email: 'maria@example.test', reference: 'SHABEX-MARIA-LOPEZ', legacy_reference: null, state: 'confirmed', payment_status: 'authorized',
-    amount: 50, method: 'Transferencia SPEI', bank_reference: 'TR-PRUEBA-1', confirmed_at: iso(-2 * 24 * H), valid_until: null, confirmed_by: 'Admin', joined_at: iso(-60 * 24 * H), in_group: true },
+    amount: 50, method: 'Transferencia SPEI', bank_reference: 'TR-PRUEBA-1', confirmed_at: iso(-2 * 24 * H), valid_until: null, confirmed_by: 'Admin', joined_at: iso(-60 * 24 * H), in_group: true, sent_open: 11 },
   { user_id: 'u3', alias: 'Pedro', email: 'pedro@example.test', reference: 'SHABEX-PEDRO', legacy_reference: null, state: 'expired', payment_status: 'authorized',
     amount: 50, method: 'Efectivo', bank_reference: 'REC-7', confirmed_at: iso(-40 * 24 * H), valid_until: iso(-24 * H), confirmed_by: 'Admin', joined_at: iso(-50 * 24 * H), in_group: true },
 ]
@@ -288,6 +288,7 @@ export async function mockBackend(page: Page, opts: { admin?: boolean; featured?
       }
       if (fn === 'get_week_standings') return json(standings(!!opts.emptyBoard))
       if (fn === 'admin_payment_list') return json(paymentRows)
+      if (fn === 'admin_unlock_quiniela') return json({ picks: 11, week_goals: 1 })
       if (fn === 'admin_confirm_payment') return json({ reference: 'SHABEX-ALBERTO', state: 'confirmed', amount: 50 })
       if (fn === 'admin_payments') return json([{ user_id: UID, display_name: 'Alberto', email: 'alberto@example.test', reference: 'SHX-ABC123', payment_status: 'not_applicable', valid_until: null, payment_reference: null, confirmed_at: null, confirmed_by: null, joined_at: iso(-90 * 24 * H) }])
       if (fn === 'get_my_participation') {

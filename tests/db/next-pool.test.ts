@@ -47,7 +47,9 @@ describe('próxima quiniela', () => {
     const [pre] = await asUser(player, `select public.get_pool(10) as p`)
     expect(pre!.p.matches.filter((m: { match_id: string }) => [a, b, c].includes(m.match_id))).toHaveLength(0)
     const [p1] = await asUser(admin, `select public.admin_publish_selection(null) as r`)
-    expect(p1!.r).toMatchObject({ published: 3, withdrawn: 0 })
+    // Otras pruebas en paralelo pueden tener partidos elegidos: se publican al menos los 3 nuestros.
+    expect(p1!.r.published).toBeGreaterThanOrEqual(3)
+    expect(p1!.r.withdrawn).toBe(0)
     const [pool1] = await asUser(player, `select public.get_pool(10) as p`)
     const ours = pool1!.p.matches.filter((m: { match_id: string }) => [a, b, c].includes(m.match_id))
     expect(ours.map((m: { sort_order: number }) => m.sort_order)).toEqual([1, 2, 3])

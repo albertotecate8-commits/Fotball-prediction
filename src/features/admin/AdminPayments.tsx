@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, Copy, Landmark, Search } from 'lucide-react'
+import { Check, Copy, Landmark, PencilLine, Search } from 'lucide-react'
 import { adminApi, type PaymentRow, type PaymentState } from '@/services/admin'
 import { useAppConfig } from '@/hooks/useAppConfig'
 import { formatDate } from '@/lib/time'
@@ -93,6 +93,7 @@ export function AdminPayments() {
               )}
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 {r.state !== 'confirmed' && <QuickConfirm row={r} />}
+                {(r.sent_open ?? 0) > 0 && <UnlockButton row={r} />}
                 <Button size="sm" variant="secondary" disabled={!r.in_group} onClick={() => setEditing(r)}>
                   {r.state === 'confirmed' ? 'Cambiar pago' : 'Más opciones'}
                 </Button>
@@ -105,6 +106,23 @@ export function AdminPayments() {
       {editing && <ConfirmSheet row={editing} onClose={() => setEditing(null)} />}
     </div>
   )
+}
+
+/** Autoriza editar la quiniela ya enviada: vuelve a borrador lo que aún no empieza. */
+function UnlockButton({ row }: { row: PaymentRow }) {
+  const qc = useQueryClient()
+  const toast = useToast()
+  const [busy, setBusy] = useState(false)
+  const go = async () => {
+    if (!confirm(`¿Permitir que ${row.alias} edite su quiniela? Sus ${row.sent_open} pronósticos de partidos que aún no empiezan vuelven a borrador y tendrá que enviarla otra vez.`)) return
+    setBusy(true)
+    try {
+      const r = await adminApi.unlockQuiniela(row.user_id)
+      toast(`${row.alias} ya puede editar su quiniela (${r.picks} ${r.picks === 1 ? 'partido' : 'partidos'})`)
+      await qc.invalidateQueries({ queryKey: ['admin'] })
+    } catch (e) { toast(errorMessage(e), 'error') } finally { setBusy(false) }
+  }
+  return <Button size="sm" variant="secondary" loading={busy} icon={<PencilLine className="size-4" />} onClick={() => void go()}>Permitir editar quiniela</Button>
 }
 
 /** Un toque: confirma el pago (manual, por el admin, queda registrado). */
