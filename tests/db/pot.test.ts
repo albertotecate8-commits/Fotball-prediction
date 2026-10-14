@@ -5,7 +5,7 @@ afterAll(() => pool.end())
 
 // Pagos FICTICIOS en una base efímera.
 describe('bolsa acumulada', () => {
-  it('es el 60 % de los pagos confirmados y vigentes; el 40 % no se expone', async () => {
+  it('es el 70 % de los pagos confirmados y vigentes; el 30 % no se expone', async () => {
     const admin = await createAdmin()
     const a = await createUser('Pagó A')
     const b = await createUser('Pagó B')
@@ -15,7 +15,7 @@ describe('bolsa acumulada', () => {
     const before = (await asUser(c, `select public.get_prize_pot() as p`))[0]!.p
     for (const u of [a, b]) await asUser(admin, `select public.admin_set_payment($1, $2, 'authorized', null, 'REF-PRUEBA', 'Pago de prueba verificado')`, [g, u])
     const [r] = await asUser(c, `select public.get_prize_pot() as p`)
-    expect(Number(r!.p.pot) - Number(before.pot)).toBe(60)
+    expect(Number(r!.p.pot) - Number(before.pot)).toBe(70)
     expect(r!.p.paid_count - before.paid_count).toBe(2)
     expect(Object.keys(r!.p).sort()).toEqual(['configured', 'currency', 'paid_count', 'pot'])
 
@@ -30,6 +30,6 @@ describe('bolsa acumulada', () => {
     // Un pago retirado deja de contar.
     await asUser(admin, `select public.admin_set_payment($1, $2, 'not_applicable', null, '', 'Pago revertido en prueba')`, [g, b])
     const [r3] = await asUser(c, `select public.get_prize_pot() as p`)
-    expect(Number(r3!.p.pot)).toBe(Number(r!.p.pot) - 30)
+    expect(Number(r3!.p.pot)).toBe(Number(r!.p.pot) - 35)
   })
 })
