@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router'
 import { MailCheck } from 'lucide-react'
 import { authEmailClient, supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/Button'
-import { Field, Input } from '@/components/ui/Field'
+import { Field, Input, PasswordInput } from '@/components/ui/Field'
 import { InlineError } from '@/components/ui/States'
 import { isValidEmail, normalizeEmail, toAppError } from '@/lib/errors'
 import { appUrl } from '@/lib/appUrl'
@@ -34,7 +34,7 @@ export function LoginPage() {
       footer={<>¿No tienes cuenta? <Link to="/registro" className="font-semibold text-aqua">Regístrate</Link></>}>
       <form onSubmit={onSubmit} className="space-y-4" noValidate>
         <Field label="Correo">{(id) => <Input id={id} type="email" inputMode="email" autoCapitalize="none" autoCorrect="off" spellCheck={false} autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />}</Field>
-        <Field label="Contraseña">{(id) => <Input id={id} type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />}</Field>
+        <Field label="Contraseña">{(id) => <PasswordInput id={id} autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />}</Field>
         <div className="text-right"><Link to="/recuperar" className="text-sm text-muted hover:text-aqua">¿Olvidaste tu contraseña?</Link></div>
         <InlineError error={error} />
         <Button type="submit" size="lg" block loading={loading} disabled={!email || !password}>Entrar</Button>
@@ -115,7 +115,7 @@ export function SignupPage() {
       <form onSubmit={onSubmit} className="space-y-4" noValidate>
         <Field label="Alias" error={nameError}>{(id) => <Input id={id} autoComplete="nickname" maxLength={40} required value={name} onChange={(e) => setName(e.target.value)} />}</Field>
         <Field label="Correo" error={emailError}>{(id) => <Input id={id} type="email" inputMode="email" autoCapitalize="none" autoCorrect="off" spellCheck={false} autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />}</Field>
-        <Field label="Contraseña" error={pwError} hint="Mínimo 8 caracteres.">{(id) => <Input id={id} type="password" autoComplete="new-password" required value={password} onChange={(e) => setPassword(e.target.value)} />}</Field>
+        <Field label="Contraseña" error={pwError} hint="Mínimo 8 caracteres.">{(id) => <PasswordInput id={id} autoComplete="new-password" required value={password} onChange={(e) => setPassword(e.target.value)} />}</Field>
         <InlineError error={error} />
         <Button type="submit" size="lg" block loading={loading} disabled={!name || !email || !password || !!nameError || !!pwError || !!emailError}>Crear cuenta</Button>
       </form>

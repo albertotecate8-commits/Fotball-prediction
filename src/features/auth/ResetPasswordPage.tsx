@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router'
 import { sessionFromHash, supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/Button'
-import { Field, Input } from '@/components/ui/Field'
+import { Field, PasswordInput } from '@/components/ui/Field'
 import { InlineError } from '@/components/ui/States'
 import { FullPageSpinner } from '@/components/ui/Spinner'
 import { useToast } from '@/components/ui/Toast'
@@ -52,8 +52,8 @@ export function ResetPasswordPage() {
   return (
     <AuthLayout title="Nueva contraseña" subtitle="Elige una contraseña segura.">
       <form onSubmit={onSubmit} className="space-y-4" noValidate>
-        <Field label="Contraseña" hint="Mínimo 8 caracteres.">{(id) => <Input id={id} type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />}</Field>
-        <Field label="Confirmar" error={mismatch ? 'No coincide.' : null}>{(id) => <Input id={id} type="password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />}</Field>
+        <Field label="Contraseña" hint="Mínimo 8 caracteres.">{(id) => <PasswordInput id={id} autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />}</Field>
+        <Field label="Confirmar" error={mismatch ? 'No coincide.' : null}>{(id) => <PasswordInput id={id} autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />}</Field>
         <InlineError error={error} />
         <Button type="submit" size="lg" block loading={loading} disabled={password.length < 8 || mismatch || !confirm}>Guardar</Button>
       </form>
