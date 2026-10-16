@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Check, ChevronRight, Clock, EyeOff, Goal, Minus, Ticket, Trophy, X } from 'lucide-react'
+import { Check, ChevronRight, Clock, EyeOff, Goal, Lock, Minus, Ticket, Trophy, X } from 'lucide-react'
 import { playerApi } from '@/services/player'
 import { qk } from '@/services/queryKeys'
 import { useAppConfig } from '@/hooks/useAppConfig'
@@ -164,8 +164,8 @@ function DetailSheet({ weekId, row, tz, onClose }: { weekId: string; row: Standi
                   </div>
                   <div className="mt-1.5 flex items-center justify-between gap-2 text-[11px]">
                     <span className="truncate text-muted">
-                      {m.hidden ? <span className="inline-flex items-center gap-1"><EyeOff className="size-3.5" /> Se ve cuando empiece el partido</span>
-                        : pickLabel(m) ? <>Pronóstico: <span className="font-semibold text-ink">{pickLabel(m)}</span></> : <span className="capitalize">{formatShortDate(m.kickoff_at, tz)}</span>}
+                      {m.hidden ? <span className="inline-flex items-center gap-1"><EyeOff className="size-3.5" /> Envía tu quiniela para verlo</span>
+                        : pickLabel(m) ? <><Lock className="mr-0.5 inline size-3 text-faint" />Pronóstico: <span className="font-semibold text-ink">{pickLabel(m)}</span></> : <span className="capitalize">{formatShortDate(m.kickoff_at, tz)}</span>}
                     </span>
                     <span className="flex shrink-0 items-center gap-1.5">
                       {m.points !== null && <span className="font-bold text-ink">+{m.points}</span>}
@@ -177,7 +177,7 @@ function DetailSheet({ weekId, row, tz, onClose }: { weekId: string; row: Standi
             })}
           </ul>
         )}
-        <p className="text-[11px] text-faint">Los pronósticos de los demás solo se ven cuando empieza cada partido. Un partido en vivo o sin resultado confirmado no cuenta como fallo.</p>
+        <p className="text-[11px] text-faint">Con tu pago confirmado y tu quiniela enviada ves lo que eligió cada participante. Los pronósticos enviados ya no se pueden cambiar. Un partido en vivo o sin resultado confirmado no cuenta como fallo.</p>
       </div>
     </Sheet>
   )

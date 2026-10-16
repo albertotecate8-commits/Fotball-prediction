@@ -102,29 +102,42 @@ describe('clasificación en vivo y privacidad de pronósticos', () => {
     }
   })
 
-  it('antes de empezar: resumen real, nadie ve pronósticos ni total de goles ajenos', async () => {
+  it('antes de empezar: quien pagó y envió ve quién eligió qué; quien no ha enviado no ve nada ajeno', async () => {
     const s = await standings(p2)
     expect(s.summary).toMatchObject({ total: 2, finished: 0, live: 0, pending: 2 })
     const rows = s.rows as { user_id: string; guess: number | null; points: number; pending: number }[]
-    expect(rows.find((x) => x.user_id === p1)).toMatchObject({ guess: null, points: 0, pending: 2 })
+    // p2 ya pagó y envió: ve el total de goles y los pronósticos de p1.
+    expect(rows.find((x) => x.user_id === p1)).toMatchObject({ guess: 3, points: 0, pending: 2 })
     expect(rows.find((x) => x.user_id === p2)!.guess).toBe(8)
     const other = await detail(p2, p1)
-    expect(other.guess).toBeNull()
-    expect(other.matches.map((m: { pick: string | null; hidden: boolean }) => [m.pick, m.hidden])).toEqual([[null, true], [null, true]])
+    expect(other.guess).toBe(3)
+    expect(other.matches.map((m: { pick: string | null; hidden: boolean }) => [m.pick, m.hidden])).toEqual([['1', false], ['X', false]])
     const own = await detail(p1, p1)
     expect(own.matches.map((m: { pick: string }) => m.pick)).toEqual(['1', 'X'])
-    // Las tablas tampoco dejan leer pronósticos ajenos.
+    // Quien no ha enviado (aunque haya pagado) no ve los ajenos: nadie puede copiar.
+    const late = await createUser('Jugador ST3')
+    const [{ g }] = (await sql(`select id as g from public.groups where is_default`)) as { g: string }[]
+    await asUser(admin, `select public.admin_set_payment($1, $2, 'authorized', null, 'REF-ST', 'Pago de prueba verificado')`, [g, late])
+    const hidden = await detail(late, p1)
+    expect(hidden.guess).toBeNull()
+    expect(hidden.matches.map((m: { pick: string | null; hidden: boolean }) => [m.pick, m.hidden])).toEqual([[null, true], [null, true]])
+    expect((((await standings(late)).rows) as { user_id: string; guess: number | null }[]).find((x) => x.user_id === p1)!.guess).toBeNull()
+    // Las tablas tampoco dejan leer pronósticos ajenos directamente.
     expect(await asUser(p2, `select * from public.pool_picks where user_id = $1`, [p1])).toEqual([])
+    // Enviados ya no se pueden cambiar.
+    await asUser(p1, `select public.save_pool_picks($1::jsonb)`, [JSON.stringify([{ match_id: b, outcome: '2' }])]).catch(() => undefined)
+    expect(await sql(`select outcome, status from public.pool_picks where user_id = $1 and match_id = $2`, [p1, b])).toEqual([{ outcome: 'X', status: 'submitted' }])
   })
 
-  it('en vivo: no cuenta como acierto ni fallo; el que empezó se puede ver, el siguiente no', async () => {
+  it('en vivo: no cuenta como acierto ni fallo', async () => {
     await asService(`select public.apply_provider_update($1, '{"status":"live","status_detail":"1H","elapsed":30,"home_goals":1,"away_goals":0}'::jsonb)`, [a])
     const s = await standings(p2)
     expect(s.summary).toMatchObject({ live: 1, pending: 1, finished: 0 })
     const r1 = (s.rows as { user_id: string; points: number; hits: number; misses: number; live: number }[]).find((x) => x.user_id === p1)!
     expect(r1).toMatchObject({ points: 0, hits: 0, misses: 0, live: 1 })
     const other = await detail(p2, p1)
-    expect(other.matches.map((m: { pick: string | null; result: string }) => [m.pick, m.result])).toEqual([['1', 'live'], [null, 'pending']])
+    // p2 ya envió: ve ambos (el que empezó y el que sigue).
+    expect(other.matches.map((m: { pick: string | null; result: string }) => [m.pick, m.result])).toEqual([['1', 'live'], ['X', 'pending']])
     expect(other.guess).toBe(3) // la jornada ya empezó: el total ya es público
   })
 

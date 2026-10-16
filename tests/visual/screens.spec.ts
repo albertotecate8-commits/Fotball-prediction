@@ -153,7 +153,7 @@ test.describe('pantallas', () => {
     await expect(sheet.getByText('Fallo', { exact: true })).toBeVisible()
     await expect(sheet.getByText('En vivo').first()).toBeVisible()
     await expect(sheet.getByText('Oculto')).toBeVisible()
-    await expect(sheet.getByText('Se ve cuando empiece el partido')).toBeVisible()
+    await expect(sheet.getByText('Envía tu quiniela para verlo')).toBeVisible()
     await page.screenshot({ path: shot('06b-detalle-participante', info.project.name) })
   })
 
