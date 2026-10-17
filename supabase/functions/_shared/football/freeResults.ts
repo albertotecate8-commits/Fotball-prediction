@@ -11,7 +11,7 @@ export interface FreeTarget {
   home_name?: string | null; away_name?: string | null; home_tsdb?: string | null; away_tsdb?: string | null
 }
 export interface TsdbLiveEvent {
-  idEvent?: string | null; idAPIfootball?: string | null; strStatus?: string | null; strProgress?: string | null
+  idEvent?: string | null; idAPIfootball?: string | null; idLeague?: string | null; intRound?: string | null; strSeason?: string | null; strStatus?: string | null; strProgress?: string | null
   intHomeScore?: string | null; intAwayScore?: string | null; strPostponed?: string | null
 }
 export interface FreeUpdate { status: string; status_detail: string; home_goals: number | null; away_goals: number | null }
@@ -61,4 +61,17 @@ export function searchQuery(home: string, away: string): string {
 /** De una lista de eventos, el que corresponde al partido (por id oficial, nunca por nombre). */
 export function pickEvent(events: TsdbLiveEvent[] | null | undefined, externalId: string): TsdbLiveEvent | null {
   return (events ?? []).find((e) => String(e.idAPIfootball ?? '') === externalId && /^\d{1,10}$/.test(String(e.idEvent ?? ''))) ?? null
+}
+
+/** Jornadas (ronda y temporada) que aparecen en una lista de eventos, por liga de TheSportsDB. */
+export function roundsByLeague(events: TsdbLiveEvent[], fallbackLeague: string): Map<string, { round: string; season: string }> {
+  const out = new Map<string, { round: string; season: string }>()
+  for (const e of events) {
+    const round = String(e.intRound ?? '').trim()
+    const season = String(e.strSeason ?? '').trim()
+    if (!/^\d{1,3}$/.test(round) || !/^\d{4}(-\d{4})?$/.test(season)) continue
+    const lg = /^\d{1,10}$/.test(String(e.idLeague ?? '')) ? String(e.idLeague) : fallbackLeague
+    out.set(`${lg}:${round}:${season}`, { round, season })
+  }
+  return out
 }

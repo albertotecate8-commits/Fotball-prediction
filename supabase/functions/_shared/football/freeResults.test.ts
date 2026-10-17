@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { freeRequests, pickEvent, searchQuery, shouldApply, toFreeUpdate, type FreeTarget } from './freeResults'
+import { freeRequests, pickEvent, roundsByLeague, searchQuery, shouldApply, toFreeUpdate, type FreeTarget } from './freeResults'
 
 const t = (over: Partial<FreeTarget> = {}): FreeTarget => ({ match_id: 'm', external_id: '1550993', kickoff_at: '2026-10-17T01:00:00Z', league: '262', status: 'scheduled', home_goals: null, away_goals: null, ...over })
 
@@ -30,5 +30,9 @@ describe('resultados de respaldo (TheSportsDB)', () => {
     expect(pickEvent(evs, '1570413')?.idEvent).toBe('2506255')
     expect(pickEvent(evs, '123')).toBeNull()
     expect(pickEvent(null, '1570413')).toBeNull()
+  })
+  it('saca la jornada (ronda y temporada) de los eventos del día para pedirla completa', () => {
+    const r = roundsByLeague([{ intRound: '13', strSeason: '2026-2027', idLeague: '4350' }, { intRound: '13', strSeason: '2026-2027' }, { intRound: 'x', strSeason: '2026' }], '4350')
+    expect([...r.entries()]).toEqual([['4350:13:2026-2027', { round: '13', season: '2026-2027' }]])
   })
 })
