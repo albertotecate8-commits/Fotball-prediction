@@ -7,6 +7,7 @@ import { corsHeaders, json, requireAdmin, safeEqual, serviceClient } from '../_s
 import { linkManualMatch, type ManualInput } from '../_shared/manualLink.deno.ts'
 import { runPlannedSync } from '../_shared/quotaSync.deno.ts'
 import { refreshCalendar } from '../_shared/calendar.deno.ts'
+import { refreshFreeResults } from '../_shared/freeResults.deno.ts'
 import type { ApiFootballProvider } from '../_shared/football/index.ts'
 import { loadPlanFlags, providerEnv, realProviderConfigured, resolveProvider, savePlanFlags } from '../_shared/providers.deno.ts'
 import { runAllProviders, type SyncStore } from '../_shared/football/sync.ts'
@@ -169,6 +170,13 @@ Deno.serve(async (req) => {
       } catch (e) {
         planned = { ...(planned ?? {}), calendar: { error: (e as Error).message } }
       }
+    }
+    // Respaldo de resultados (TheSportsDB, gratis): si API-Football falla, el marcador y los puntos siguen llegando.
+    try {
+      const free = await refreshFreeResults(db)
+      if (free.targets) planned = { ...(planned ?? {}), free_results: free }
+    } catch (e) {
+      planned = { ...(planned ?? {}), free_results: { error: (e as Error).message } }
     }
     // Demostración y mantenimiento (cierres y finalización): nunca consultan API-Football.
     result = { ...(await runAllProviders(store, (id) => (id === 'mock' ? resolveProvider(db, 'mock') : null), viaCron ? 'cron' : 'manual')), planned }

@@ -26,8 +26,8 @@ export async function refreshCalendar(db: SupabaseClient, opts: { force?: boolea
     return summary
   }
 
-  // La clave pública de prueba («3») no es secreta; si se configura una propia, nunca se registra.
-  const key = Deno.env.get('THESPORTSDB_KEY') || '3'
+  // La clave pública de prueba («123»; la «3» fue retirada) no es secreta; si se configura una propia, nunca se registra.
+  const key = Deno.env.get('THESPORTSDB_KEY') || '123'
   let requests = 0
   let limited = false
   const fetchJson = async (path: string) => {
@@ -83,7 +83,7 @@ export async function searchFreeTeams(db: SupabaseClient, query: string): Promis
   const cacheKey = `search:${norm}`
   const { data: hit } = await db.rpc('provider_cache_get', { p_provider: P, p_key: cacheKey })
   if (Array.isArray(hit)) return { teams: hit as FreeTeamResult[], cached: true }
-  const key = Deno.env.get('THESPORTSDB_KEY') || '3'
+  const key = Deno.env.get('THESPORTSDB_KEY') || '123'
   const res = await fetch(`${BASE}/${key}/searchteams.php?t=${encodeURIComponent(query)}`, { signal: AbortSignal.timeout(8000), headers: { accept: 'application/json' } })
   if (!res.ok) throw new Error(`TheSportsDB HTTP ${res.status}`)
   const body = await res.json().catch(() => ({})) as { teams?: Record<string, string | null>[] | null }
