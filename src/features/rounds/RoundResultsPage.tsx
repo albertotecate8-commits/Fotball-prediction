@@ -81,12 +81,12 @@ export function RoundResultsPage() {
 
       {!official && scoring && (
         <p className="mb-4 flex items-start gap-2 rounded-2xl border border-line bg-surface/60 p-3 text-xs text-muted">
-          <Info className="mt-0.5 size-3.5 shrink-0 text-aqua" /> Los puntos se actualizan con resultados en vivo y quedan oficiales cuando el proveedor confirma el resultado final de todos los partidos.
+          <Info className="mt-0.5 size-3.5 shrink-0 text-aqua" /> Los puntos se actualizan con resultados en vivo y quedan oficiales cuando se confirma el resultado final de todos los partidos.
         </p>
       )}
 
       {d.matches.some((m) => m.is_test_data) && (
-        <p className="mb-3 flex items-center gap-2 text-xs text-muted"><TestDataBadge /> Partidos ficticios del proveedor de demostración.</p>
+        <p className="mb-3 flex items-center gap-2 text-xs text-muted"><TestDataBadge /> Partidos ficticios de demostración.</p>
       )}
       <ol className="space-y-3">
         {d.matches.map((m) => {

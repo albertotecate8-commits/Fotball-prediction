@@ -4,6 +4,7 @@ import { Check, ChevronRight, Clock, EyeOff, Goal, Lock, Minus, Ticket, Trophy, 
 import { playerApi } from '@/services/player'
 import { qk } from '@/services/queryKeys'
 import { useAppConfig } from '@/hooks/useAppConfig'
+import { useAuth } from '@/features/auth/AuthProvider'
 import { PageHeader } from '@/components/PageHeader'
 import { TeamCrest } from '@/components/TeamCrest'
 import { Avatar } from '@/components/ui/Avatar'
@@ -67,6 +68,8 @@ export function LeaderboardPage() {
 }
 
 function Summary({ data, tz }: { data: WeekStandings; tz: string }) {
+  // Hora de sincronización y pausas: información del admin, no de los participantes.
+  const { isAdmin } = useAuth()
   const s = data.summary!
   const done = s.finished
   const pct = (n: number) => `${s.total ? (n / s.total) * 100 : 0}%`
@@ -90,7 +93,7 @@ function Summary({ data, tz }: { data: WeekStandings; tz: string }) {
       </ul>
       <p className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted">
         {data.week!.real.counted > 0 && <span className="inline-flex items-center gap-1"><Goal className="size-3.5 text-gold" /> {data.week!.real.goals} goles en la jornada</span>}
-        {data.updated_at && <span className="inline-flex items-center gap-1"><Clock className="size-3.5" /> Actualizado {formatShortDate(data.updated_at, tz)} {formatTime(data.updated_at, tz)}{data.delayed ? ' · actualización en pausa (se muestran los últimos datos guardados)' : ''}</span>}
+        {isAdmin && data.updated_at && <span className="inline-flex items-center gap-1"><Clock className="size-3.5" /> Actualizado {formatShortDate(data.updated_at, tz)} {formatTime(data.updated_at, tz)}{data.delayed ? ' · actualización en pausa (se muestran los últimos datos guardados)' : ''}</span>}
       </p>
     </section>
   )

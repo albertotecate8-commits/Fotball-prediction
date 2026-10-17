@@ -54,7 +54,7 @@ export function PickCard({ match: m, tz, value, disabled, saved, submitted, onCh
   return (
     <article className={cn('card p-3 transition', complete && 'border-aqua/30', highlight && !complete && 'border-gold/60 ring-2 ring-gold/30')}>
       <div className="mb-2.5 flex items-center justify-between gap-2 text-[11px] text-muted">
-        <span className="flex min-w-0 items-center gap-1.5 truncate">{m.competition?.name ?? 'Partido'}{m.is_manual && <span className="shrink-0 rounded-full border border-gold/40 px-1.5 text-[9px] font-bold uppercase text-gold">Añadido por el admin</span>}</span>
+        <span className="flex min-w-0 items-center gap-1.5 truncate">{m.competition?.name ?? 'Partido'}</span>
         <span className="flex shrink-0 items-center gap-2">
           <MatchStatusBadge status={m.status} elapsed={m.elapsed} confirmed={m.result_confirmed} />
           <span className="capitalize">{formatShortDate(m.kickoff_at, tz)} · {formatTime(m.kickoff_at, tz)}</span>
@@ -75,7 +75,10 @@ export function PickCard({ match: m, tz, value, disabled, saved, submitted, onCh
           state === 'Enviado' ? 'text-success' : state === 'Guardado' ? 'text-aqua' : state === 'Elige un resultado' ? 'text-gold' : 'text-muted')}>
           {state === 'Elige un resultado' || state === 'Sin pronóstico' ? <Circle className="size-3.5" /> : state === 'Guardando…' ? <CircleDot className="size-3.5" /> : state === 'Cerrado' ? <Lock className="size-3.5" /> : <CheckCircle2 className="size-3.5" />} {state}
         </span>
-        {m.score ? (
+        {m.score && (m.status === 'live' || m.status === 'suspended') ? (
+          // En vivo todavía no es acierto ni fallo: solo cómo va.
+          <span className="inline-flex items-center gap-1 text-xs font-semibold text-live"><span className="size-1.5 animate-pulse-soft rounded-full bg-live" />{(m.score.outcome_hit ?? m.score.points > 0) ? 'Por ahora vas acertando' : 'Por ahora no'}</span>
+        ) : m.score && m.status === 'finished' && m.result_confirmed ? (
           (m.score.outcome_hit ?? m.score.points > 0)
             ? <span className="inline-flex items-center gap-1 text-xs font-bold text-success"><CheckCircle2 className="size-4" /> Acierto</span>
             : <span className="inline-flex items-center gap-1 text-xs font-semibold text-muted"><XCircle className="size-4" /> Fallo</span>

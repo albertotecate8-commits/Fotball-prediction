@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, Copy, Landmark, PencilLine, Search } from 'lucide-react'
+import { Check, Copy, Landmark, PencilLine, Search, Trophy } from 'lucide-react'
 import { adminApi, type PaymentRow, type PaymentState } from '@/services/admin'
+import { playerApi } from '@/services/player'
 import { useAppConfig } from '@/hooks/useAppConfig'
 import { formatDate } from '@/lib/time'
 import { errorMessage } from '@/lib/errors'
@@ -57,6 +58,7 @@ export function AdminPayments() {
           <Landmark className="size-4" /> Datos de pago
         </Link>
       </div>
+      <PrizePotCard />
       <PillTabs label="Filtrar" value={tab} onChange={setTab} className="mb-3" options={[
         { value: 'all', label: 'Todos', count: count('all') },
         { value: 'confirmed', label: 'Confirmados', count: count('confirmed') },
@@ -105,6 +107,42 @@ export function AdminPayments() {
       )}
       {editing && <ConfirmSheet row={editing} onClose={() => setEditing(null)} />}
     </div>
+  )
+}
+
+/** Bolsa de esta semana: el admin puede fijar el monto (solo esta semana) o dejarlo automático. */
+function PrizePotCard() {
+  const qc = useQueryClient()
+  const toast = useToast()
+  const pot = useQuery({ queryKey: ['prizePot'], queryFn: playerApi.pot })
+  const [value, setValue] = useState('')
+  const [busy, setBusy] = useState(false)
+  const money = (n: number) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: pot.data?.currency || 'MXN' }).format(n)
+  const save = async (amount: number | null) => {
+    if (amount !== null && !confirm(`¿Fijar la bolsa de esta semana en ${money(amount)}? La semana siguiente vuelve al cálculo automático.`)) return
+    setBusy(true)
+    try {
+      const r = await adminApi.setPrizePot(amount)
+      toast(r.manual ? `Bolsa fijada en ${money(r.pot)}` : `Bolsa automática: ${money(r.pot)}`)
+      setValue('')
+      await qc.invalidateQueries({ queryKey: ['prizePot'] })
+    } catch (e) { toast(errorMessage(e), 'error') } finally { setBusy(false) }
+  }
+  const amt = value.trim() ? Number(value) : null
+  return (
+    <section className="card mb-4 border-gold/30 p-4" aria-labelledby="bolsa-admin">
+      <div className="flex items-center justify-between gap-2">
+        <h2 id="bolsa-admin" className="flex items-center gap-2 font-semibold"><Trophy className="size-5 text-gold" /> Bolsa de esta semana</h2>
+        {pot.data && <Badge tone={pot.data.manual ? 'warning' : 'neutral'}>{pot.data.manual ? 'Fijada por ti' : 'Automática (70 %)'}</Badge>}
+      </div>
+      <p className="scoreline mt-1 text-3xl text-gold">{pot.data ? money(Number(pot.data.pot)) : '—'}</p>
+      <div className="mt-3 flex gap-2">
+        <Input aria-label="Nuevo monto de la bolsa" inputMode="decimal" placeholder="Nuevo monto" value={value} onChange={(e) => setValue(e.target.value.replace(/[^\d.]/g, ''))} />
+        <Button loading={busy} disabled={amt === null || !(amt >= 0)} onClick={() => void save(amt)}>Fijar</Button>
+      </div>
+      {pot.data?.manual && <Button size="sm" variant="secondary" className="mt-2" disabled={busy} onClick={() => void save(null)}>Volver al cálculo automático</Button>}
+      <p className="mt-2 text-[11px] text-muted">Solo cambia la bolsa de esta semana. Los participantes la ven al cierre de la quiniela.</p>
+    </section>
   )
 }
 

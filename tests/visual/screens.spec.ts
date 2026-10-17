@@ -56,7 +56,9 @@ test.describe('pantallas', () => {
     await page.goto('/quinielas')
     await expect(page.getByRole('heading', { name: 'Mi quiniela' })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Resultados' })).toBeVisible()
-    await expect(page.getByText('Añadido por el admin').first()).toBeVisible()
+    // Lo del admin y del proveedor no se muestra a los participantes.
+    await expect(page.getByText('Añadido por el admin')).toHaveCount(0)
+    await expect(page.getByText(/proveedor|cuota|Resultados actualizados/)).toHaveCount(0)
     // Ya no hay marcador: solo local / empate / visita.
     await expect(page.getByRole('button', { name: /^Más goles de/ })).toHaveCount(0)
     await expect(page.getByRole('heading', { name: '¿Cuántos goles habrá en la jornada?' })).toBeVisible()
@@ -140,7 +142,7 @@ test.describe('pantallas', () => {
     await expect(summary.getByText('de 11 finalizados')).toBeVisible()
     await expect(summary.getByText('2 en vivo')).toBeVisible()
     await expect(summary.getByText('5 pendientes')).toBeVisible()
-    await expect(summary.getByText(/Actualizado/)).toBeVisible()
+    await expect(summary.getByText(/Actualizado/)).toHaveCount(0)
     await expect(page.getByText(/Vas\s*2\.º\s*de 3/)).toBeVisible()
     const board = page.getByRole('list', { name: 'Clasificación' })
     await expect(board.getByRole('button')).toHaveCount(3)
@@ -183,6 +185,12 @@ test.describe('pantallas', () => {
     page.once('dialog', (d) => void d.accept())
     await page.getByRole('button', { name: 'Confirmar pago' }).first().click()
     await expect.poll(() => calls.includes('admin_confirm_payment')).toBe(true)
+    // Bolsa de esta semana: el admin fija el monto.
+    await expect(page.getByRole('heading', { name: 'Bolsa de esta semana' })).toBeVisible()
+    await page.getByLabel('Nuevo monto de la bolsa').fill('1500')
+    page.once('dialog', (d) => void d.accept())
+    await page.getByRole('button', { name: 'Fijar' }).click()
+    await expect.poll(() => calls.includes('admin_set_prize_pot')).toBe(true)
     // Permitir editar una quiniela ya enviada.
     page.once('dialog', (d) => void d.accept())
     await page.getByRole('button', { name: 'Permitir editar quiniela' }).click()

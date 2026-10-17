@@ -184,7 +184,7 @@ function PredictionForm({ detail, userId, participation }: { detail: RoundDetail
       )}
 
       {detail.matches.some((m) => m.is_test_data) && (
-        <p className="mb-3 flex items-center gap-2 text-xs text-muted"><TestDataBadge /> Partidos ficticios del proveedor de demostración.</p>
+        <p className="mb-3 flex items-center gap-2 text-xs text-muted"><TestDataBadge /> Partidos ficticios de demostración.</p>
       )}
       <ol className="space-y-3">
         {detail.matches.map((m, i) => {

@@ -43,7 +43,7 @@ export function QuinielaPage() {
 }
 
 function Form({ data, tz }: { data: PoolData; tz: string }) {
-  const { session } = useAuth()
+  const { session, isAdmin } = useAuth()
   const qc = useQueryClient()
   const uid = session!.user.id
   const serverPicks = useMemo<Picks>(() => Object.fromEntries(data.matches.map((m) => [m.match_id,
@@ -193,7 +193,8 @@ function Form({ data, tz }: { data: PoolData; tz: string }) {
         <p className="mb-3 text-xs text-muted">Gana quien acierte más resultados. Si hay empate entre usuarios, gana quien más se acerque a los goles de la jornada.</p>
       )}
       {data.matches.some((m) => m.is_test_data) && <div className="mb-3"><TestDataBadge /></div>}
-      <Freshness show={data.matches.some((m) => m.status === 'live' || (Date.parse(m.kickoff_at) <= Date.now() && !m.result_confirmed && m.status !== 'cancelled'))} tz={tz} />
+      {/* Estado de la sincronización: solo para el admin. */}
+      <Freshness show={isAdmin && data.matches.some((m) => m.status === 'live' || (Date.parse(m.kickoff_at) <= Date.now() && !m.result_confirmed && m.status !== 'cancelled'))} tz={tz} />
 
       {active.map(renderDay)}
       {weeks.map((w) => (

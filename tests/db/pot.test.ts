@@ -17,7 +17,7 @@ describe('bolsa acumulada', () => {
     const [r] = await asUser(c, `select public.get_prize_pot() as p`)
     expect(Number(r!.p.pot) - Number(before.pot)).toBe(70)
     expect(r!.p.paid_count - before.paid_count).toBe(2)
-    expect(Object.keys(r!.p).sort()).toEqual(['configured', 'currency', 'paid_count', 'pot'])
+    expect(Object.keys(r!.p).sort()).toEqual(['configured', 'currency', 'manual', 'paid_count', 'pot'])
 
     // Si cambia el costo, los pagos ya confirmados conservan su monto.
     await sql(`update public.payment_info set amount = 100`)
@@ -31,5 +31,26 @@ describe('bolsa acumulada', () => {
     await asUser(admin, `select public.admin_set_payment($1, $2, 'not_applicable', null, '', 'Pago revertido en prueba')`, [g, b])
     const [r3] = await asUser(c, `select public.get_prize_pot() as p`)
     expect(Number(r3!.p.pot)).toBe(Number(r!.p.pot) - 35)
+  })
+
+  it('el admin fija el monto de esta semana; quitarlo vuelve al cálculo automático', async () => {
+    const admin = await createAdmin()
+    const u = await createUser('Mira bolsa')
+    const auto = Number(((await asUser(u, `select public.get_prize_pot() as p`))[0]!.p).pot)
+    await expectDbError(asUser(u, `select public.admin_set_prize_pot(5000, null)`), 'FORBIDDEN')
+    await expectDbError(asUser(admin, `select public.admin_set_prize_pot(-1, null)`), 'INVALID_AMOUNT')
+    await asUser(admin, `select public.admin_set_prize_pot(1500, 'Premio garantizado')`)
+    const [m] = await asUser(u, `select public.get_prize_pot() as p`)
+    expect(m!.p).toMatchObject({ pot: 1500, manual: true })
+    const [log] = await sql(`select details from public.audit_logs where action = 'pool.prize_pot_set' order by id desc limit 1`)
+    expect(log!.details).toMatchObject({ to: 1500, reason: 'Premio garantizado', by: admin })
+    // Solo vale para la semana en que se fijó.
+    await sql(`update public.app_settings set value = jsonb_set(value, '{week_start}', to_jsonb((private.current_week_start() - 7)::text)) where key = 'prize_pot_override'`)
+    expect(((await asUser(u, `select public.get_prize_pot() as p`))[0]!.p).manual).toBe(false)
+    await asUser(admin, `select public.admin_set_prize_pot(1500, null)`)
+    await asUser(admin, `select public.admin_set_prize_pot(null, null)`)
+    const [b] = await asUser(u, `select public.get_prize_pot() as p`)
+    expect(b!.p.manual).toBe(false)
+    expect(Number(b!.p.pot)).toBe(auto)
   })
 })
