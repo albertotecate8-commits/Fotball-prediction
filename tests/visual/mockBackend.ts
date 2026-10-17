@@ -205,7 +205,7 @@ const RPC: Record<string, (body: Record<string, unknown>) => unknown> = {
   admin_follow_team: (b) => ({ followed: b.p_follow, weeks: 1, selected_now: 0 }),
   admin_delete_team: () => null,
   // Bolsa FICTICIA.
-  get_prize_pot: () => ({ pot: 1200, paid_count: 40, currency: 'MXN', configured: true }),
+  get_prize_pot: () => ({ pot: 1200, paid_count: 40, currency: 'MXN', configured: true, manual: false, visible: false }),
   get_pool_week: () => ({ label: 'Semana', week_start: iso(2 * 24 * H).slice(0, 10), week_end: iso(8 * 24 * H).slice(0, 10), max_matches: 12, filled: 5 }),
   get_results_freshness: () => ({ updated_at: iso(-4 * 60e3), delayed: false }),
   // Consumo FICTICIO para la prueba visual del panel.
@@ -289,6 +289,7 @@ export async function mockBackend(page: Page, opts: { admin?: boolean; featured?
       if (fn === 'get_week_standings') return json(standings(!!opts.emptyBoard))
       if (fn === 'admin_payment_list') return json(paymentRows)
       if (fn === 'admin_update_setting') return json(null)
+      if (fn === 'admin_set_prize_visible') return json({ visible: true })
       if (fn === 'admin_set_prize_pot') return json({ pot: 1500, manual: true, automatic: 1200 })
       if (fn === 'admin_unlock_quiniela') return json({ picks: 11, week_goals: 1 })
       if (fn === 'admin_confirm_payment') return json({ reference: 'SHABEX-ALBERTO', state: 'confirmed', amount: 50 })

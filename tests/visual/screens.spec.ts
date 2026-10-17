@@ -35,6 +35,16 @@ test.describe('pantallas', () => {
     await page.screenshot({ path: shot('01c-inicio-sin-pago', info.project.name) })
   })
 
+  test('inicio: si el admin la hace visible, el monto se ve antes del cierre', async ({ page }) => {
+    await mockBackend(page)
+    await page.route('**/rest/v1/rpc/get_prize_pot*', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ pot: 500, paid_count: 6, currency: 'MXN', configured: true, manual: true, visible: true }) }))
+    await page.goto('/')
+    await expect(page.getByText('Bolsa de la semana')).toBeVisible()
+    await expect(page.getByText(/\$500/)).toBeVisible()
+    await expect(page.getByLabel('Monto sorpresa')).toHaveCount(0)
+    await expect(page.getByRole('timer')).toBeVisible()
+  })
+
   test('inicio sin partidos: estados vacíos con acciones reales', async ({ page }, info) => {
     await mockBackend(page, { featured: [], noGroup: true })
     await page.goto('/')
@@ -191,6 +201,8 @@ test.describe('pantallas', () => {
     page.once('dialog', (d) => void d.accept())
     await page.getByRole('button', { name: 'Fijar' }).click()
     await expect.poll(() => calls.includes('admin_set_prize_pot')).toBe(true)
+    await page.getByRole('switch', { name: 'Bolsa visible para todos' }).click()
+    await expect.poll(() => calls.includes('admin_set_prize_visible')).toBe(true)
     // Permitir editar una quiniela ya enviada.
     page.once('dialog', (d) => void d.accept())
     await page.getByRole('button', { name: 'Permitir editar quiniela' }).click()

@@ -88,6 +88,8 @@ export function PrizePot() {
   const { pot, currency, paid_count } = q.data
   const close = closingAt(pool.data)
   const open = close !== null && close > Date.now()
+  // El admin puede mostrar el monto antes del cierre (si no, es sorpresa hasta que cierre).
+  const hidden = open && !q.data.visible
   const inside = pay.data?.state === 'confirmed' || pool.data?.can_submit === true
   const entry = pay.data?.amount ? money(Number(pay.data.amount), pay.data.currency || currency) : null
   return (
@@ -98,7 +100,7 @@ export function PrizePot() {
         <LuckyTrophy />
         <div className="min-w-0">
           <p id="bolsa" className="text-[11px] font-bold uppercase tracking-[0.16em] text-gold">{open ? 'Bolsa de la semana' : 'Bolsa final'}</p>
-          {open ? (
+          {hidden ? (
             <>
               {/* Hasta el cierre el monto es sorpresa: se revela cuando cierra la quiniela. */}
               <p className="scoreline bg-gradient-to-b from-[#fff6dc] to-gold bg-clip-text text-4xl leading-tight tracking-widest text-transparent [animation:pulse-soft_2.4s_ease-in-out_infinite]" aria-label="Monto sorpresa">$ ? ? ?</p>

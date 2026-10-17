@@ -38,8 +38,9 @@ describe('próxima quiniela', () => {
 
   it('ordenar, publicar y actualizar: el orden llega a los jugadores; retirar con pronósticos exige motivo y conserva los datos', async () => {
     const [a, b, c] = [await idOf('np-1'), await idOf('np-2'), await idOf('np-3')]
-    // Mismo día local (mediodía CDMX de pasado mañana) para que solo cuente el orden del admin.
-    await sql(`update public.matches m set kickoff_at = ((((now() at time zone 'America/Mexico_City')::date + 2) + time '12:00') at time zone 'America/Mexico_City') + (x.h || ' minutes')::interval
+    // Mismo día local y misma semana (dentro de 90 min) para que solo cuente el orden del admin
+    // y la regla de «una quiniela a la vez» no lo deje esperando la semana siguiente.
+    await sql(`update public.matches m set kickoff_at = now() + interval '90 minutes' + (x.h || ' seconds')::interval
       from (values ($1::uuid, 0), ($2::uuid, 10), ($3::uuid, 20)) x(id, h) where m.id = x.id`, [a, b, c])
     await asUser(admin, `select public.admin_save_selection($1::jsonb)`, [JSON.stringify([
       { match_id: c, selected: true, sort_order: 1 }, { match_id: a, selected: true, sort_order: 2 }, { match_id: b, selected: true, sort_order: 3 }])])

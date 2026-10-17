@@ -17,7 +17,7 @@ describe('bolsa acumulada', () => {
     const [r] = await asUser(c, `select public.get_prize_pot() as p`)
     expect(Number(r!.p.pot) - Number(before.pot)).toBe(70)
     expect(r!.p.paid_count - before.paid_count).toBe(2)
-    expect(Object.keys(r!.p).sort()).toEqual(['configured', 'currency', 'manual', 'paid_count', 'pot'])
+    expect(Object.keys(r!.p).sort()).toEqual(['configured', 'currency', 'manual', 'paid_count', 'pot', 'visible'])
 
     // Si cambia el costo, los pagos ya confirmados conservan su monto.
     await sql(`update public.payment_info set amount = 100`)
@@ -45,12 +45,27 @@ describe('bolsa acumulada', () => {
     const [log] = await sql(`select details from public.audit_logs where action = 'pool.prize_pot_set' order by id desc limit 1`)
     expect(log!.details).toMatchObject({ to: 1500, reason: 'Premio garantizado', by: admin })
     // Solo vale para la semana en que se fijó.
-    await sql(`update public.app_settings set value = jsonb_set(value, '{week_start}', to_jsonb((private.current_week_start() - 7)::text)) where key = 'prize_pot_override'`)
+    await sql(`update public.prize_pot_weeks set week_start = private.current_week_start() - 7 where week_start = private.current_week_start()`)
     expect(((await asUser(u, `select public.get_prize_pot() as p`))[0]!.p).manual).toBe(false)
     await asUser(admin, `select public.admin_set_prize_pot(1500, null)`)
     await asUser(admin, `select public.admin_set_prize_pot(null, null)`)
     const [b] = await asUser(u, `select public.get_prize_pot() as p`)
     expect(b!.p.manual).toBe(false)
     expect(Number(b!.p.pot)).toBe(auto)
+  })
+
+  it('el admin la hace visible o invisible cuando quiera; nadie más', async () => {
+    const admin = await createAdmin()
+    const u = await createUser('Ve bolsa')
+    await expectDbError(asUser(u, `select public.admin_set_prize_visible(true)`), 'FORBIDDEN')
+    await expectDbError(asUser(u, `select * from public.prize_pot_weeks`), 'permission denied')
+    await asUser(admin, `select public.admin_set_prize_pot(500, null)`)
+    await asUser(admin, `select public.admin_set_prize_visible(true)`)
+    expect(((await asUser(u, `select public.get_prize_pot() as p`))[0]!.p)).toMatchObject({ pot: 500, visible: true, manual: true })
+    await asUser(admin, `select public.admin_set_prize_visible(false)`)
+    expect(((await asUser(u, `select public.get_prize_pot() as p`))[0]!.p).visible).toBe(false)
+    const [log] = await sql(`select details from public.audit_logs where action = 'pool.prize_pot_visibility' order by id desc limit 1`)
+    expect(log!.details).toMatchObject({ visible: false, by: admin })
+    await asUser(admin, `select public.admin_set_prize_pot(null, null)`)
   })
 })

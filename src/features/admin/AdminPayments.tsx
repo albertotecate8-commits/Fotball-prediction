@@ -128,6 +128,14 @@ function PrizePotCard() {
       await qc.invalidateQueries({ queryKey: ['prizePot'] })
     } catch (e) { toast(errorMessage(e), 'error') } finally { setBusy(false) }
   }
+  const toggle = async (visible: boolean) => {
+    setBusy(true)
+    try {
+      await adminApi.setPrizeVisible(visible)
+      toast(visible ? 'La bolsa ya es visible para todos' : 'La bolsa quedó oculta hasta el cierre')
+      await qc.invalidateQueries({ queryKey: ['prizePot'] })
+    } catch (e) { toast(errorMessage(e), 'error') } finally { setBusy(false) }
+  }
   const amt = value.trim() ? Number(value) : null
   return (
     <section className="card mb-4 border-gold/30 p-4" aria-labelledby="bolsa-admin">
@@ -141,7 +149,15 @@ function PrizePotCard() {
         <Button loading={busy} disabled={amt === null || !(amt >= 0)} onClick={() => void save(amt)}>Fijar</Button>
       </div>
       {pot.data?.manual && <Button size="sm" variant="secondary" className="mt-2" disabled={busy} onClick={() => void save(null)}>Volver al cálculo automático</Button>}
-      <p className="mt-2 text-[11px] text-muted">Solo cambia la bolsa de esta semana. Los participantes la ven al cierre de la quiniela.</p>
+      <label className="mt-3 flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-line bg-surface-2 p-3">
+        <span>
+          <span className="block text-sm font-semibold">Visible para todos</span>
+          <span className="block text-[11px] text-muted">{pot.data?.visible ? 'Los participantes ven el monto ahora.' : 'Oculta («$ ? ? ?») hasta el cierre de la quiniela.'}</span>
+        </span>
+        <input type="checkbox" role="switch" aria-label="Bolsa visible para todos" className="size-6 accent-[var(--color-gold,#c8a45d)]"
+          checked={!!pot.data?.visible} disabled={busy || !pot.data} onChange={(e) => void toggle(e.target.checked)} />
+      </label>
+      <p className="mt-2 text-[11px] text-muted">El monto solo cambia esta semana; la siguiente vuelve al cálculo automático y oculta.</p>
     </section>
   )
 }
