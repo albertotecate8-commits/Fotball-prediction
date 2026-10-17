@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { freeRequests, shouldApply, toFreeUpdate, type FreeTarget } from './freeResults'
+import { freeRequests, pickEvent, searchQuery, shouldApply, toFreeUpdate, type FreeTarget } from './freeResults'
 
 const t = (over: Partial<FreeTarget> = {}): FreeTarget => ({ match_id: 'm', external_id: '1550993', kickoff_at: '2026-10-17T01:00:00Z', league: '262', status: 'scheduled', home_goals: null, away_goals: null, ...over })
 
@@ -22,5 +22,13 @@ describe('resultados de respaldo (TheSportsDB)', () => {
   it('una consulta por día y liga; ligas desconocidas no consultan', () => {
     expect(freeRequests([t(), t({ match_id: 'b' }), t({ league: '263', kickoff_at: '2026-10-18T03:00:00Z' }), t({ league: '999' })]))
       .toEqual([{ date: '2026-10-17', tsdb: '4350' }, { date: '2026-10-18', tsdb: '4654' }])
+  })
+  it('busca por nombre y elige el evento por su id oficial', () => {
+    expect(searchQuery('Real Betis', 'Barcelona')).toBe('Real_Betis_vs_Barcelona')
+    expect(searchQuery('U.N.A.M. - Pumas', 'Atlético San Luis')).toBe('U_N_A_M_Pumas_vs_Atletico_San_Luis')
+    const evs = [{ idEvent: '1', idAPIfootball: '999' }, { idEvent: '2506255', idAPIfootball: '1570413' }]
+    expect(pickEvent(evs, '1570413')?.idEvent).toBe('2506255')
+    expect(pickEvent(evs, '123')).toBeNull()
+    expect(pickEvent(null, '1570413')).toBeNull()
   })
 })

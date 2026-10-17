@@ -8,9 +8,10 @@ import { TSDB_LEAGUES } from './calendar.ts'
 export interface FreeTarget {
   match_id: string; external_id: string; kickoff_at: string; league: string | null
   status: string; home_goals: number | null; away_goals: number | null
+  home_name?: string | null; away_name?: string | null; home_tsdb?: string | null; away_tsdb?: string | null
 }
 export interface TsdbLiveEvent {
-  idAPIfootball?: string | null; strStatus?: string | null; strProgress?: string | null
+  idEvent?: string | null; idAPIfootball?: string | null; strStatus?: string | null; strProgress?: string | null
   intHomeScore?: string | null; intAwayScore?: string | null; strPostponed?: string | null
 }
 export interface FreeUpdate { status: string; status_detail: string; home_goals: number | null; away_goals: number | null }
@@ -49,4 +50,15 @@ export function freeRequests(targets: FreeTarget[]): { date: string; tsdb: strin
     seen.set(`${date}:${tsdb}`, { date, tsdb })
   }
   return [...seen.values()]
+}
+
+/** Texto de búsqueda de TheSportsDB: «Real_Betis_vs_Barcelona». */
+export function searchQuery(home: string, away: string): string {
+  const clean = (x: string) => x.normalize('NFD').replace(/\p{M}/gu, '').replace(/[^A-Za-z0-9 ]+/g, ' ').trim().replace(/\s+/g, '_')
+  return `${clean(home)}_vs_${clean(away)}`
+}
+
+/** De una lista de eventos, el que corresponde al partido (por id oficial, nunca por nombre). */
+export function pickEvent(events: TsdbLiveEvent[] | null | undefined, externalId: string): TsdbLiveEvent | null {
+  return (events ?? []).find((e) => String(e.idAPIfootball ?? '') === externalId && /^\d{1,10}$/.test(String(e.idEvent ?? ''))) ?? null
 }
