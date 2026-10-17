@@ -1,4 +1,4 @@
-import { afterAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { asService, asUser, createAdmin, createUser, expectDbError, pool, sql } from './helpers'
 
 afterAll(() => pool.end())
@@ -15,11 +15,20 @@ const state = (provider: string) => asService<{ s: Record<string, unknown> }>(`s
 /** Simula que pasó el minuto (el límite por minuto no interfiere con las pruebas de presupuesto). */
 const passMinute = (provider: string) => sql(`update public.provider_requests set created_at = created_at - interval '2 minutes' where provider = $1`, [provider])
 
+// El admin elige usar las 100 consultas del plan (botón «Usar las 100» en Consumo API).
+beforeAll(async () => {
+  const admin = await createAdmin()
+  await asUser(admin, `select public.admin_update_setting('api_daily_budget', '100'::jsonb)`)
+  await asUser(admin, `select public.admin_update_setting('api_provider_margin', '0'::jsonb)`)
+  const [a] = await sql(`select details from public.audit_logs where action = 'setting.updated' and entity_id = 'api_provider_margin' order by id desc limit 1`)
+  expect(a!.details).toMatchObject({ to: 0 })
+})
+
 describe('presupuesto de API-Football', () => {
-  it('el presupuesto diario nunca supera 98 aunque se cambie el ajuste', async () => {
+  it('el presupuesto diario nunca supera 100 aunque se cambie el ajuste', async () => {
     await sql(`update public.app_settings set value = '500' where key = 'api_daily_budget'`)
-    expect((await state('qa-cap')).budget).toBe(98)
-    await sql(`update public.app_settings set value = '98' where key = 'api_daily_budget'`)
+    expect((await state('qa-cap')).budget).toBe(100)
+    await sql(`update public.app_settings set value = '100' where key = 'api_daily_budget'`)
   })
 
   it('funciones concurrentes: la reserva es atómica y respeta el límite por minuto', async () => {
@@ -30,20 +39,20 @@ describe('presupuesto de API-Football', () => {
     expect(u).toEqual({ requests: 8, blocked: 12 })
   })
 
-  it('exactamente 98 solicitudes por día, también con reservas simultáneas; la 99 se bloquea', async () => {
+  it('exactamente 100 solicitudes por día, también con reservas simultáneas; la 101 se bloquea', async () => {
     let allowed = 0
     for (let batch = 0; batch < 13; batch++) {
       const r = await Promise.all(Array.from({ length: 8 }, () => reserve('qa-budget')))
       allowed += r.filter((x) => x.allowed).length
       await passMinute('qa-budget')
     }
-    expect(allowed).toBe(98)
+    expect(allowed).toBe(100)
     const blocked = await reserve('qa-budget')
     expect(blocked).toMatchObject({ allowed: false, reason: 'BUDGET_EXHAUSTED' })
     const s = await state('qa-budget')
-    expect(s).toMatchObject({ used: 98, remaining_internal: 0, effective_remaining: 0 })
+    expect(s).toMatchObject({ used: 100, remaining_internal: 0, effective_remaining: 0 })
     const [{ n }] = await sql(`select count(*)::int as n from public.provider_requests where provider = 'qa-budget' and counted`)
-    expect(n).toBe(98)
+    expect(n).toBe(100)
   })
 
   it('prioridades: con poca cuota solo pasa lo vital (en vivo primero)', async () => {
@@ -55,13 +64,13 @@ describe('presupuesto de API-Football', () => {
     expect(await reserve('qa-prio', 5)).toMatchObject({ allowed: false, reason: 'LOW_BUDGET_P5' })
   })
 
-  it('el saldo informado por el proveedor manda si es menor (margen de 2)', async () => {
+  it('el saldo informado por el proveedor manda si es menor (sin margen)', async () => {
     const r = await reserve('qa-provider')
-    // 98 - 1 propio = 97, pero el proveedor dice 12 → 12 - 2 = 10 utilizables.
+    // 100 - 1 propio = 99, pero el proveedor dice 12 → 12 utilizables.
     await finish(r.request_id!, 'success', 12, 100)
-    expect((await state('qa-provider')).effective_remaining).toBe(10)
+    expect((await state('qa-provider')).effective_remaining).toBe(12)
     const r2 = await reserve('qa-provider')
-    await finish(r2.request_id!, 'success', 2, 100)
+    await finish(r2.request_id!, 'success', 0, 100)
     expect(await state('qa-provider')).toMatchObject({ paused: true, pause_reason: 'PROVIDER_MARGIN', effective_remaining: 0 })
     expect(await reserve('qa-provider')).toMatchObject({ allowed: false, reason: 'PAUSED:PROVIDER_MARGIN' })
   })
@@ -87,8 +96,8 @@ describe('presupuesto de API-Football', () => {
 
   it('reinicio correcto: un día UTC nuevo empieza con el presupuesto completo y sin pausa', async () => {
     await sql(`update public.provider_usage set usage_date = usage_date - 1 where provider in ('qa-budget', 'qa-daily')`)
-    expect(await state('qa-budget')).toMatchObject({ used: 0, effective_remaining: 98, paused: false })
-    expect(await state('qa-daily')).toMatchObject({ paused: false, effective_remaining: 98 })
+    expect(await state('qa-budget')).toMatchObject({ used: 0, effective_remaining: 100, paused: false })
+    expect(await state('qa-daily')).toMatchObject({ paused: false, effective_remaining: 100 })
     expect((await reserve('qa-budget')).allowed).toBe(true)
   })
 
@@ -129,7 +138,7 @@ describe('seguridad del consumo y panel', () => {
     await finish(r.request_id!, 'success', 60, 100)
     const [row] = await asUser(admin, `select public.admin_api_usage() as u`)
     const u = row!.u
-    expect(u).toMatchObject({ budget: 98, margin: 2, status: expect.stringMatching(/normal|low|paused|error/) })
+    expect(u).toMatchObject({ budget: 100, margin: 0, status: expect.stringMatching(/normal|low|paused|error/) })
     expect(u.recent[0]).toMatchObject({ endpoint: '/fixtures?date=2026-10-10', outcome: 'success', counted: true })
     expect(JSON.stringify(u)).not.toMatch(/x-apisports-key|apikey|token/i)
   })

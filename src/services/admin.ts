@@ -256,6 +256,8 @@ export const adminApi = {
   unlockQuiniela: (user: string, reason?: string) => rpc<{ picks: number; week_goals: number }>('admin_unlock_quiniela', { p_user: user, p_reason: reason ?? null }),
   /** Fija (o quita con null) el monto de la bolsa de la semana actual. */
   setPrizePot: (amount: number | null, reason?: string) => rpc<{ pot: number; manual: boolean; automatic: number }>('admin_set_prize_pot', { p_amount: amount, p_reason: reason ?? null }),
+  /** Cambia un ajuste de app_settings (solo admin, auditado). */
+  updateSetting: (key: string, value: unknown) => rpc<void>('admin_update_setting', { p_key: key, p_value: value }),
   paymentInfo: async () => unwrap<{ bank: string | null; holder: string | null; clabe: string | null; account: string | null; amount: number | null; concept: string | null;
     instructions: string | null; contact: string | null; updated_at: string } | null>(await supabase.from('payment_info').select('*').maybeSingle()),
   savePaymentInfo: (v: { bank: string; holder: string; clabe: string; account: string; amount: number | null; concept: string; instructions: string; contact: string }) =>

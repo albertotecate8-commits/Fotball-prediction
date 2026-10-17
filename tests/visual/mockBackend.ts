@@ -288,6 +288,7 @@ export async function mockBackend(page: Page, opts: { admin?: boolean; featured?
       }
       if (fn === 'get_week_standings') return json(standings(!!opts.emptyBoard))
       if (fn === 'admin_payment_list') return json(paymentRows)
+      if (fn === 'admin_update_setting') return json(null)
       if (fn === 'admin_set_prize_pot') return json({ pot: 1500, manual: true, automatic: 1200 })
       if (fn === 'admin_unlock_quiniela') return json({ picks: 11, week_goals: 1 })
       if (fn === 'admin_confirm_payment') return json({ reference: 'SHABEX-ALBERTO', state: 'confirmed', amount: 50 })

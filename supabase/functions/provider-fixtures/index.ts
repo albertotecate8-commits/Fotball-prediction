@@ -62,7 +62,7 @@ Deno.serve(async (req) => {
       providers: [
         {
           id: 'api-football', is_test_data: false, configured: real,
-          budget_daily: quota?.budget ?? 98,
+          budget_daily: quota?.budget ?? 100,
           usage: quota ? { requests: quota.used, reported_remaining: (quota as unknown as { provider_remaining_estimate: number | null }).provider_remaining_estimate, reported_limit: null, last_request_at: null, last_error: null } : null,
           status,
         },

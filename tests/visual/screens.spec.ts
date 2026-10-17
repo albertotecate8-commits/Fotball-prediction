@@ -363,6 +363,12 @@ test.describe('pantallas', () => {
     await expect(page.getByText('estimación')).toBeVisible()
     await expect(page.getByText('LOW_BUDGET_P3')).toBeVisible()
     await expect(page.getByText(/apisports-key/i)).toHaveCount(0)
+    // El admin sube las consultas a 100 desde su panel.
+    const calls: string[] = []
+    page.on('request', (r) => { const m = r.url().match(/rpc\/(\w+)/); if (m) calls.push(m[1]!) })
+    page.once('dialog', (d) => void d.accept())
+    await page.getByRole('button', { name: 'Usar las 100' }).click()
+    await expect.poll(() => calls.filter((c) => c === 'admin_update_setting').length).toBe(2)
     await page.screenshot({ path: shot('08d-consumo-api', info.project.name), fullPage: true })
   })
 

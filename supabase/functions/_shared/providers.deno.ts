@@ -9,7 +9,7 @@ export const providerEnv = (): ProviderEnv => ({
 })
 
 /**
- * Puerta única hacia el proveedor: el presupuesto (80/día UTC, margen de 20,
+ * Puerta única hacia el proveedor: el presupuesto (100/día UTC, sin margen,
  * límite por minuto y prioridades) se decide en la base de datos de forma
  * atómica, así ninguna función concurrente puede pasarse.
  */

@@ -41,6 +41,19 @@ export function AdminApiUsage() {
     } catch (e) { toast(errorMessage(e), 'error') } finally { setChecking(false) }
   }
 
+  const [saving, setSaving] = useState(false)
+  // Consultas por día: todo el plan (100, sin margen) o el modo prudente (80 con margen de 20).
+  const setDaily = async (budget: 100 | 80) => {
+    if (budget === 100 && !confirm('¿Usar las 100 consultas diarias del plan, sin margen? Si se agotan, los resultados siguen llegando por el respaldo gratuito.')) return
+    setSaving(true)
+    try {
+      await adminApi.updateSetting('api_daily_budget', budget)
+      await adminApi.updateSetting('api_provider_margin', budget === 100 ? 0 : 20)
+      await qc.invalidateQueries({ queryKey: ['admin', 'apiUsage'] })
+      toast(`Consultas al día: ${budget}`)
+    } catch (e) { toast(errorMessage(e), 'error') } finally { setSaving(false) }
+  }
+
   if (q.isLoading) return <CardSkeleton lines={6} />
   if (q.error) return <ErrorState error={q.error} onRetry={() => void q.refetch()} />
   const u = q.data!
@@ -90,6 +103,12 @@ export function AdminApiUsage() {
         {u.provider_current !== null && <p className="mt-1 text-xs text-muted">Contraste directo: el proveedor registra {u.provider_current} consultas hoy ({u.provider_checked_at ? formatTime(u.provider_checked_at, timezone) : '—'}).</p>}
         {u.external_usage && <p className="mt-2 text-xs font-semibold text-gold">El proveedor cuenta más consultas que SHABEX: otra aplicación podría estar usando la misma clave.</p>}
         <p className="mt-2 text-xs text-muted">SHABEX nunca baja de {u.margin} consultas del proveedor (margen de seguridad).</p>
+        <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-line pt-3">
+          <span className="text-xs font-semibold">Consultas al día: {u.budget}</span>
+          {u.budget < 100
+            ? <Button size="sm" loading={saving} onClick={() => void setDaily(100)}>Usar las 100</Button>
+            : <Button size="sm" variant="secondary" loading={saving} onClick={() => void setDaily(80)}>Volver a 80 (con margen)</Button>}
+        </div>
         <Button size="sm" variant="ghost" className="mt-2" loading={checking} icon={<RefreshCw className="size-4" />} onClick={() => void contrast()}>Contrastar con el proveedor</Button>
       </section>
 
