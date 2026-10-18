@@ -1,17 +1,22 @@
 // Respaldo de resultados con TheSportsDB (gratis): marcador en vivo y final de
 // los partidos publicados, por su id oficial de API-Football. Corre en cada
 // pasada del cron (cada 3 min) solo si hay partidos en juego o por cerrar.
-// 1) Una consulta por día y liga (la clave gratuita trae como máximo 3).
-// 2) Si faltan partidos de esa liga, la jornada completa (eventsround: todos
-//    los partidos, con marcador y estado), con la ronda que trae el día.
-// 3) Los que aún falten se consultan directo por su id de TheSportsDB;
-//    ese id se encuentra una sola vez (por nombre o por el equipo) y se guarda.
+//
+// Las listas de TheSportsDB (día, jornada) llegan con retraso: pueden seguir en
+// «2H 3-0» cuando el partido ya terminó 4-1. La ficha de cada partido
+// (lookupevent) es la fresca. Por eso:
+// 1) Partido con id de TheSportsDB conocido → su ficha, siempre.
+// 2) Sin id: se descubre en la lista del día y, si falta, en la jornada completa
+//    (la del día trae como máximo 3); se guarda el id y se lee su ficha.
+// 3) Si aún falta, se busca una sola vez por nombre o por equipo.
+// Solo si no se pudo leer la ficha se usa el dato de la lista (nunca retrocede).
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2'
 import { freeRequests, pickEvent, roundsByLeague, searchQuery, shouldApply, toFreeUpdate, type FreeTarget, type TsdbLiveEvent } from './football/freeResults.ts'
 
 const P = 'thesportsdb'
 const BASE = 'https://www.thesportsdb.com/api/v1/json'
-const MAX_REQUESTS = 12
+const MAX_REQUESTS = 18
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 export async function refreshFreeResults(db: SupabaseClient) {
   const { data, error } = await db.rpc('free_result_targets_v2')
@@ -21,13 +26,16 @@ export async function refreshFreeResults(db: SupabaseClient) {
   // Clave pública de prueba de TheSportsDB («123»); si se configura una propia, nunca se registra.
   const key = Deno.env.get('THESPORTSDB_KEY') || '123'
   const byId = new Map(targets.map((t) => [t.external_id, t]))
-  const seen = new Set<string>()
+  const fresh = new Set<string>() // leído de su ficha en esta pasada
+  const ids = new Map<string, string>() // id de API-Football → id de TheSportsDB
+  const listData = new Map<string, TsdbLiveEvent>() // respaldo si no se pudo leer la ficha
   let requests = 0
   let applied = 0
   const errors: string[] = []
 
   const getJson = async (path: string): Promise<Record<string, unknown> | null> => {
     if (requests >= MAX_REQUESTS) return null
+    if (requests) await sleep(250) // sin ráfagas: la clave gratuita responde 429
     requests++
     const res = await fetch(`${BASE}/${key}/${path}`, { signal: AbortSignal.timeout(8000), headers: { accept: 'application/json' } })
     if (!res.ok) { errors.push(`HTTP ${res.status}`); return null }
@@ -36,64 +44,85 @@ export async function refreshFreeResults(db: SupabaseClient) {
   const cacheGet = async (k: string) => ((await db.rpc('provider_cache_get', { p_provider: P, p_key: k })).data ?? null) as { id: string } | null
   const cachePut = (k: string, id: string) => db.rpc('provider_cache_put', { p_provider: P, p_key: k, p_payload: { id }, p_ttl_seconds: 14 * 86400 })
   const apply = async (t: FreeTarget, e: TsdbLiveEvent) => {
-    seen.add(t.external_id)
-    if (e.idEvent && /^\d{1,10}$/.test(String(e.idEvent))) await cachePut(`event:${t.external_id}`, String(e.idEvent))
     const u = toFreeUpdate(e)
     if (!u || !shouldApply(t, u)) return
     const r = await db.rpc('apply_provider_update', { p_match_id: t.match_id, p_update: u })
     if (r.error) errors.push(r.error.message)
     else applied++
   }
-
-  const applyAll = async (events: TsdbLiveEvent[]) => {
+  const learn = async (events: TsdbLiveEvent[]) => {
     for (const e of events) {
       const t = e.idAPIfootball ? byId.get(String(e.idAPIfootball)) : undefined
-      if (t && !seen.has(t.external_id)) await apply(t, e)
+      if (!t || !/^\d{1,10}$/.test(String(e.idEvent ?? ''))) continue
+      if (!ids.has(t.external_id)) { ids.set(t.external_id, String(e.idEvent)); await cachePut(`event:${t.external_id}`, String(e.idEvent)) }
+      listData.set(t.external_id, e)
     }
   }
-  // 1) Día y liga.
-  const rounds = new Map<string, { tsdb: string; round: string; season: string }>()
-  for (const q of freeRequests(targets).slice(0, 4)) {
-    try {
-      const body = await getJson(`eventsday.php?d=${q.date}&l=${q.tsdb}`)
-      const events = (body?.events ?? []) as TsdbLiveEvent[]
-      await applyAll(events)
-      for (const [k, v] of roundsByLeague(events, q.tsdb)) rounds.set(k, { tsdb: k.split(':')[0]!, ...v })
-    } catch (e) { errors.push((e as Error).message) }
+  const readFresh = async (t: FreeTarget) => {
+    const id = ids.get(t.external_id)
+    if (!id || fresh.has(t.external_id)) return
+    const body = await getJson(`lookupevent.php?id=${id}`)
+    const e = pickEvent((body?.events ?? body?.event) as TsdbLiveEvent[], t.external_id)
+    if (!e) return
+    fresh.add(t.external_id)
+    await apply(t, e)
   }
 
-  // 2) Jornada completa si faltan partidos (la consulta por día trae como máximo 3).
-  if (targets.some((t) => !seen.has(t.external_id))) {
-    for (const r of [...rounds.values()].slice(0, 3)) {
+  // 1) Ids ya conocidos → ficha fresca.
+  for (const t of targets) {
+    const c = await cacheGet(`event:${t.external_id}`)
+    if (c?.id && /^\d{1,10}$/.test(c.id)) ids.set(t.external_id, c.id)
+  }
+  for (const t of targets) { try { await readFresh(t) } catch (e) { errors.push((e as Error).message) } }
+
+  // 2) Descubrir ids en el día y, si faltan, en la jornada completa.
+  const unknown = () => targets.filter((t) => !ids.has(t.external_id))
+  if (unknown().length) {
+    const rounds = new Map<string, { tsdb: string; round: string; season: string }>()
+    for (const q of freeRequests(unknown()).slice(0, 4)) {
       try {
-        const body = await getJson(`eventsround.php?id=${r.tsdb}&r=${encodeURIComponent(r.round)}&s=${encodeURIComponent(r.season)}`)
-        await applyAll((body?.events ?? []) as TsdbLiveEvent[])
+        const events = ((await getJson(`eventsday.php?d=${q.date}&l=${q.tsdb}`))?.events ?? []) as TsdbLiveEvent[]
+        await learn(events)
+        for (const [k, v] of roundsByLeague(events, q.tsdb)) rounds.set(k, { tsdb: k.split(':')[0]!, ...v })
       } catch (e) { errors.push((e as Error).message) }
     }
+    if (unknown().length) {
+      for (const r of [...rounds.values()].slice(0, 3)) {
+        try {
+          await learn(((await getJson(`eventsround.php?id=${r.tsdb}&r=${encodeURIComponent(r.round)}&s=${encodeURIComponent(r.season)}`))?.events ?? []) as TsdbLiveEvent[])
+        } catch (e) { errors.push((e as Error).message) }
+      }
+    }
   }
 
-  // 3) Los que faltaron: directo por id (buscándolo una sola vez si no se conoce).
-  for (const t of targets) {
-    if (seen.has(t.external_id) || requests >= MAX_REQUESTS) continue
+  // 3) Aún sin id: buscar una sola vez por nombre o por equipo.
+  for (const t of unknown()) {
+    if (requests >= MAX_REQUESTS) break
     try {
-      let tsdbId = (await cacheGet(`event:${t.external_id}`))?.id ?? null
-      if (!tsdbId && t.home_name && t.away_name) {
+      if (t.home_name && t.away_name) {
         const found = await getJson(`searchevents.php?e=${encodeURIComponent(searchQuery(t.home_name, t.away_name))}`)
-        tsdbId = pickEvent((found?.event ?? found?.events) as TsdbLiveEvent[], t.external_id)?.idEvent ?? null
+        await learn(((found?.event ?? found?.events) ?? []) as TsdbLiveEvent[])
       }
       for (const team of [t.home_tsdb, t.away_tsdb]) {
-        if (tsdbId || !team || !/^\d{1,10}$/.test(team)) continue
         for (const path of [`eventsnext.php?id=${team}`, `eventslast.php?id=${team}`]) {
-          if (tsdbId) break
+          if (ids.has(t.external_id) || !team || !/^\d{1,10}$/.test(team)) break
           const found = await getJson(path)
-          tsdbId = pickEvent((found?.events ?? found?.results) as TsdbLiveEvent[], t.external_id)?.idEvent ?? null
+          await learn(((found?.events ?? found?.results) ?? []) as TsdbLiveEvent[])
         }
       }
-      if (!tsdbId) continue
-      const body = await getJson(`lookupevent.php?id=${tsdbId}`)
-      const e = pickEvent((body?.events ?? body?.event) as TsdbLiveEvent[], t.external_id)
-      if (e) await apply(t, e)
     } catch (e) { errors.push((e as Error).message) }
   }
-  return { targets: targets.length, requests, applied, missing: targets.filter((t) => !seen.has(t.external_id)).length, errors: errors.slice(0, 3) }
+
+  // Ficha fresca de los recién descubiertos; si no se pudo, el dato de la lista.
+  for (const t of targets) {
+    try {
+      await readFresh(t)
+      if (!fresh.has(t.external_id) && listData.has(t.external_id)) await apply(t, listData.get(t.external_id)!)
+    } catch (e) { errors.push((e as Error).message) }
+  }
+  return {
+    targets: targets.length, requests, applied, fresh: fresh.size,
+    missing: targets.filter((t) => !fresh.has(t.external_id) && !listData.has(t.external_id)).length,
+    errors: errors.slice(0, 3),
+  }
 }
