@@ -14,7 +14,12 @@ window.addEventListener('vite:preloadError', (e) => { if (reloadForNewBuild()) e
 // Service worker: solo en producción y solo para recursos estáticos (ver public/sw.js).
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`, { scope: import.meta.env.BASE_URL }).catch(() => undefined)
+    navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`, { scope: import.meta.env.BASE_URL })
+      .then((reg) => {
+        // Al volver a la app (iPhone la deja suspendida): buscar versión nueva.
+        document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') reg.update().catch(() => undefined) })
+      })
+      .catch(() => undefined)
   })
 }
 
