@@ -5,6 +5,14 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
+      "source": "/assets/(.*)\\.js",
+      "destination": "/stale-asset.js"
+    },
+    {
+      "source": "/assets/(.*)\\.css",
+      "destination": "/stale-asset.css"
+    },
+    {
       "source": "/((?!assets/).*)",
       "destination": "/index.html"
     }
@@ -63,6 +71,15 @@
         {
           "key": "Cache-Control",
           "value": "public, max-age=3600"
+        }
+      ]
+    },
+    {
+      "source": "/stale-asset.(js|css)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store"
         }
       ]
     }
