@@ -5,7 +5,7 @@
  * (son de otro dominio y no se interceptan). Las páginas se piden primero a la
  * red; sin conexión se muestra la última versión de la app, y la propia app
  * indica cuándo se actualizaron los datos. */
-const VERSION = 'shabex-v1'
+const VERSION = 'shabex-v2'
 const STATIC = `${VERSION}-static`
 const SHELL = `${VERSION}-shell`
 const scope = new URL(self.registration.scope)
@@ -16,8 +16,14 @@ self.addEventListener('install', (event) => {
 
 self.addEventListener('activate', (event) => {
   event.waitUntil((async () => {
+    const upgraded = (await caches.keys()).some((key) => !key.startsWith(VERSION))
     for (const key of await caches.keys()) if (!key.startsWith(VERSION)) await caches.delete(key)
     await self.clients.claim()
+    // Versión nueva del service worker: las pantallas abiertas con la versión
+    // anterior se recargan para no pedir archivos que ya no existen.
+    if (upgraded) {
+      for (const c of await self.clients.matchAll({ type: 'window' })) c.navigate(c.url).catch(() => undefined)
+    }
   })())
 })
 
@@ -47,7 +53,8 @@ self.addEventListener('fetch', (event) => {
     event.respondWith((async () => {
       const hit = await caches.match(req)
       if (hit) return hit
-      const res = await fetch(req)
+      // Sin la caché HTTP: un 404 viejo guardado no debe repetirse.
+      const res = await fetch(req, { cache: 'reload' })
       if (res.ok) (await caches.open(STATIC)).put(req, res.clone())
       return res
     })())
