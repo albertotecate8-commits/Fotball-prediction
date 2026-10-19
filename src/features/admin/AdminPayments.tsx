@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, Copy, Landmark, PencilLine, Search, Trophy } from 'lucide-react'
+import { BadgeCheck, Check, Copy, Landmark, PencilLine, Search, Ticket, Trophy } from 'lucide-react'
 import { adminApi, type PaymentRow, type PaymentState } from '@/services/admin'
 import { playerApi } from '@/services/player'
 import { useAppConfig } from '@/hooks/useAppConfig'
@@ -44,6 +44,9 @@ export function AdminPayments() {
   const [search, setSearch] = useState('')
   const [editing, setEditing] = useState<PaymentRow | null>(null)
   const rows = useMemo(() => q.data ?? [], [q.data])
+  // Quinielas con entrada aparte (p. ej. entre semana) que siguen abiertas.
+  const potQ = useQuery({ queryKey: ['prizePot'], queryFn: playerApi.pot })
+  const extras = potQ.data?.extras ?? []
   const money = (n: number | null) => (n == null ? '—' : new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(n))
   const inTab = (r: PaymentRow, t: Tab = tab) => t === 'all' || (t === 'confirmed' ? r.state === 'confirmed' : t === 'expired' ? r.state === 'expired' || r.state === 'revoked' : r.state === 'pending' || r.state === 'none')
   const term = norm(search.trim())
@@ -96,6 +99,7 @@ export function AdminPayments() {
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 {r.state !== 'confirmed' && <QuickConfirm row={r} />}
                 {(r.sent_open ?? 0) > 0 && <UnlockButton row={r} />}
+                {extras.map((x) => <EntryButton key={x.week_id} row={r} weekId={x.week_id} label={x.label} amount={x.entry_amount} />)}
                 <Button size="sm" variant="secondary" disabled={!r.in_group} onClick={() => setEditing(r)}>
                   {r.state === 'confirmed' ? 'Cambiar pago' : 'Más opciones'}
                 </Button>
@@ -159,6 +163,29 @@ function PrizePotCard() {
       </label>
       <p className="mt-2 text-[11px] text-muted">El monto solo cambia esta semana; la siguiente vuelve al cálculo automático y oculta.</p>
     </section>
+  )
+}
+
+/** Entrada aparte (p. ej. quiniela entre semana): el admin la confirma o la quita. */
+function EntryButton({ row, weekId, label, amount }: { row: PaymentRow; weekId: string; label: string; amount: number }) {
+  const qc = useQueryClient()
+  const toast = useToast()
+  const [busy, setBusy] = useState(false)
+  const inside = (row.entry_weeks ?? []).includes(weekId)
+  const go = async () => {
+    if (!confirm(inside ? `¿Quitar la entrada de ${row.alias} a «${label}»?` : `¿Confirmar la entrada de $${amount} de ${row.alias} a «${label}»?`)) return
+    setBusy(true)
+    try {
+      await adminApi.setEntry(weekId, row.user_id, !inside)
+      toast(inside ? `Entrada de ${row.alias} quitada` : `${row.alias} ya está en «${label}»`)
+      await qc.invalidateQueries({ queryKey: ['admin'] })
+      await qc.invalidateQueries({ queryKey: ['prizePot'] })
+    } catch (e) { toast(errorMessage(e), 'error') } finally { setBusy(false) }
+  }
+  return (
+    <Button size="sm" variant={inside ? 'secondary' : 'primary'} loading={busy} icon={inside ? <BadgeCheck className="size-4" /> : <Ticket className="size-4" />} onClick={() => void go()}>
+      {inside ? `${label}: dentro` : `Entrada ${label} ($${amount})`}
+    </Button>
   )
 }
 

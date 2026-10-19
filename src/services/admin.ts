@@ -77,6 +77,8 @@ export interface PaymentRow {
   confirmed_at: string | null; valid_until: string | null; confirmed_by: string | null; joined_at: string; in_group: boolean
   /** Pronósticos enviados de partidos que aún no empiezan (se pueden liberar para editar). */
   sent_open?: number
+  /** Jornadas con entrada aparte que ya tiene confirmadas. */
+  entry_weeks?: string[]
 }
 export interface SelectionItem { match_id: string; selected: boolean; dismissed?: boolean; sort_order?: number | null }
 export interface TeamCatalogEntry {
@@ -260,6 +262,8 @@ export const adminApi = {
   updateSetting: (key: string, value: unknown) => rpc<void>('admin_update_setting', { p_key: key, p_value: value }),
   /** Muestra u oculta a todos la bolsa de la semana actual. */
   setPrizeVisible: (visible: boolean) => rpc<{ visible: boolean }>('admin_set_prize_visible', { p_visible: visible }),
+  /** Confirma (o quita) la entrada de un participante a una quiniela con entrada aparte. */
+  setEntry: (week: string, user: string, confirmed: boolean) => rpc<{ confirmed: boolean; amount: number }>('admin_set_entry', { p_week: week, p_user: user, p_confirmed: confirmed, p_amount: null }),
   paymentInfo: async () => unwrap<{ bank: string | null; holder: string | null; clabe: string | null; account: string | null; amount: number | null; concept: string | null;
     instructions: string | null; contact: string | null; updated_at: string } | null>(await supabase.from('payment_info').select('*').maybeSingle()),
   savePaymentInfo: (v: { bank: string; holder: string; clabe: string; account: string; amount: number | null; concept: string; instructions: string; contact: string }) =>

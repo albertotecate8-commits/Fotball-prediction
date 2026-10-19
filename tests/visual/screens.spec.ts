@@ -45,6 +45,19 @@ test.describe('pantallas', () => {
     await expect(page.getByRole('timer')).toBeVisible()
   })
 
+  test('inicio: quiniela entre semana con su propia bolsa y entrada', async ({ page }) => {
+    await mockBackend(page)
+    const kick = new Date(Date.now() + 26 * 3600e3).toISOString()
+    await page.route('**/rest/v1/rpc/get_prize_pot*', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+      pot: 1200, paid_count: 40, currency: 'MXN', configured: true, manual: false, visible: false,
+      extras: [{ week_id: 'wd', label: 'Entre semana 20–21/10', entry_amount: 50, pot: 140, entries: 4, mine: false, first_kickoff: kick }] }) }))
+    await page.goto('/')
+    const card = page.getByRole('region', { name: 'Bolsa Entre semana 20–21/10' })
+    await expect(card.getByText(/\$140/)).toBeVisible()
+    await expect(card.getByText('Bolsa aparte · entrada $50 · 4 participantes')).toBeVisible()
+    await expect(card.getByRole('link', { name: 'Entra por $50' })).toHaveAttribute('href', '/perfil#pago')
+  })
+
   test('inicio sin partidos: estados vacíos con acciones reales', async ({ page }, info) => {
     await mockBackend(page, { featured: [], noGroup: true })
     await page.goto('/')

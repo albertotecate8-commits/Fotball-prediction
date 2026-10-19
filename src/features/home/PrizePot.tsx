@@ -4,7 +4,7 @@ import { BadgeCheck, Clock, Sparkles, Trophy } from 'lucide-react'
 import { playerApi } from '@/services/player'
 import { qk } from '@/services/queryKeys'
 import { ButtonLink } from '@/components/ui/Button'
-import type { PoolData } from '@/types/domain'
+import type { ExtraPot, PoolData } from '@/types/domain'
 
 const money = (n: number, currency: string) =>
   new Intl.NumberFormat('es-MX', { style: 'currency', currency, maximumFractionDigits: Number.isInteger(n) ? 0 : 2 }).format(n)
@@ -42,7 +42,9 @@ function LuckyTrophy() {
 function closingAt(pool: PoolData | undefined): number | null {
   if (!pool) return null
   const now = Date.now()
-  const open = pool.matches.filter((m) => m.open && Date.parse(m.kickoff_at) > now)
+  // Solo la quiniela normal de la semana (las de entrada aparte tienen su propia tarjeta).
+  const extra = new Set((pool.weeks ?? []).filter((w) => w.kind === 'weekday').map((w) => w.id))
+  const open = pool.matches.filter((m) => m.open && Date.parse(m.kickoff_at) > now && !extra.has(m.week_id ?? ''))
   if (open.length === 0) return null
   const week = (pool.weeks ?? []).filter((w) => w.goals_open && open.some((m) => m.week_id === w.id)).sort((x, y) => x.week_start.localeCompare(y.week_start))[0]
   const inWeek = week ? open.filter((m) => m.week_id === week.id) : open
@@ -90,9 +92,12 @@ export function PrizePot() {
   const open = close !== null && close > Date.now()
   // El admin puede mostrar el monto antes del cierre (si no, es sorpresa hasta que cierre).
   const hidden = open && !q.data.visible
-  const inside = pay.data?.state === 'confirmed' || pool.data?.can_submit === true
+  // Pago de la semana (las quinielas con entrada aparte se confirman por separado).
+  const inside = pay.data?.state === 'confirmed'
   const entry = pay.data?.amount ? money(Number(pay.data.amount), pay.data.currency || currency) : null
+  const extras = (q.data.extras ?? []).filter((x) => x.first_kickoff)
   return (
+    <>
     <section aria-labelledby="bolsa"
       className="relative mb-4 overflow-hidden rounded-3xl border border-gold/45 bg-[radial-gradient(120%_90%_at_0%_0%,rgba(200,164,93,0.28),transparent_55%),radial-gradient(90%_80%_at_100%_100%,rgba(46,204,113,0.14),transparent_60%)] p-4 shadow-[0_0_40px_-12px_rgba(200,164,93,0.55)]">
       <span className="pointer-events-none absolute inset-y-0 -left-1/3 w-1/3 bg-gradient-to-r from-transparent via-white/10 to-transparent [animation:trophy-shine_4.5s_ease-in-out_infinite]" aria-hidden="true" />
@@ -139,5 +144,40 @@ export function PrizePot() {
         </div>
       )}
     </section>
+    {extras.map((x) => <ExtraPotCard key={x.week_id} x={x} currency={currency} />)}
+    </>
   )
 }
+
+/** Quiniela con entrada aparte (p. ej. entre semana): su bolsa, su cierre y su entrada. */
+function ExtraPotCard({ x, currency }: { x: ExtraPot; currency: string }) {
+  const close = x.first_kickoff ? Date.parse(x.first_kickoff) : null
+  const open = close !== null && close > Date.now()
+  return (
+    <section aria-label={`Bolsa ${x.label}`} className="relative mb-4 overflow-hidden rounded-3xl border border-aqua/40 bg-[radial-gradient(120%_90%_at_100%_0%,rgba(0,191,234,0.18),transparent_55%)] p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-aqua">{x.label}</p>
+          <p className="scoreline text-3xl leading-tight">{money(Number(x.pot), currency)} <span className="text-sm text-muted">{currency}</span></p>
+          <p className="text-xs text-muted">Bolsa aparte · entrada {money(Number(x.entry_amount), currency)} · {x.entries} {x.entries === 1 ? 'participante' : 'participantes'}</p>
+        </div>
+        <Trophy className="size-8 shrink-0 text-aqua" aria-hidden="true" />
+      </div>
+      {open && (
+        <div className="mt-3 border-t border-aqua/20 pt-3">
+          <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.14em] text-aqua"><Clock className="size-3.5" /> Cierra en</p>
+          <Countdown to={close!} />
+          {x.mine ? (
+            <p className="mt-3 flex items-center gap-2 rounded-xl bg-success/12 px-3 py-2 text-sm font-semibold text-success"><BadgeCheck className="size-5 shrink-0" /> Ya estás dentro de esta quiniela.</p>
+          ) : (
+            <>
+              <ButtonLink to="/perfil#pago" block size="lg" className="mt-3" icon={<Sparkles className="size-5" />}>Entra por {money(Number(x.entry_amount), currency)}</ButtonLink>
+              <p className="mt-1.5 text-center text-[11px] text-muted">Entrada aparte de la quiniela del fin de semana. Usa tu misma referencia de pago.</p>
+            </>
+          )}
+        </div>
+      )}
+    </section>
+  )
+}
+

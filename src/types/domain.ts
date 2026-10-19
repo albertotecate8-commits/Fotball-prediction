@@ -255,7 +255,11 @@ export interface PoolWeek {
   id: string; label: string; week_start: string; week_end: string
   goals_open: boolean; my_goals: number | null; my_goals_status: 'draft' | 'submitted' | null
   real: { goals: number; counted: number; total: number; final: boolean; first_kickoff: string | null }
+  /** «weekday»: quiniela aparte (entre semana) con su propia entrada y bolsa. */
+  kind?: 'week' | 'weekday'; entry_amount?: number | null; my_entry?: boolean
 }
+/** Bolsa de una quiniela con entrada aparte. */
+export interface ExtraPot { week_id: string; label: string; entry_amount: number; pot: number; entries: number; mine: boolean; first_kickoff: string | null }
 export interface PoolData { server_time: string; max_goals: number; can_submit: boolean; matches: PoolMatch[]; weeks?: PoolWeek[] }
 
 export interface WeekBoardRow {

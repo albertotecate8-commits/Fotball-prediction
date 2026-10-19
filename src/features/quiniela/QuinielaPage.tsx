@@ -189,6 +189,16 @@ function Form({ data, tz }: { data: PoolData; tz: string }) {
           <ButtonLink to="/perfil#pago" size="sm" variant="secondary">Ver cómo pagar</ButtonLink>
         </section>
       )}
+      {(data.weeks ?? []).filter((w) => w.kind === 'weekday' && w.entry_amount && !w.my_entry && editable.some((m) => m.week_id === w.id)).map((w) => (
+        <section key={w.id} className="mb-4 flex items-start gap-3 rounded-2xl border border-aqua/35 bg-aqua/10 p-3 text-sm">
+          <CreditCard className="mt-0.5 size-5 shrink-0 text-aqua" />
+          <div className="flex-1">
+            <p className="font-semibold text-aqua">{w.label}: entrada aparte de ${Number(w.entry_amount)}</p>
+            <p className="mt-0.5 text-xs text-muted">Puedes elegir tus resultados; para enviarlos el admin debe confirmar tu entrada.</p>
+          </div>
+          <ButtonLink to="/perfil#pago" size="sm" variant="secondary">Cómo pagar</ButtonLink>
+        </section>
+      ))}
       {editable.length > 0 && (
         <p className="mb-3 text-xs text-muted">Gana quien acierte más resultados. Si hay empate entre usuarios, gana quien más se acerque a los goles de la jornada.</p>
       )}
@@ -258,7 +268,7 @@ function Form({ data, tz }: { data: PoolData; tz: string }) {
           ))}
           {later.length > 0 && (
             <p className="text-xs text-muted">
-              {later.map((m) => `${m.home.short_name} vs ${m.away.short_name}`).join(', ')}: {later.length === 1 ? 'es' : 'son'} después de la vigencia de tu pago; queda{later.length === 1 ? '' : 'n'} guardado{later.length === 1 ? '' : 's'} para enviar después.
+              {later.map((m) => `${m.home.short_name} vs ${m.away.short_name}`).join(', ')}: tu pago no {later.length === 1 ? 'lo cubre' : 'los cubre'} (después de su vigencia o de una quiniela con entrada aparte); queda{later.length === 1 ? '' : 'n'} guardado{later.length === 1 ? '' : 's'} para enviar después.
             </p>
           )}
           <p className="flex items-start gap-2 text-muted"><Lock className="mt-0.5 size-4 shrink-0" /> Al enviarla ya no se puede cambiar.</p>

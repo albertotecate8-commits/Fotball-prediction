@@ -17,7 +17,7 @@ describe('bolsa acumulada', () => {
     const [r] = await asUser(c, `select public.get_prize_pot() as p`)
     expect(Number(r!.p.pot) - Number(before.pot)).toBe(70)
     expect(r!.p.paid_count - before.paid_count).toBe(2)
-    expect(Object.keys(r!.p).sort()).toEqual(['configured', 'currency', 'manual', 'paid_count', 'pot', 'visible'])
+    expect(Object.keys(r!.p).sort()).toEqual(['configured', 'currency', 'extras', 'manual', 'paid_count', 'pot', 'visible'])
 
     // Si cambia el costo, los pagos ya confirmados conservan su monto.
     await sql(`update public.payment_info set amount = 100`)

@@ -8,6 +8,7 @@ export const TSDB_LEAGUES: Record<string, { tsdb: string; name: string }> = {
   '262': { tsdb: '4350', name: 'Liga MX' },
   '140': { tsdb: '4335', name: 'La Liga' },
   '263': { tsdb: '4654', name: 'Liga de Expansión MX' },
+  '2': { tsdb: '4480', name: 'UEFA Champions League' },
 }
 const API_LEAGUE_OF_TSDB: Record<string, string> = Object.fromEntries(Object.entries(TSDB_LEAGUES).map(([af, v]) => [v.tsdb, af]))
 

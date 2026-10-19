@@ -75,7 +75,8 @@ describe('quiniela continua', () => {
     const [s1] = await asUser(free, `select public.save_pool_picks($1::jsonb) as r`, [pick(mid, 'X')])
     expect(s1!.r.saved).toBe(1)
     // Quiniela completa: todos los partidos abiertos, cada uno con su 1/X/2.
-    const openIds = async (uid: string) => ((await asUser(uid, `select public.get_pool(10) as p`))[0]!.p.matches as { match_id: string; open: boolean }[]).filter((m) => m.open).map((m) => m.match_id)
+    // Solo lo que cubre su pago (otras pruebas pueden publicar quinielas con entrada aparte).
+    const openIds = async (uid: string) => ((await asUser(uid, `select public.get_pool(10) as p`))[0]!.p.matches as { match_id: string; open: boolean; can_submit: boolean }[]).filter((m) => m.open && m.can_submit).map((m) => m.match_id)
     const full = (ids: string[], main: string) => JSON.stringify(ids.map((id) => ({ match_id: id, outcome: id === mid ? main : 'X' })))
     await fillWeekGoals(free)
     await fillWeekGoals(paid)
