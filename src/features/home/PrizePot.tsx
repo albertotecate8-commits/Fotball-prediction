@@ -51,6 +51,21 @@ function closingAt(pool: PoolData | undefined): number | null {
   return Math.min(...inWeek.map((m) => Date.parse(m.kickoff_at)))
 }
 
+/** Lunes (hora de CDMX) de la semana en curso, como 'YYYY-MM-DD'. */
+function currentMonday(now: number): string {
+  const day = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Mexico_City', year: 'numeric', month: '2-digit', day: '2-digit' }).format(now)
+  const d = new Date(`${day}T12:00:00Z`)
+  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7))
+  return d.toISOString().slice(0, 10)
+}
+
+/** ¿Ya cerró la quiniela de esta semana? (empezó su primer partido). Sin partidos publicados aún: no. */
+function weekStarted(pool: PoolData | undefined, now: number): boolean {
+  const monday = currentMonday(now)
+  return (pool?.weeks ?? []).some((w) => w.kind !== 'weekday' && w.week_start === monday
+    && !!w.real?.first_kickoff && Date.parse(w.real.first_kickoff) <= now)
+}
+
 function useNow(ms: number) {
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), ms); return () => clearInterval(t) }, [ms])
@@ -90,8 +105,10 @@ export function PrizePot() {
   const { pot, currency, paid_count } = q.data
   const close = closingAt(pool.data)
   const open = close !== null && close > Date.now()
-  // El admin puede mostrar el monto antes del cierre (si no, es sorpresa hasta que cierre).
-  const hidden = open && !q.data.visible
+  const started = weekStarted(pool.data, Date.now())
+  // El monto es sorpresa hasta que cierra la quiniela (empieza su primer partido),
+  // también mientras aún no se publica; el admin puede mostrarlo antes.
+  const hidden = !started && !q.data.visible
   // Pago de la semana (las quinielas con entrada aparte se confirman por separado).
   const inside = pay.data?.state === 'confirmed'
   const entry = pay.data?.amount ? money(Number(pay.data.amount), pay.data.currency || currency) : null
@@ -104,7 +121,7 @@ export function PrizePot() {
       <div className="relative flex items-center gap-4">
         <LuckyTrophy />
         <div className="min-w-0">
-          <p id="bolsa" className="text-[11px] font-bold uppercase tracking-[0.16em] text-gold">{open ? 'Bolsa de la semana' : 'Bolsa final'}</p>
+          <p id="bolsa" className="text-[11px] font-bold uppercase tracking-[0.16em] text-gold">{started && !open ? 'Bolsa final' : 'Bolsa de la semana'}</p>
           {hidden ? (
             <>
               {/* Hasta el cierre el monto es sorpresa: se revela cuando cierra la quiniela. */}
@@ -144,21 +161,25 @@ export function PrizePot() {
         </div>
       )}
     </section>
-    {extras.map((x) => <ExtraPotCard key={x.week_id} x={x} currency={currency} />)}
+    {extras.map((x) => <ExtraPotCard key={x.week_id} x={x} currency={currency} visible={!!q.data?.visible} />)}
     </>
   )
 }
 
 /** Quiniela con entrada aparte (p. ej. entre semana): su bolsa, su cierre y su entrada. */
-function ExtraPotCard({ x, currency }: { x: ExtraPot; currency: string }) {
+function ExtraPotCard({ x, currency, visible }: { x: ExtraPot; currency: string; visible: boolean }) {
   const close = x.first_kickoff ? Date.parse(x.first_kickoff) : null
   const open = close !== null && close > Date.now()
+  // Igual que la bolsa de la semana: sorpresa hasta su cierre, salvo que el admin la muestre.
+  const hidden = open && !visible
   return (
     <section aria-label={`Bolsa ${x.label}`} className="relative mb-4 overflow-hidden rounded-3xl border border-aqua/40 bg-[radial-gradient(120%_90%_at_100%_0%,rgba(0,191,234,0.18),transparent_55%)] p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-aqua">{x.label}</p>
-          <p className="scoreline text-3xl leading-tight">{money(Number(x.pot), currency)} <span className="text-sm text-muted">{currency}</span></p>
+          {hidden
+            ? <p className="scoreline text-3xl leading-tight tracking-widest" aria-label="Monto sorpresa">$ ? ? ?</p>
+            : <p className="scoreline text-3xl leading-tight">{money(Number(x.pot), currency)} <span className="text-sm text-muted">{currency}</span></p>}
           <p className="text-xs text-muted">Bolsa aparte · entrada {money(Number(x.entry_amount), currency)} · {x.entries} {x.entries === 1 ? 'participante' : 'participantes'}</p>
         </div>
         <Trophy className="size-8 shrink-0 text-aqua" aria-hidden="true" />

@@ -53,9 +53,26 @@ test.describe('pantallas', () => {
       extras: [{ week_id: 'wd', label: 'Entre semana 20–21/10', entry_amount: 50, pot: 140, entries: 4, mine: false, first_kickoff: kick }] }) }))
     await page.goto('/')
     const card = page.getByRole('region', { name: 'Bolsa Entre semana 20–21/10' })
-    await expect(card.getByText(/\$140/)).toBeVisible()
+    // Antes de su cierre el monto también es sorpresa.
+    await expect(card.getByLabel('Monto sorpresa')).toBeVisible()
+    await expect(card.getByText(/\$140/)).toHaveCount(0)
     await expect(card.getByText('Bolsa aparte · entrada $50 · 4 participantes')).toBeVisible()
     await expect(card.getByRole('link', { name: 'Entra por $50' })).toHaveAttribute('href', '/perfil#pago')
+  })
+
+  test('inicio: al empezar el primer partido de la semana se revela la bolsa', async ({ page }) => {
+    await mockBackend(page)
+    const day = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Mexico_City', year: 'numeric', month: '2-digit', day: '2-digit' }).format(Date.now())
+    const d = new Date(`${day}T12:00:00Z`); d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7))
+    const monday = d.toISOString().slice(0, 10)
+    await page.route('**/rest/v1/rpc/get_pool*', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+      matches: [], max_goals: 15, can_submit: true, server_time: new Date().toISOString(),
+      weeks: [{ id: 'wk', kind: 'week', label: 'Semana', week_start: monday, week_end: monday, goals_open: false, my_goals: null, my_goals_status: null,
+        real: { goals: 3, counted: 1, total: 10, final: false, first_kickoff: new Date(Date.now() - 3600e3).toISOString() } }] }) }))
+    await page.goto('/')
+    await expect(page.getByText('Bolsa final')).toBeVisible()
+    await expect(page.getByText(/\$1,200/)).toBeVisible()
+    await expect(page.getByLabel('Monto sorpresa')).toHaveCount(0)
   })
 
   test('inicio sin partidos: estados vacíos con acciones reales', async ({ page }, info) => {
@@ -63,9 +80,10 @@ test.describe('pantallas', () => {
     await page.goto('/')
     await expect(page.getByRole('heading', { name: 'Sin partidos abiertos' })).toBeVisible()
     await expect(page.getByText('Aún no hay partidos en la quiniela')).toBeVisible()
-    // Ya cerrada (sin partidos abiertos): se revela el monto.
-    await expect(page.getByText('Bolsa final')).toBeVisible()
-    await expect(page.getByText(/\$1,200/)).toBeVisible()
+    // Sin quiniela publicada todavía: el monto sigue siendo sorpresa.
+    await expect(page.getByText('Bolsa de la semana')).toBeVisible()
+    await expect(page.getByLabel('Monto sorpresa')).toBeVisible()
+    await expect(page.getByText(/\$1,200/)).toHaveCount(0)
     await expect(page.getByText(/grupo/i)).toHaveCount(0)
     await expect(page.getByRole('heading', { name: 'En vivo' })).toHaveCount(0)
     await page.getByRole('main').getByRole('link', { name: 'Ver mi quiniela' }).click()
