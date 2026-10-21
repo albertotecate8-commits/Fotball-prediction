@@ -15,7 +15,7 @@ import { Sheet } from '@/components/ui/Sheet'
 import { CardSkeleton } from '@/components/ui/Skeleton'
 import { EmptyState, ErrorState } from '@/components/ui/States'
 import { useToast } from '@/components/ui/Toast'
-import type { PaymentStatus } from '@/types/domain'
+import type { ExtraPot, PaymentStatus } from '@/types/domain'
 
 const STATE: Record<PaymentState, { l: string; tone: 'success' | 'warning' | 'danger' | 'neutral' }> = {
   confirmed: { l: 'Confirmado', tone: 'success' }, pending: { l: 'Pendiente', tone: 'warning' },
@@ -62,6 +62,7 @@ export function AdminPayments() {
         </Link>
       </div>
       <PrizePotCard />
+      {extras.map((x) => <ExtraPotSwitch key={x.week_id} x={x} />)}
       <PillTabs label="Filtrar" value={tab} onChange={setTab} className="mb-3" options={[
         { value: 'all', label: 'Todos', count: count('all') },
         { value: 'confirmed', label: 'Confirmados', count: count('confirmed') },
@@ -162,6 +163,37 @@ function PrizePotCard() {
           checked={!!pot.data?.visible} disabled={busy || !pot.data} onChange={(e) => void toggle(e.target.checked)} />
       </label>
       <p className="mt-2 text-[11px] text-muted">El monto solo cambia esta semana; la siguiente vuelve al cálculo automático y oculta.</p>
+    </section>
+  )
+}
+
+/** Bolsa de una quiniela con entrada aparte: el admin decide cuándo se ve el monto. */
+function ExtraPotSwitch({ x }: { x: ExtraPot }) {
+  const qc = useQueryClient()
+  const toast = useToast()
+  const [busy, setBusy] = useState(false)
+  const money = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(Number(x.pot ?? 0))
+  const toggle = async (visible: boolean) => {
+    setBusy(true)
+    try {
+      await adminApi.setExtraPotVisible(x.week_id, visible)
+      toast(visible ? `La bolsa de ${x.label} ya es visible` : `La bolsa de ${x.label} quedó oculta`)
+      await qc.invalidateQueries({ queryKey: ['prizePot'] })
+    } catch (e) { toast(errorMessage(e), 'error') } finally { setBusy(false) }
+  }
+  return (
+    <section className="card mb-4 border-aqua/30 p-4" aria-label={`Bolsa ${x.label}`}>
+      <h2 className="flex items-center gap-2 font-semibold"><Trophy className="size-5 text-aqua" /> Bolsa {x.label}</h2>
+      <p className="scoreline mt-1 text-3xl text-aqua">{money}</p>
+      <p className="text-[11px] text-muted">70 % de {x.entries} {x.entries === 1 ? 'entrada' : 'entradas'} de {new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(Number(x.entry_amount))}</p>
+      <label className="mt-3 flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-line bg-surface-2 p-3">
+        <span>
+          <span className="block text-sm font-semibold">Visible para todos</span>
+          <span className="block text-[11px] text-muted">{x.visible ? 'Los participantes ven el monto ahora.' : 'Oculta («$ ? ? ?») hasta que la muestres.'}</span>
+        </span>
+        <input type="checkbox" role="switch" aria-label={`Bolsa ${x.label} visible para todos`} className="size-6 accent-[var(--color-gold,#c8a45d)]"
+          checked={!!x.visible} disabled={busy} onChange={(e) => void toggle(e.target.checked)} />
+      </label>
     </section>
   )
 }

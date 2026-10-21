@@ -161,17 +161,17 @@ export function PrizePot() {
         </div>
       )}
     </section>
-    {extras.map((x) => <ExtraPotCard key={x.week_id} x={x} currency={currency} visible={!!q.data?.visible} />)}
+    {extras.map((x) => <ExtraPotCard key={x.week_id} x={x} currency={currency} />)}
     </>
   )
 }
 
 /** Quiniela con entrada aparte (p. ej. entre semana): su bolsa, su cierre y su entrada. */
-function ExtraPotCard({ x, currency, visible }: { x: ExtraPot; currency: string; visible: boolean }) {
+function ExtraPotCard({ x, currency }: { x: ExtraPot; currency: string }) {
   const close = x.first_kickoff ? Date.parse(x.first_kickoff) : null
   const open = close !== null && close > Date.now()
-  // Igual que la bolsa de la semana: sorpresa hasta su cierre, salvo que el admin la muestre.
-  const hidden = open && !visible
+  // Sorpresa hasta que el admin la muestre (su propio interruptor).
+  const hidden = !x.visible || x.pot === null
   return (
     <section aria-label={`Bolsa ${x.label}`} className="relative mb-4 overflow-hidden rounded-3xl border border-aqua/40 bg-[radial-gradient(120%_90%_at_100%_0%,rgba(0,191,234,0.18),transparent_55%)] p-4">
       <div className="flex items-start justify-between gap-3">

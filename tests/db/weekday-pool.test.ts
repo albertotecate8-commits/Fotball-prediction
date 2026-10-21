@@ -57,8 +57,14 @@ describe('quiniela entre semana con entrada aparte', () => {
     await asUser(admin, `select public.admin_set_entry($1, $2, true)`, [weekdayId, entrant])
     const p = await pool(entrant)
     expect(p.matches.find((m) => m.match_id === wd)!.can_submit).toBe(true)
-    const [b] = await asUser(entrant, `select public.get_prize_pot() as p`)
-    expect((b!.p.extras as { week_id: string; pot: number; entries: number; mine: boolean }[]).find((x) => x.week_id === weekdayId)).toMatchObject({ pot: 35, entries: 1, mine: true })
+    type X = { week_id: string; pot: number | null; visible: boolean; entries: number; mine: boolean }
+    const extra = async (u: string) => ((await asUser(u, `select public.get_prize_pot() as p`))[0]!.p.extras as X[]).find((x) => x.week_id === weekdayId)
+    // Oculta por defecto: el participante no recibe el monto; el admin sí.
+    expect(await extra(entrant)).toMatchObject({ pot: null, visible: false, entries: 1, mine: true })
+    expect(await extra(admin)).toMatchObject({ pot: 35, visible: false })
+    await expectDbError(asUser(entrant, `select public.admin_set_extra_pot_visible($1, true)`, [weekdayId]), 'FORBIDDEN')
+    await asUser(admin, `select public.admin_set_extra_pot_visible($1, true)`, [weekdayId])
+    expect(await extra(entrant)).toMatchObject({ pot: 35, visible: true })
     const [log] = await sql(`select details from public.audit_logs where action = 'pool.entry_confirmed' and entity_id = $1 order by id desc limit 1`, [weekdayId])
     expect(log!.details).toMatchObject({ user: entrant, amount: 50, by: admin })
   })

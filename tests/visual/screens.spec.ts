@@ -60,6 +60,17 @@ test.describe('pantallas', () => {
     await expect(card.getByRole('link', { name: 'Entra por $50' })).toHaveAttribute('href', '/perfil#pago')
   })
 
+  test('inicio: la bolsa entre semana solo se ve si el admin la muestra', async ({ page }) => {
+    await mockBackend(page)
+    await page.route('**/rest/v1/rpc/get_prize_pot*', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+      pot: 250, paid_count: 8, currency: 'MXN', configured: true, manual: true, visible: true,
+      extras: [{ week_id: 'wd', label: 'Entre semana 20–21/10', entry_amount: 50, pot: null, visible: false, entries: 8, mine: true, first_kickoff: new Date(Date.now() - 3600e3).toISOString() }] }) }))
+    await page.goto('/')
+    const card = page.getByRole('region', { name: 'Bolsa Entre semana 20–21/10' })
+    await expect(card.getByLabel('Monto sorpresa')).toBeVisible()
+    await expect(card.getByText(/\$280/)).toHaveCount(0)
+  })
+
   test('inicio: al empezar el primer partido de la semana se revela la bolsa', async ({ page }) => {
     await mockBackend(page)
     const day = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Mexico_City', year: 'numeric', month: '2-digit', day: '2-digit' }).format(Date.now())
