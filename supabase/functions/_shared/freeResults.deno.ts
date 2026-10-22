@@ -11,6 +11,7 @@
 // 3) Si aún falta, se busca una sola vez por nombre o por equipo.
 // Solo si no se pudo leer la ficha se usa el dato de la lista (nunca retrocede).
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2'
+import { ESPN_LEAGUES, espnRequests, matchEspn, toEspnUpdate, type EspnEvent } from './football/espn.ts'
 import { freeRequests, pickEvent, roundsByLeague, searchQuery, shouldApply, toFreeUpdate, type FreeTarget, type TsdbLiveEvent } from './football/freeResults.ts'
 
 const P = 'thesportsdb'
@@ -21,8 +22,12 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 export async function refreshFreeResults(db: SupabaseClient) {
   const { data, error } = await db.rpc('free_result_targets_v2')
   if (error) throw new Error(`free_result_targets_v2: ${error.message}`)
-  const targets = (data ?? []) as FreeTarget[]
-  if (!targets.length) return { targets: 0 }
+  const all = (data ?? []) as FreeTarget[]
+  if (!all.length) return { targets: 0 }
+  const espn = await refreshFromEspn(db, all)
+  // TheSportsDB solo para lo que ESPN no reconoció.
+  const targets = all.filter((t) => !espn.matched.has(t.match_id))
+  if (!targets.length) return { targets: all.length, espn: espn.summary }
   // Clave pública de prueba de TheSportsDB («123»); si se configura una propia, nunca se registra.
   const key = Deno.env.get('THESPORTSDB_KEY') || '123'
   const byId = new Map(targets.map((t) => [t.external_id, t]))
@@ -121,8 +126,38 @@ export async function refreshFreeResults(db: SupabaseClient) {
     } catch (e) { errors.push((e as Error).message) }
   }
   return {
-    targets: targets.length, requests, applied, fresh: fresh.size,
+    targets: all.length, espn: espn.summary, tsdb_targets: targets.length, requests, applied, fresh: fresh.size,
     missing: targets.filter((t) => !fresh.has(t.external_id) && !listData.has(t.external_id)).length,
     errors: errors.slice(0, 3),
   }
+}
+
+/** ESPN: una consulta por liga y día; aplica lo que reconoce con certeza. */
+async function refreshFromEspn(db: SupabaseClient, targets: FreeTarget[]) {
+  const matched = new Set<string>()
+  const errors: string[] = []
+  let applied = 0
+  const reqs = espnRequests(targets).slice(0, 8)
+  const events = new Map<string, EspnEvent[]>()
+  for (const r of reqs) {
+    try {
+      const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${r.slug}/scoreboard?dates=${r.date}`,
+        { signal: AbortSignal.timeout(8000), headers: { accept: 'application/json' } })
+      if (!res.ok) { errors.push(`ESPN HTTP ${res.status}`); continue }
+      const body = await res.json().catch(() => null) as { events?: EspnEvent[] } | null
+      events.set(r.slug, [...(events.get(r.slug) ?? []), ...(body?.events ?? [])])
+    } catch (e) { errors.push((e as Error).message) }
+  }
+  for (const t of targets) {
+    const slug = t.league ? ESPN_LEAGUES[t.league] : undefined
+    const e = slug ? matchEspn(t, events.get(slug) ?? []) : null
+    if (!e) continue
+    matched.add(t.match_id)
+    const u = toEspnUpdate(e)
+    if (!u || !shouldApply(t, u)) continue
+    const r = await db.rpc('apply_provider_update', { p_match_id: t.match_id, p_update: u })
+    if (r.error) errors.push(r.error.message)
+    else applied++
+  }
+  return { matched, summary: { requests: reqs.length, matched: matched.size, applied, errors: errors.slice(0, 3) } }
 }
