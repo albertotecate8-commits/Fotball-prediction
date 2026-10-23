@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowDown, CheckCircle2, CreditCard, Goal, Lock, Minus, Plus, Send, Ticket } from 'lucide-react'
+import { ArrowDown, CheckCircle2, Goal, Lock, Minus, Plus, Send, Ticket } from 'lucide-react'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { useAppConfig } from '@/hooks/useAppConfig'
 import { playerApi } from '@/services/player'
@@ -16,6 +16,7 @@ import { toAppError } from '@/lib/errors'
 import { cn } from '@/lib/cn'
 import { isComplete, outcomeLabel, PickCard, type PickValue } from './PickCard'
 import { Celebration } from './Celebration'
+import { PayToSend } from './PayToSend'
 import type { PoolData, PoolMatch, PoolWeek } from '@/types/domain'
 
 type Picks = Record<string, PickValue>
@@ -179,25 +180,10 @@ function Form({ data, tz }: { data: PoolData; tz: string }) {
 
   return (
     <div>
-      {editable.length > 0 && !canSubmitAny && (
-        <section className="mb-4 flex items-start gap-3 rounded-2xl border border-gold/35 bg-gold/10 p-3 text-sm">
-          <CreditCard className="mt-0.5 size-5 shrink-0 text-gold" />
-          <div className="flex-1">
-            <p className="font-semibold text-gold">Tu quiniela se guarda sola; para enviarla necesitas tu pago confirmado</p>
-            <p className="mt-0.5 text-xs text-muted">Solo las quinielas enviadas suman puntos.</p>
-          </div>
-          <ButtonLink to="/perfil#pago" size="sm" variant="secondary">Ver cómo pagar</ButtonLink>
-        </section>
-      )}
+      {/* Antes de llenarla: cómo pagar para poder enviarla (cuenta y referencia para copiar). */}
+      {editable.length > 0 && !canSubmitAny && <PayToSend />}
       {(data.weeks ?? []).filter((w) => w.kind === 'weekday' && w.entry_amount && !w.my_entry && editable.some((m) => m.week_id === w.id)).map((w) => (
-        <section key={w.id} className="mb-4 flex items-start gap-3 rounded-2xl border border-aqua/35 bg-aqua/10 p-3 text-sm">
-          <CreditCard className="mt-0.5 size-5 shrink-0 text-aqua" />
-          <div className="flex-1">
-            <p className="font-semibold text-aqua">{w.label}: entrada aparte de ${Number(w.entry_amount)}</p>
-            <p className="mt-0.5 text-xs text-muted">Puedes elegir tus resultados; para enviarlos el admin debe confirmar tu entrada.</p>
-          </div>
-          <ButtonLink to="/perfil#pago" size="sm" variant="secondary">Cómo pagar</ButtonLink>
-        </section>
+        <PayToSend key={w.id} amount={Number(w.entry_amount)} label={w.label} tone="aqua" />
       ))}
       {editable.length > 0 && (
         <p className="mb-3 text-xs text-muted">Gana quien acierte más resultados. Si hay empate entre usuarios, gana quien más se acerque a los goles de la jornada.</p>

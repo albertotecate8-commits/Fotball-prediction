@@ -148,14 +148,26 @@ test.describe('pantallas', () => {
     const calls: string[] = []
     await mockBackend(page, { paid: false, calls })
     await page.goto('/quinielas')
-    await expect(page.getByText(/para enviarla necesitas tu pago confirmado/)).toBeVisible()
+    await expect(page.getByText(/para mandar tu quiniela/)).toBeVisible()
     await page.getByRole('button', { name: 'Empate' }).nth(7).click()
     await expect.poll(() => calls.includes('save_pool_picks'), { timeout: 5000 }).toBe(true)
     await expect(page.getByRole('button', { name: 'Enviar quiniela' })).toHaveCount(0)
     expect(calls).not.toContain('submit_pool_picks')
-    await page.getByRole('link', { name: 'Ver cómo pagar' }).click()
+    await page.getByRole('link', { name: 'Ver todos los datos de pago' }).click()
     await expect(page).toHaveURL(/perfil#pago$/)
     await page.screenshot({ path: shot('03b-sin-pago', info.project.name) })
+  })
+
+  test('sin pago: antes de llenar la quiniela, cuenta y referencia para copiar', async ({ page }, info) => {
+    await mockBackend(page, { paid: false, payInfo: true })
+    await page.goto('/quinielas')
+    const card = page.getByRole('region', { name: 'Pago para enviar tu quiniela' })
+    await expect(card.getByText('Transfiere $100 para mandar tu quiniela')).toBeVisible()
+    await expect(card.getByText('000000000000000000')).toBeVisible()
+    await expect(card.getByText('SHABEX-ALBERTO')).toBeVisible()
+    await expect(card.getByRole('button', { name: 'Copiar CLABE' })).toBeVisible()
+    await expect(card.getByRole('button', { name: 'Copiar referencia' })).toBeVisible()
+    await page.screenshot({ path: shot('03c-pagar-para-enviar', info.project.name) })
   })
 
   test('mi perfil: datos de pago con botones para copiar', async ({ page }, info) => {

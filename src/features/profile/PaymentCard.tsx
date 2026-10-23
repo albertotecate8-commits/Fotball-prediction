@@ -24,7 +24,7 @@ const STATUS: Record<State, { label: string; tone: 'success' | 'warning' | 'dang
 const legacyState = (p: MyPayment): State =>
   p.payment_status === 'authorized' ? 'confirmed' : p.payment_status === 'pending' ? 'pending' : p.payment_status === 'rejected' ? 'revoked' : 'none'
 
-function CopyRow({ label, value, copyLabel, big }: { label: string; value: string; copyLabel: string; big?: boolean }) {
+export function CopyRow({ label, value, copyLabel, big, iconOnly }: { label: string; value: string; copyLabel: string; big?: boolean; iconOnly?: boolean }) {
   const toast = useToast()
   const [done, setDone] = useState(false)
   const copy = async () => {
@@ -43,7 +43,8 @@ function CopyRow({ label, value, copyLabel, big }: { label: string; value: strin
         <div className="text-[11px] font-semibold uppercase tracking-wider text-muted">{label}</div>
         <div className={`select-all break-all font-mono text-ink ${big ? 'text-lg font-bold text-aqua' : 'text-base'}`}>{value}</div>
       </div>
-      <Button size="sm" variant="secondary" icon={done ? <Check className="size-4" /> : <Copy className="size-4" />} onClick={() => void copy()}>{copyLabel}</Button>
+      <Button size="sm" variant="secondary" aria-label={iconOnly ? copyLabel : undefined} className={iconOnly ? 'shrink-0 px-3' : undefined}
+        icon={done ? <Check className="size-4" /> : <Copy className="size-4" />} onClick={() => void copy()}>{iconOnly ? null : copyLabel}</Button>
     </div>
   )
 }
