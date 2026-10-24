@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { mockBackend } from './mockBackend'
+import { mockBackend, poolOf } from './mockBackend'
 
 const shot = (name: string, project: string) => `test-results/screens/${project}/${name}.png`
 
@@ -142,6 +142,16 @@ test.describe('pantallas', () => {
     await page.screenshot({ path: shot('03c-gracias', info.project.name) })
     await page.getByRole('button', { name: 'Listo' }).click()
     await expect(page.getByRole('heading', { name: '¡Gracias por participar!' })).toHaveCount(0)
+  })
+
+  test('mi quiniela: los goles de una jornada ya terminada no se muestran', async ({ page }) => {
+    await mockBackend(page)
+    const d = poolOf(true)
+    const weeks = d.weeks.map((w) => ({ ...w, goals_open: false, real: { ...w.real, final: true } }))
+    await page.route('**/rest/v1/rpc/get_pool*', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ...d, weeks }) }))
+    await page.goto('/quinielas')
+    await expect(page.getByRole('heading', { name: 'Mi quiniela' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: '¿Cuántos goles habrá en la jornada?' })).toHaveCount(0)
   })
 
   test('sin pago: la quiniela se guarda sola pero no se envía, y ve cómo pagar', async ({ page }, info) => {

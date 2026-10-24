@@ -193,7 +193,8 @@ function Form({ data, tz }: { data: PoolData; tz: string }) {
       <Freshness show={isAdmin && data.matches.some((m) => m.status === 'live' || (Date.parse(m.kickoff_at) <= Date.now() && !m.result_confirmed && m.status !== 'cancelled'))} tz={tz} />
 
       {active.map(renderDay)}
-      {weeks.map((w) => (
+      {/* Goles solo de la jornada en curso: las ya terminadas no se muestran. */}
+      {weeks.filter((w) => !w.real?.final).map((w) => (
         <WeekGoalsCard key={w.id} week={w} value={goals[w.id] ?? null} editable={goalWeeks.some((g) => g.id === w.id)}
           onChange={(v) => setGoals((g) => ({ ...g, [w.id]: v }))} onError={setError} />
       ))}

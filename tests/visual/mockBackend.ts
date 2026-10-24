@@ -90,7 +90,7 @@ const featured = (n: number, status = 'scheduled', offsetH = 4) => ({
 export const FEATURED = [featured(1), featured(2), featured(3), featured(4, 'live', -2)]
 
 // Quiniela continua FICTICIA: abiertos primero, luego terminados.
-const poolOf = (paid: boolean) => ({
+export const poolOf = (paid: boolean) => ({
   server_time: new Date().toISOString(), max_goals: 15, can_submit: paid,
   matches: [
     ...finishedMatches.slice(0, 4).map((m, i) => ({ ...m, is_manual: i === 3, source: i === 3 ? 'admin' : 'auto', open: false, can_submit: false,
