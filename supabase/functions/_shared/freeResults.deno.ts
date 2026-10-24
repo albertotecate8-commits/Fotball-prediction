@@ -142,7 +142,8 @@ async function refreshFromEspn(db: SupabaseClient, targets: FreeTarget[]) {
   for (const r of reqs) {
     try {
       const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${r.slug}/scoreboard?dates=${r.date}`,
-        { signal: AbortSignal.timeout(8000), headers: { accept: 'application/json' } })
+        // ESPN rechaza (403) el agente por defecto de Deno: se identifica como cliente normal.
+        { signal: AbortSignal.timeout(8000), headers: { accept: 'application/json', 'user-agent': 'Mozilla/5.0 (compatible; SHABEX-Quiniela/1.0)' } })
       if (!res.ok) { errors.push(`ESPN HTTP ${res.status}`); continue }
       const body = await res.json().catch(() => null) as { events?: EspnEvent[] } | null
       events.set(r.slug, [...(events.get(r.slug) ?? []), ...(body?.events ?? [])])
