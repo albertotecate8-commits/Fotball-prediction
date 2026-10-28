@@ -18,7 +18,7 @@ export interface CalendarWeek { id: string; week_start: string; league_ids: stri
 export interface TsdbEvent {
   idAPIfootball?: string | null; strTimestamp?: string | null; idHomeTeam?: string | null; idAwayTeam?: string | null
   strHomeTeam?: string | null; strAwayTeam?: string | null; strStatus?: string | null; strPostponed?: string | null
-  intRound?: string | null; strSeason?: string | null
+  intRound?: string | null; strSeason?: string | null; idLeague?: string | null
 }
 export interface CalendarFixture {
   external_id: string; kickoff_at: string
@@ -55,11 +55,48 @@ export async function collectCalendar(weeks: CalendarWeek[], deps: CalendarDeps)
   let stopped = false
   const byLeague: Record<string, number> = {}
   for (const w of weeks) {
-    // Liga doméstica de cada equipo seguido (Barcelona/Real Madrid → La Liga, Durango → Expansión).
-    const teamLeagues = (w.teams ?? []).map((t) => (t.tsdb_league ? API_LEAGUE_OF_TSDB[t.tsdb_league] : undefined)).filter((x): x is string => !!x)
-    const leagues = new Set([...w.league_ids, ...teamLeagues].filter((l) => TSDB_LEAGUES[l]))
     const lo = Date.parse(`${addDays(w.week_start, w.weekend_only ? 4 : 0)}T00:00:00-06:00`) - 6 * 3600e3
     const hi = Date.parse(`${addDays(w.week_start, 7)}T00:00:00-06:00`) + 6 * 3600e3
+    /** Agrega el partido si es de la semana, no ha empezado y tiene ids oficiales. */
+    const consider = async (e: TsdbEvent, lg: string, teamOnly: boolean) => {
+      const meta = TSDB_LEAGUES[lg]
+      const id = e.idAPIfootball ?? ''
+      const ko = toKickoff(e.strTimestamp)
+      if (!meta || !ID.test(id) || !ko || out.has(id) || !e.idHomeTeam || !e.idAwayTeam || !e.strHomeTeam || !e.strAwayTeam) return
+      if (!NOT_STARTED.has(e.strStatus ?? '') || (e.strPostponed ?? '').toLowerCase() === 'yes') return
+      const t = Date.parse(ko)
+      if (t < lo || t > hi) return
+      const [h, a] = [await deps.teamApiId(e.idHomeTeam), await deps.teamApiId(e.idAwayTeam)]
+      if (!h || !a) { missingTeams++; return }
+      if (teamOnly && !w.team_ids.includes(h) && !w.team_ids.includes(a)) return
+      out.set(id, {
+        external_id: id, kickoff_at: ko, competition: { external_id: lg, name: meta.name },
+        home: { external_id: h, name: e.strHomeTeam }, away: { external_id: a, name: e.strAwayTeam },
+      })
+      byLeague[meta.name] = (byLeague[meta.name] ?? 0) + 1
+    }
+
+    // 1) Equipos seguidos (Barcelona, Real Madrid, Durango…): su próximo partido
+    //    directo, una consulta por equipo y ANTES que las ligas, para que nunca
+    //    se queden fuera por el tope de solicitudes.
+    const viaTeam = new Set<string>()
+    for (const t of w.teams ?? []) {
+      if (!t.tsdb || !ID.test(t.tsdb)) continue
+      const r = await deps.getJson(`eventsnext.php?id=${t.tsdb}`)
+      if (!r) { stopped = true; break }
+      viaTeam.add(t.af)
+      const home = t.tsdb_league ? API_LEAGUE_OF_TSDB[t.tsdb_league] : undefined
+      for (const e of r.events ?? []) {
+        const lg = (e.idLeague && API_LEAGUE_OF_TSDB[e.idLeague]) || home
+        if (lg) await consider(e, lg, !w.league_ids.includes(lg))
+      }
+    }
+    if (stopped) break
+
+    // 2) Ligas completas (Liga MX) y, si a un equipo no se le pudo buscar directo, su liga.
+    const teamLeagues = (w.teams ?? []).filter((t) => !viaTeam.has(t.af))
+      .map((t) => (t.tsdb_league ? API_LEAGUE_OF_TSDB[t.tsdb_league] : undefined)).filter((x): x is string => !!x)
+    const leagues = new Set([...w.league_ids, ...teamLeagues].filter((l) => TSDB_LEAGUES[l]))
     for (const lg of leagues) {
       const meta = TSDB_LEAGUES[lg]!
       const teamOnly = !w.league_ids.includes(lg)
@@ -79,22 +116,7 @@ export async function collectCalendar(weeks: CalendarWeek[], deps: CalendarDeps)
           events.push(...(r.events ?? []))
         }
       }
-      for (const e of events) {
-        const id = e.idAPIfootball ?? ''
-        const ko = toKickoff(e.strTimestamp)
-        if (!ID.test(id) || !ko || out.has(id) || !e.idHomeTeam || !e.idAwayTeam || !e.strHomeTeam || !e.strAwayTeam) continue
-        if (!NOT_STARTED.has(e.strStatus ?? '') || (e.strPostponed ?? '').toLowerCase() === 'yes') continue
-        const t = Date.parse(ko)
-        if (t < lo || t > hi) continue
-        const [h, a] = [await deps.teamApiId(e.idHomeTeam), await deps.teamApiId(e.idAwayTeam)]
-        if (!h || !a) { missingTeams++; continue }
-        if (teamOnly && !w.team_ids.includes(h) && !w.team_ids.includes(a)) continue
-        out.set(id, {
-          external_id: id, kickoff_at: ko, competition: { external_id: lg, name: meta.name },
-          home: { external_id: h, name: e.strHomeTeam }, away: { external_id: a, name: e.strAwayTeam },
-        })
-        byLeague[meta.name] = (byLeague[meta.name] ?? 0) + 1
-      }
+      for (const e of events) await consider(e, lg, teamOnly)
       if (stopped) break
     }
     if (stopped) break
