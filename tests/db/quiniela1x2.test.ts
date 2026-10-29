@@ -85,7 +85,7 @@ describe('datos de pago', () => {
     const admin = await createAdmin()
     const u = await createUser()
     const [before] = await asUser(u, `select public.get_my_payment() as p`)
-    expect(before!.p.reference).toMatch(/^SHABEX-[A-Z0-9-]+$/)
+    expect(before!.p.reference).toMatch(/^[A-Z0-9][A-Z0-9-]+$/)
     await expectDbError(asUser(u, `select public.admin_save_payment_info('B', 'T', '012345678901234567', null, 100, 'c', 'i', null)`), 'FORBIDDEN')
     await expectDbError(asUser(u, `update public.payment_info set clabe = '000000000000000000'`), 'permission denied')
     await expectDbError(asUser(admin, `select public.admin_save_payment_info('B', 'T', '123', null, 100, null, null, null)`), 'INVALID_CLABE')

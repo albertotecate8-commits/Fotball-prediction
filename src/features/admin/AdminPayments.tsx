@@ -36,7 +36,7 @@ function CopyChip({ value, label }: { value: string; label: string }) {
   )
 }
 
-/** Participantes y pagos: la referencia SHABEX-ALIAS identifica cada transferencia; la confirmación es manual y auditada. */
+/** Participantes y pagos: la referencia (el nombre del participante, p. ej. BETO-ALVARADO) identifica cada transferencia; la confirmación es manual y auditada. */
 export function AdminPayments() {
   const { timezone } = useAppConfig()
   const q = useQuery({ queryKey: ['admin', 'paymentRows'], queryFn: adminApi.paymentRows })
@@ -71,7 +71,7 @@ export function AdminPayments() {
       ]} />
       <div className="relative mb-4">
         <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-muted" />
-        <Input aria-label="Buscar participante" placeholder="Alias, referencia (SHABEX-…) o folio" className="pl-11" value={search} onChange={(e) => setSearch(e.target.value)} />
+        <Input aria-label="Buscar participante" placeholder="Alias, referencia o folio" className="pl-11" value={search} onChange={(e) => setSearch(e.target.value)} />
       </div>
       {q.isLoading ? <CardSkeleton lines={4} /> : q.error ? <ErrorState error={q.error} onRetry={() => void q.refetch()} /> : list.length === 0 ? (
         <EmptyState title="Sin resultados" description={term ? `Nadie coincide con «${search.trim()}».` : 'No hay participantes en este filtro.'} />

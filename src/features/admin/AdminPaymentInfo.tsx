@@ -52,7 +52,7 @@ export function AdminPaymentInfo() {
         <Field label="CLABE (18 dígitos)" error={clabeError}>{(id) => <Input id={id} inputMode="numeric" value={f.clabe} maxLength={22} onChange={set('clabe')} />}</Field>
         <Field label="Número de cuenta o tarjeta (opcional)">{(id) => <Input id={id} value={f.account} maxLength={40} onChange={set('account')} />}</Field>
         <Field label="Monto (MXN)">{(id) => <Input id={id} inputMode="decimal" value={f.amount} onChange={set('amount')} />}</Field>
-        <Field label="Concepto" hint="Se añade la referencia personal de cada participante (SHX-…).">{(id) => <Input id={id} value={f.concept} maxLength={120} onChange={set('concept')} />}</Field>
+        <Field label="Concepto" hint="Se añade la referencia personal de cada participante (su nombre, p. ej. BETO-ALVARADO).">{(id) => <Input id={id} value={f.concept} maxLength={120} onChange={set('concept')} />}</Field>
         <Field label="Instrucciones adicionales">{(id) => <Textarea id={id} value={f.instructions} maxLength={1000} onChange={set('instructions')} />}</Field>
         <Field label="Contacto para enviar comprobante (opcional)">{(id) => <Input id={id} value={f.contact} maxLength={120} onChange={set('contact')} />}</Field>
         <Button block size="lg" loading={busy} disabled={!valid} onClick={() => void save()}>Guardar datos de pago</Button>
