@@ -1,8 +1,8 @@
 {
   "id": "./",
-  "name": "SHABEX — La Quiniela",
-  "short_name": "SHABEX",
-  "description": "Quiniela de fútbol entre amigos: pronósticos, aciertos y clasificación en vivo.",
+  "name": "GB QUINELA",
+  "short_name": "GB QUINELA",
+  "description": "Quinela de fútbol de Good Barber: pronósticos, aciertos y clasificación en vivo.",
   "lang": "es-MX",
   "dir": "ltr",
   "start_url": "./?source=pwa",
@@ -10,8 +10,8 @@
   "display": "standalone",
   "display_override": ["standalone", "minimal-ui"],
   "orientation": "portrait",
-  "background_color": "#090B10",
-  "theme_color": "#090B10",
+  "background_color": "#070707",
+  "theme_color": "#070707",
   "categories": ["sports", "entertainment"],
   "icons": [
     { "src": "icons/icon-96.png", "sizes": "96x96", "type": "image/png", "purpose": "any" },
