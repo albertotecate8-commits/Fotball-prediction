@@ -30,7 +30,7 @@ describe('el admin autoriza editar una quiniela enviada', () => {
     await asService(`select public.pool_auto_import('api-football', $1::jsonb)`, [JSON.stringify([fx('ul-1', 'u1', 'u2', 4), fx('ul-2', 'u3', 'u4', 5)])])
     open = ((await sql(`select id from public.matches where external_id = 'ul-2'`)) as { id: string }[])[0]!.id
     started = ((await sql(`select id from public.matches where external_id = 'ul-1'`)) as { id: string }[])[0]!.id
-    await asUser(admin, `select public.admin_confirm_payment($1, 'authorized', null, null, null, null, null)`, [player])
+    await asUser(admin, `select public.admin_confirm_payment($1, 'authorized', now() + interval '400 days', null, null, null, null)`, [player])
     await fillWeekGoals(player, 5)
     await asUser(player, `select public.submit_pool_picks($1::jsonb)`, [JSON.stringify(await allOpen('1'))])
   })

@@ -86,7 +86,7 @@ describe('clasificación en vivo y privacidad de pronósticos', () => {
     p1 = await createUser('Jugador ST1')
     p2 = await createUser('Jugador ST2')
     const [{ g }] = (await sql(`select id as g from public.groups where is_default`)) as { g: string }[]
-    for (const u of [p1, p2]) await asUser(admin, `select public.admin_set_payment($1, $2, 'authorized', null, 'REF-ST', 'Pago de prueba verificado')`, [g, u])
+    for (const u of [p1, p2]) await asUser(admin, `select public.admin_set_payment($1, $2, 'authorized', now() + interval '400 days', 'REF-ST', 'Pago de prueba verificado')`, [g, u])
     const [{ d }] = (await sql(`select to_char(private.local_day(now()) + (8 - extract(isodow from private.local_day(now()))::int) + 70, 'YYYY-MM-DD') as d`)) as { d: string }[]
     monday = d
     const [r] = await asUser(admin, `select public.admin_plan_week($1::date, 5, array[]::text[], array['262'], true) as r`, [monday])
@@ -117,7 +117,7 @@ describe('clasificación en vivo y privacidad de pronósticos', () => {
     // Quien no ha enviado (aunque haya pagado) no ve los ajenos: nadie puede copiar.
     const late = await createUser('Jugador ST3')
     const [{ g }] = (await sql(`select id as g from public.groups where is_default`)) as { g: string }[]
-    await asUser(admin, `select public.admin_set_payment($1, $2, 'authorized', null, 'REF-ST', 'Pago de prueba verificado')`, [g, late])
+    await asUser(admin, `select public.admin_set_payment($1, $2, 'authorized', now() + interval '400 days', 'REF-ST', 'Pago de prueba verificado')`, [g, late])
     const hidden = await detail(late, p1)
     expect(hidden.guess).toBeNull()
     expect(hidden.matches.map((m: { pick: string | null; hidden: boolean }) => [m.pick, m.hidden])).toEqual([[null, true], [null, true]])

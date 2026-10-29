@@ -31,7 +31,7 @@ describe('quiniela 1X2 con total de goles de la jornada', () => {
     p1 = await createUser('Jugador WG1')
     p2 = await createUser('Jugador WG2')
     const [{ g }] = (await sql(`select id as g from public.groups where is_default`)) as { g: string }[]
-    for (const u of [p1, p2]) await asUser(admin, `select public.admin_set_payment($1, $2, 'authorized', null, 'REF-WG', 'Pago de prueba verificado')`, [g, u])
+    for (const u of [p1, p2]) await asUser(admin, `select public.admin_set_payment($1, $2, 'authorized', now() + interval '400 days', 'REF-WG', 'Pago de prueba verificado')`, [g, u])
     const [{ d }] = (await sql(`select to_char(private.local_day(now()) + (8 - extract(isodow from private.local_day(now()))::int) + 56, 'YYYY-MM-DD') as d`)) as { d: string }[]
     monday = d
     const [r] = await asUser(admin, `select public.admin_plan_week($1::date, 5, array[]::text[], array['262'], true) as r`, [monday])

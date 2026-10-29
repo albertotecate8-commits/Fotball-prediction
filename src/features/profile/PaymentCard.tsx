@@ -17,7 +17,7 @@ type State = NonNullable<MyPayment['state']>
 const STATUS: Record<State, { label: string; tone: 'success' | 'warning' | 'danger' | 'neutral' }> = {
   confirmed: { label: 'Pago confirmado', tone: 'success' },
   pending: { label: 'Pendiente de confirmar', tone: 'warning' },
-  expired: { label: 'Pago vencido', tone: 'danger' },
+  expired: { label: 'Falta el pago de esta semana', tone: 'danger' },
   revoked: { label: 'Pago revocado', tone: 'danger' },
   none: { label: 'Sin pago', tone: 'neutral' },
 }
@@ -82,14 +82,14 @@ export function PaymentCard() {
       </div>
       {paid ? (
         <p className="mt-3 flex items-center gap-2 text-sm text-success"><ShieldCheck className="size-4" />
-          Pago confirmado{p.paid_amount ? ` (${fmt(p.paid_amount)})` : ''}{p.confirmed_at ? ` el ${formatDate(p.confirmed_at, timezone)}` : ''}. Puedes enviar tus pronósticos{p.valid_until ? ` hasta el ${formatDate(p.valid_until, timezone)}` : ''}.</p>
+          Pago de esta semana confirmado{p.paid_amount ? ` (${fmt(p.paid_amount)})` : ''}{p.confirmed_at ? ` el ${formatDate(p.confirmed_at, timezone)}` : ''}. Ya puedes mandar tu quiniela.</p>
       ) : !p.configured ? (
         <p className="mt-3 text-sm text-muted">Los datos para pagar aún no están configurados. El administrador los publicará aquí.</p>
       ) : (
         <>
           <p className="mt-3 text-sm text-muted">
-            {state === 'expired' ? 'Tu pago anterior venció. ' : state === 'revoked' ? 'Tu pago anterior fue revocado. ' : state === 'pending' ? 'Tu pago está pendiente de confirmar por el administrador. ' : ''}
-            Paga {money ? <strong className="text-ink">{money}</strong> : 'tu participación'} por transferencia con tu referencia.
+            {state === 'expired' ? 'Tu pago de la semana pasada ya venció: cada pago cubre solo la quiniela de su semana. ' : state === 'revoked' ? 'Tu pago anterior fue revocado. ' : state === 'pending' ? 'Tu pago está pendiente de confirmar por el administrador. ' : ''}
+            Transfiere {money ? <strong className="text-gold-soft">{money}</strong> : 'tu participación'}{p.bank ? <> a <strong className="text-ink">{p.bank}</strong></> : null} con tu referencia para mandar tu quiniela de esta semana.
           </p>
           <div className="mt-1 divide-y divide-line">
             {p.clabe && <CopyRow label="CLABE" value={p.clabe} copyLabel="Copiar CLABE" iconOnly />}
