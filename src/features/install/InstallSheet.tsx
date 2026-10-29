@@ -49,7 +49,7 @@ const STEPS: Record<InstallPlatform, { intro: string; steps: Step[]; note?: stri
       { icon: <MonitorDown className={ICON} />, title: 'Chrome o Edge: icono de instalar en la barra de direcciones', hint: 'O en el menú ⋮ → «Instalar GB QUINELA» / «Aplicaciones» → «Instalar este sitio como aplicación».' },
       { icon: <Compass className={ICON} />, title: 'Safari en Mac: Archivo → «Añadir al Dock»' },
     ],
-    note: 'Para tenerla en el celular, abre shabex.vercel.app desde tu teléfono.',
+    note: 'Para tenerla en el celular, abre gbquinela.vercel.app desde tu teléfono.',
   },
   other: {
     intro: 'Este navegador no ofrece una forma de instalar aplicaciones web. Puedes abrir GB QUINELA en Safari (iPhone) o Chrome (Android) y desde ahí añadirla a tu pantalla de inicio.',
@@ -61,7 +61,7 @@ const STEPS: Record<InstallPlatform, { intro: string; steps: Step[]; note?: stri
 export function InstallSheet({ open, onClose, platform }: { open: boolean; onClose: () => void; platform: InstallPlatform }) {
   const [copied, setCopied] = useState(false)
   const info = STEPS[platform]
-  const url = typeof window !== 'undefined' ? window.location.origin + (import.meta.env.BASE_URL || '/') : 'https://shabex.vercel.app/'
+  const url = typeof window !== 'undefined' ? window.location.origin + (import.meta.env.BASE_URL || '/') : 'https://gbquinela.vercel.app/'
   const copy = async () => {
     try { await navigator.clipboard.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 2000) } catch { /* el usuario puede copiarlo a mano */ }
   }
