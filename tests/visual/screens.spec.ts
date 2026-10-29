@@ -172,12 +172,20 @@ test.describe('pantallas', () => {
     await mockBackend(page, { paid: false, payInfo: true })
     await page.goto('/quinielas')
     const card = page.getByRole('region', { name: 'Pago para enviar tu quiniela' })
-    await expect(card.getByText('Transfiere $100 para mandar tu quiniela')).toBeVisible()
+    await expect(card.getByText('Envía tu pago')).toBeVisible()
+    await expect(card.getByText('$100', { exact: true }).first()).toBeVisible()
+    await expect(card.getByText('Banco de Prueba', { exact: true })).toBeVisible()
     await expect(card.getByText('000000000000000000')).toBeVisible()
     await expect(card.getByText('SHABEX-ALBERTO')).toBeVisible()
     await expect(card.getByRole('button', { name: 'Copiar CLABE' })).toBeVisible()
     await expect(card.getByRole('button', { name: 'Copiar referencia' })).toBeVisible()
     await page.screenshot({ path: shot('03c-pagar-para-enviar', info.project.name) })
+    // En la barra de envío: «Enviar pago» abre la cuenta y la referencia para copiar.
+    await page.getByRole('button', { name: 'Enviar pago de $100' }).click()
+    const sheet = page.getByRole('dialog', { name: 'Envía tu pago de $100' })
+    await expect(sheet.getByRole('button', { name: 'Copiar CLABE' })).toBeVisible()
+    await expect(sheet.getByText('SHABEX-ALBERTO')).toBeVisible()
+    await page.screenshot({ path: shot('03d-enviar-pago', info.project.name) })
   })
 
   test('mi perfil: datos de pago con botones para copiar', async ({ page }, info) => {

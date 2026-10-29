@@ -16,7 +16,7 @@ import { toAppError } from '@/lib/errors'
 import { cn } from '@/lib/cn'
 import { isComplete, outcomeLabel, PickCard, type PickValue } from './PickCard'
 import { Celebration } from './Celebration'
-import { PayToSend } from './PayToSend'
+import { PayButton, PayToSend } from './PayToSend'
 import type { PoolData, PoolMatch, PoolWeek } from '@/types/domain'
 
 type Picks = Record<string, PickValue>
@@ -217,12 +217,13 @@ function Form({ data, tz }: { data: PoolData; tz: string }) {
                 <div className="scoreline text-xl">{ready.length}<span className="text-muted">/{sendable.length}</span></div>
                 <div className="text-[10px] font-semibold uppercase tracking-wider text-muted">{saving ? 'guardando…' : 'elegidos'}</div>
               </div>
-              {!complete ? (
+              {!canSubmitAny ? (
+                // Sin pago confirmado: lo primero es pagar (cuenta y referencia para copiar).
+                <PayButton className="whitespace-nowrap px-4 text-base" />
+              ) : !complete ? (
                 <Button size="lg" block variant="secondary" className="whitespace-nowrap px-4 text-base" icon={<ArrowDown className="size-5" />} onClick={goToMissing}>
                   {missing.length === 0 ? 'Falta el total de goles' : missing.length === 1 ? 'Falta 1 partido' : `Faltan ${missing.length} partidos`}
                 </Button>
-              ) : !canSubmitAny ? (
-                <Button size="lg" block className="whitespace-nowrap px-4 text-base" disabled icon={<CheckCircle2 className="size-5" />}>Completa y guardada</Button>
               ) : (
                 <Button size="lg" block className="whitespace-nowrap px-4 text-base" disabled={busy || saving} icon={<Send className="size-5" />} onClick={() => setConfirmOpen(true)}>Enviar quiniela</Button>
               )}
