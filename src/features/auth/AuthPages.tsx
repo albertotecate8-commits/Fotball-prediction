@@ -1,12 +1,14 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
-import { MailCheck } from 'lucide-react'
+import { ArrowRight, Lock, Mail, MailCheck, UserRound } from 'lucide-react'
 import { authEmailClient, supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/Button'
 import { Field, Input, PasswordInput } from '@/components/ui/Field'
 import { InlineError } from '@/components/ui/States'
 import { isValidEmail, normalizeEmail, toAppError } from '@/lib/errors'
 import { appUrl } from '@/lib/appUrl'
+
+const arrow = <span className="grid size-8 place-items-center rounded-full bg-black/10"><ArrowRight className="size-4" /></span>
 import { AuthLayout } from './AuthLayout'
 import { confirmRedirect, ResendConfirmation } from './ConfirmEmail'
 
@@ -30,14 +32,14 @@ export function LoginPage() {
   }
 
   return (
-    <AuthLayout title="Entrar" subtitle="Accede para hacer tu quiniela y ver cómo vas."
+    <AuthLayout title="Bienvenido" accent="de nuevo" subtitle="Entra para llenar tu quiniela y ver cómo vas."
       footer={<>¿No tienes cuenta? <Link to="/registro" className="font-semibold text-gold-soft">Regístrate</Link></>}>
       <form onSubmit={onSubmit} className="space-y-4" noValidate>
-        <Field label="Correo">{(id) => <Input id={id} type="email" inputMode="email" autoCapitalize="none" autoCorrect="off" spellCheck={false} autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />}</Field>
-        <Field label="Contraseña">{(id) => <PasswordInput id={id} autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />}</Field>
+        <Field label="Correo" hideLabel>{(id) => <Input id={id} icon={<Mail />} placeholder="Correo electrónico" type="email" inputMode="email" autoCapitalize="none" autoCorrect="off" spellCheck={false} autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />}</Field>
+        <Field label="Contraseña" hideLabel>{(id) => <PasswordInput id={id} icon={<Lock />} placeholder="Contraseña" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />}</Field>
         <div className="text-right"><Link to="/recuperar" className="text-sm text-muted hover:text-gold-soft">¿Olvidaste tu contraseña?</Link></div>
         <InlineError error={error} />
-        <Button type="submit" size="lg" block loading={loading} disabled={!email || !password}>Entrar</Button>
+        <Button type="submit" size="lg" block loading={loading} disabled={!email || !password} icon={arrow}>Entrar ahora</Button>
       </form>
       {toAppError(error ?? '').code === 'Email not confirmed' && (
         <div className="mt-5 border-t border-line pt-4">
@@ -110,14 +112,14 @@ export function SignupPage() {
   }
 
   return (
-    <AuthLayout title="Crear cuenta" subtitle="Tu alias es lo que verán tus amigos en la clasificación."
+    <AuthLayout title="Crea tu" accent="cuenta" subtitle="Tu alias es lo que verán tus amigos en la clasificación."
       footer={<>¿Ya tienes cuenta? <Link to="/entrar" className="font-semibold text-gold-soft">Entrar</Link></>}>
       <form onSubmit={onSubmit} className="space-y-4" noValidate>
-        <Field label="Alias" error={nameError}>{(id) => <Input id={id} autoComplete="nickname" maxLength={40} required value={name} onChange={(e) => setName(e.target.value)} />}</Field>
-        <Field label="Correo" error={emailError}>{(id) => <Input id={id} type="email" inputMode="email" autoCapitalize="none" autoCorrect="off" spellCheck={false} autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />}</Field>
-        <Field label="Contraseña" error={pwError} hint="Mínimo 8 caracteres.">{(id) => <PasswordInput id={id} autoComplete="new-password" required value={password} onChange={(e) => setPassword(e.target.value)} />}</Field>
+        <Field label="Alias" hideLabel error={nameError}>{(id) => <Input id={id} icon={<UserRound />} placeholder="Tu alias" autoComplete="nickname" maxLength={40} required value={name} onChange={(e) => setName(e.target.value)} />}</Field>
+        <Field label="Correo" hideLabel error={emailError}>{(id) => <Input id={id} icon={<Mail />} placeholder="Correo electrónico" type="email" inputMode="email" autoCapitalize="none" autoCorrect="off" spellCheck={false} autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />}</Field>
+        <Field label="Contraseña" hideLabel error={pwError} hint="Mínimo 8 caracteres.">{(id) => <PasswordInput id={id} icon={<Lock />} placeholder="Contraseña" autoComplete="new-password" required value={password} onChange={(e) => setPassword(e.target.value)} />}</Field>
         <InlineError error={error} />
-        <Button type="submit" size="lg" block loading={loading} disabled={!name || !email || !password || !!nameError || !!pwError || !!emailError}>Crear cuenta</Button>
+        <Button type="submit" size="lg" block loading={loading} disabled={!name || !email || !password || !!nameError || !!pwError || !!emailError} icon={arrow}>Crear cuenta</Button>
       </form>
     </AuthLayout>
   )
@@ -140,7 +142,7 @@ export function ForgotPasswordPage() {
   }
 
   return (
-    <AuthLayout title="Recuperar acceso" subtitle="Te enviaremos un enlace para crear una nueva contraseña."
+    <AuthLayout title="Recupera tu" accent="acceso" subtitle="Te enviaremos un enlace para crear una nueva contraseña."
       footer={<Link to="/entrar" className="font-semibold text-gold-soft">Volver a entrar</Link>}>
       {sent ? (
         <div className="card flex items-center gap-3 p-4 text-sm text-muted" role="status">
@@ -148,7 +150,7 @@ export function ForgotPasswordPage() {
         </div>
       ) : (
         <form onSubmit={onSubmit} className="space-y-4" noValidate>
-          <Field label="Correo">{(id) => <Input id={id} type="email" inputMode="email" autoCapitalize="none" autoCorrect="off" spellCheck={false} autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />}</Field>
+          <Field label="Correo" hideLabel>{(id) => <Input id={id} icon={<Mail />} placeholder="Correo electrónico" type="email" inputMode="email" autoCapitalize="none" autoCorrect="off" spellCheck={false} autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />}</Field>
           <InlineError error={error} />
           <Button type="submit" size="lg" block loading={loading} disabled={!email}>Enviar enlace</Button>
         </form>

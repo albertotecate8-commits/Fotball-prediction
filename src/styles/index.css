@@ -144,6 +144,22 @@
     background-clip: text;
     color: transparent;
   }
+  /* Zona clara (login): los mismos componentes con tokens para fondo blanco. */
+  .auth-light {
+    --color-ink: #17140d;
+    --color-silver: #17140d;
+    --color-muted: #6f6858;
+    --color-faint: #a39c8c;
+    --color-surface: #ffffff;
+    --color-surface-2: #f7f4ec;
+    --color-surface-3: #eee8d8;
+    --color-line: rgb(23 20 13 / 0.08);
+    --color-line-strong: rgb(23 20 13 / 0.13);
+    --color-gold-soft: #9c7614;
+    --color-gold: #a8801b;
+    --color-danger: #cf2f3b;
+    color: var(--color-ink);
+  }
   .scoreline { font-family: var(--font-display); font-variant-numeric: tabular-nums; font-weight: 700; line-height: 1; }
   .skeleton {
     background: linear-gradient(90deg, var(--color-surface-2) 25%, var(--color-surface-3) 37%, var(--color-surface-2) 63%);

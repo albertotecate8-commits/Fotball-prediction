@@ -667,7 +667,7 @@ test.describe('pantallas', () => {
 
   test('login sin sesión', async ({ page }, info) => {
     await page.goto('/entrar')
-    await expect(page.getByRole('heading', { name: 'Entrar' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Bienvenido de nuevo' })).toBeVisible()
     await expect(page.getByRole('img', { name: 'GB QUINELA' }).first()).toBeVisible()
     await page.screenshot({ path: shot('00-login', info.project.name), fullPage: true })
   })
