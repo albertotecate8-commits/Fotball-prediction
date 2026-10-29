@@ -105,7 +105,7 @@ export function AddMatchSheet({ open, onClose, tz }: { open: boolean; onClose: (
           <p className="text-sm text-muted">{step.message}</p>
           {step.candidates.map((c) => (
             <button key={c.external_id} type="button" disabled={busy} onClick={() => void search(c.external_id)}
-              className="card-flat w-full px-3 py-2.5 text-left text-sm hover:border-aqua/40">
+              className="card-flat w-full px-3 py-2.5 text-left text-sm hover:border-gold-soft/40">
               <div className="font-semibold">{c.home} vs {c.away}</div>
               <div className="text-[11px] text-muted">{formatShortDate(c.kickoff_at, tz)} · {formatTime(c.kickoff_at, tz)} · {c.competition ?? '—'} · API-Football #{c.external_id}</div>
             </button>

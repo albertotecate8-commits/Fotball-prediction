@@ -8,7 +8,7 @@ const ANDROID_CHROME = 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537
 const INSTAGRAM = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 Instagram 330.0.0.0'
 const shot = (name: string, project: string) => `test-results/screens/${project}/${name}.png`
 
-test.describe('instalar SHABEX', () => {
+test.describe('instalar GB QUINELA', () => {
   // Una sola resolución basta: la lógica no depende del tamaño de pantalla.
   test.beforeEach(({ browserName }, info) => { void browserName; test.skip(info.project.name !== 'phone-small') })
 
@@ -16,7 +16,7 @@ test.describe('instalar SHABEX', () => {
     const res = await request.get('/manifest.webmanifest')
     expect(res.ok()).toBe(true)
     const m = await res.json()
-    expect(m).toMatchObject({ name: 'SHABEX — La Quiniela', short_name: 'SHABEX', display: 'standalone', start_url: './?source=pwa', scope: './' })
+    expect(m).toMatchObject({ name: 'GB QUINELA', short_name: 'GB QUINELA', display: 'standalone', start_url: './?source=pwa', scope: './' })
     const sizes = (m.icons as { sizes: string; purpose: string }[]).map((i) => `${i.sizes}:${i.purpose}`)
     expect(sizes).toEqual(expect.arrayContaining(['192x192:any', '512x512:any', '512x512:maskable']))
     for (const icon of m.icons as { src: string }[]) {
@@ -36,10 +36,10 @@ test.describe('instalar SHABEX', () => {
     test('invitación en Inicio con los 3 pasos de Safari; se puede cerrar y no se repite', async ({ page }, info) => {
       await mockBackend(page)
       await page.goto('/')
-      const card = page.getByRole('region', { name: 'Instala SHABEX en tu celular' })
+      const card = page.getByRole('region', { name: 'Instala GB QUINELA en tu celular' })
       await expect(card).toBeVisible()
-      await card.getByRole('button', { name: 'Instalar SHABEX' }).click()
-      const sheet = page.getByRole('dialog', { name: 'Instalar SHABEX' })
+      await card.getByRole('button', { name: 'Instalar GB QUINELA' }).click()
+      const sheet = page.getByRole('dialog', { name: 'Instalar GB QUINELA' })
       await expect(sheet.getByText('Pulsa el botón Compartir')).toBeVisible()
       await expect(sheet.getByText('Elige «Añadir a pantalla de inicio»')).toBeVisible()
       await expect(sheet.getByText('Confirma con «Añadir»')).toBeVisible()
@@ -50,10 +50,10 @@ test.describe('instalar SHABEX', () => {
       await expect(card).toHaveCount(0)
       await page.reload()
       await expect(page.getByRole('heading', { name: 'Próximo partido' })).toBeVisible()
-      await expect(page.getByRole('region', { name: 'Instala SHABEX en tu celular' })).toHaveCount(0)
+      await expect(page.getByRole('region', { name: 'Instala GB QUINELA en tu celular' })).toHaveCount(0)
       // En Mi perfil sigue disponible para consultar los pasos.
       await page.goto('/perfil')
-      await expect(page.getByRole('button', { name: 'Instalar SHABEX' })).toBeVisible()
+      await expect(page.getByRole('button', { name: 'Instalar GB QUINELA' })).toBeVisible()
     })
   })
 
@@ -71,17 +71,17 @@ test.describe('instalar SHABEX', () => {
         }, 50))
       })
       await page.goto('/')
-      await page.getByRole('button', { name: 'Instalar SHABEX' }).click()
+      await page.getByRole('button', { name: 'Instalar GB QUINELA' }).click()
       await expect.poll(() => page.evaluate(() => (window as unknown as { __prompted?: boolean }).__prompted === true)).toBe(true)
-      await expect(page.getByRole('dialog', { name: 'Instalar SHABEX' })).toHaveCount(0)
-      await expect(page.getByText('¡Listo! SHABEX quedó instalada')).toBeVisible()
+      await expect(page.getByRole('dialog', { name: 'Instalar GB QUINELA' })).toHaveCount(0)
+      await expect(page.getByText('¡Listo! GB QUINELA quedó instalada')).toBeVisible()
     })
 
     test('sin diálogo nativo: instrucciones de Chrome y Samsung Internet', async ({ page }, info) => {
       await mockBackend(page)
       await page.goto('/')
-      await page.getByRole('button', { name: 'Instalar SHABEX' }).click()
-      const sheet = page.getByRole('dialog', { name: 'Instalar SHABEX' })
+      await page.getByRole('button', { name: 'Instalar GB QUINELA' }).click()
+      const sheet = page.getByRole('dialog', { name: 'Instalar GB QUINELA' })
       await expect(sheet.getByText('Toca «Instalar aplicación» o «Añadir a pantalla de inicio»')).toBeVisible()
       await expect(sheet.getByText(/Samsung Internet/).first()).toBeVisible()
       await page.screenshot({ path: shot('09b-instalar-android', info.project.name) })
@@ -90,13 +90,13 @@ test.describe('instalar SHABEX', () => {
 
   test.describe('navegador dentro de otra app', () => {
     test.use({ userAgent: INSTAGRAM })
-    test('explica cómo abrir SHABEX en Safari y permite copiar el enlace', async ({ page }) => {
+    test('explica cómo abrir GB QUINELA en Safari y permite copiar el enlace', async ({ page }) => {
       await mockBackend(page)
       await page.goto('/')
-      await page.getByRole('button', { name: 'Instalar SHABEX' }).click()
-      const sheet = page.getByRole('dialog', { name: 'Instalar SHABEX' })
+      await page.getByRole('button', { name: 'Instalar GB QUINELA' }).click()
+      const sheet = page.getByRole('dialog', { name: 'Instalar GB QUINELA' })
       await expect(sheet.getByText(/Elige «Abrir en Safari» o «Abrir en el navegador»/)).toBeVisible()
-      await expect(sheet.getByRole('button', { name: 'Copiar enlace de SHABEX' })).toBeVisible()
+      await expect(sheet.getByRole('button', { name: 'Copiar enlace de GB QUINELA' })).toBeVisible()
     })
   })
 
@@ -111,10 +111,10 @@ test.describe('instalar SHABEX', () => {
       await asStandalone(page)
       await page.goto('/')
       await expect(page.getByRole('heading', { name: 'Próximo partido' })).toBeVisible()
-      await expect(page.getByRole('button', { name: 'Instalar SHABEX' })).toHaveCount(0)
+      await expect(page.getByRole('button', { name: 'Instalar GB QUINELA' })).toHaveCount(0)
       await page.goto('/perfil')
-      await expect(page.getByText('Estás usando SHABEX como app desde tu pantalla de inicio.')).toBeVisible()
-      await expect(page.getByRole('button', { name: 'Instalar SHABEX' })).toHaveCount(0)
+      await expect(page.getByText('Estás usando GB QUINELA como app desde tu pantalla de inicio.')).toBeVisible()
+      await expect(page.getByRole('button', { name: 'Instalar GB QUINELA' })).toHaveCount(0)
     })
   })
 })

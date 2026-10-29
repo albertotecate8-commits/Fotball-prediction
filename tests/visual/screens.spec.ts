@@ -22,7 +22,7 @@ test.describe('pantallas', () => {
     // Los destacados de otras ligas ya no aparecen en Inicio.
     await expect(page.getByText(/Local Ficticio|Visita Ficticia|Partido destacado/)).toHaveCount(0)
     await expect(page.getByText(/API-Football|proveedor|sincroniz/i)).toHaveCount(0)
-    await expect(page.getByRole('img', { name: 'SHABEX — La Quiniela' }).first()).toBeVisible()
+    await expect(page.getByRole('img', { name: 'GB QUINELA' }).first()).toBeVisible()
     await page.screenshot({ path: shot('01-inicio', info.project.name), fullPage: true })
   })
 
@@ -434,7 +434,7 @@ test.describe('pantallas', () => {
     await mockBackend(page, { admin: true })
     await page.goto('/admin/consumo')
     await expect(page.getByRole('heading', { name: 'Consumo API' })).toBeVisible()
-    await expect(page.getByText('consultas de SHABEX hoy · presupuesto interno')).toBeVisible()
+    await expect(page.getByText('consultas de la app hoy · presupuesto interno')).toBeVisible()
     await expect(page.getByRole('progressbar', { name: 'Consumo del presupuesto' })).toHaveAttribute('aria-valuemax', '80')
     await expect(page.getByText('estimación')).toBeVisible()
     await expect(page.getByText('LOW_BUDGET_P3')).toBeVisible()
@@ -660,7 +660,7 @@ test.describe('pantallas', () => {
   test('login sin sesión', async ({ page }, info) => {
     await page.goto('/entrar')
     await expect(page.getByRole('heading', { name: 'Entrar' })).toBeVisible()
-    await expect(page.getByRole('img', { name: 'SHABEX — La Quiniela' }).first()).toBeVisible()
+    await expect(page.getByRole('img', { name: 'GB QUINELA' }).first()).toBeVisible()
     await page.screenshot({ path: shot('00-login', info.project.name), fullPage: true })
   })
 })

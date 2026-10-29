@@ -173,20 +173,20 @@ function ExtraPotCard({ x, currency }: { x: ExtraPot; currency: string }) {
   // Sorpresa hasta que el admin la muestre (su propio interruptor).
   const hidden = !x.visible || x.pot === null
   return (
-    <section aria-label={`Bolsa ${x.label}`} className="relative mb-4 overflow-hidden rounded-3xl border border-aqua/40 bg-[radial-gradient(120%_90%_at_100%_0%,rgba(0,191,234,0.18),transparent_55%)] p-4">
+    <section aria-label={`Bolsa ${x.label}`} className="relative mb-4 overflow-hidden rounded-3xl border border-gold-soft/40 bg-[radial-gradient(120%_90%_at_100%_0%,rgba(212,175,55,0.16),transparent_55%)] p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-aqua">{x.label}</p>
+          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-gold-soft">{x.label}</p>
           {hidden
             ? <p className="scoreline text-3xl leading-tight tracking-widest" aria-label="Monto sorpresa">$ ? ? ?</p>
             : <p className="scoreline text-3xl leading-tight">{money(Number(x.pot), currency)} <span className="text-sm text-muted">{currency}</span></p>}
           <p className="text-xs text-muted">Bolsa aparte · entrada {money(Number(x.entry_amount), currency)} · {x.entries} {x.entries === 1 ? 'participante' : 'participantes'}</p>
         </div>
-        <Trophy className="size-8 shrink-0 text-aqua" aria-hidden="true" />
+        <Trophy className="size-8 shrink-0 text-gold-soft" aria-hidden="true" />
       </div>
       {open && (
-        <div className="mt-3 border-t border-aqua/20 pt-3">
-          <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.14em] text-aqua"><Clock className="size-3.5" /> Cierra en</p>
+        <div className="mt-3 border-t border-gold-soft/20 pt-3">
+          <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.14em] text-gold-soft"><Clock className="size-3.5" /> Cierra en</p>
           <Countdown to={close!} />
           {x.mine ? (
             <p className="mt-3 flex items-center gap-2 rounded-xl bg-success/12 px-3 py-2 text-sm font-semibold text-success"><BadgeCheck className="size-5 shrink-0" /> Ya estás dentro de esta quiniela.</p>

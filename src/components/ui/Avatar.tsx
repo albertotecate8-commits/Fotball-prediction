@@ -7,7 +7,7 @@ export function Avatar({ name, url, size = 40, className, highlight }: { name: s
   return (
     <span style={{ width: size, height: size, fontSize: size * 0.38 }}
       className={cn('relative inline-grid shrink-0 place-items-center overflow-hidden rounded-full border font-bold',
-        highlight ? 'border-red bg-red text-white' : 'border-line-strong bg-gradient-to-br from-surface-3 to-surface-2 text-ink', className)}>
+        highlight ? 'border-brand bg-brand text-on-brand' : 'border-line-strong bg-gradient-to-br from-surface-3 to-surface-2 text-ink', className)}>
       {url ? <img src={url} alt="" className="size-full object-cover" loading="lazy" referrerPolicy="no-referrer" /> : <span aria-hidden>{initials(name)}</span>}
       <span className="sr-only">{name}</span>
     </span>

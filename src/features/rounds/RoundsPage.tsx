@@ -26,7 +26,7 @@ const showsScore = (m: RoundMatch) => (m.status === 'live' || m.status === 'fini
 /** Un partido de la quiniela con el pronóstico del jugador y, si aplica, sus puntos. */
 function QuinielaMatch({ m, tz, to }: { m: RoundMatch; tz: string; to: string }) {
   return (
-    <Link to={to} className={cn('card-flat group block border-l-2 px-3 py-3 transition hover:border-r-line-strong', m.status === 'live' ? 'border-l-red' : m.pick ? 'border-l-aqua' : 'border-l-line-strong')}>
+    <Link to={to} className={cn('card-flat group block border-l-2 px-3 py-3 transition hover:border-r-line-strong', m.status === 'live' ? 'border-l-live' : m.pick ? 'border-l-gold-soft' : 'border-l-line-strong')}>
       <div className="mb-2 flex items-center justify-between gap-2 text-[11px] text-muted">
         <span className="truncate">{m.competition?.name ?? 'Partido'}</span>
         <span className="flex items-center gap-2">
@@ -48,9 +48,9 @@ function QuinielaMatch({ m, tz, to }: { m: RoundMatch; tz: string; to: string })
         </div>
       </div>
       <div className="mt-2 flex items-center justify-between border-t border-line pt-2 text-xs">
-        {m.pick ? <span className="text-muted">Tu pronóstico: <span className="scoreline text-sm text-ink">{m.pick.home}-{m.pick.away}</span></span> : <span className="text-red">Sin pronóstico</span>}
-        {m.score ? <span className={cn('scoreline text-base', m.score.points === 5 ? 'text-aqua' : m.score.points === 3 ? 'text-success' : 'text-muted')}>+{m.score.points} pts</span>
-          : <ChevronRight className="size-4 text-faint transition group-hover:text-aqua" />}
+        {m.pick ? <span className="text-muted">Tu pronóstico: <span className="scoreline text-sm text-ink">{m.pick.home}-{m.pick.away}</span></span> : <span className="text-brand">Sin pronóstico</span>}
+        {m.score ? <span className={cn('scoreline text-base', m.score.points === 5 ? 'text-gold-soft' : m.score.points === 3 ? 'text-success' : 'text-muted')}>+{m.score.points} pts</span>
+          : <ChevronRight className="size-4 text-faint transition group-hover:text-gold-soft" />}
       </div>
     </Link>
   )

@@ -20,7 +20,7 @@ export function PoolAccess() {
   const next = open[0]
   return (
     <section className="card p-4" aria-labelledby="mi-quiniela">
-      <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-aqua">Quiniela oficial</p>
+      <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-gold-soft">Quiniela oficial</p>
       <h2 id="mi-quiniela" className="display mt-1 text-2xl font-semibold uppercase leading-none">
         {open.length ? `${open.length} ${open.length === 1 ? 'partido abierto' : 'partidos abiertos'}` : 'Sin partidos abiertos'}
       </h2>

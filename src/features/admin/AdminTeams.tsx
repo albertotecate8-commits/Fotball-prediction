@@ -51,7 +51,7 @@ export function AdminTeams() {
         <ul className="space-y-1.5">
           {rows.map((t) => (
             <li key={t.id}>
-              <button type="button" onClick={() => setManaging(t)} className="card-flat flex w-full items-center gap-3 px-3 py-2 text-left text-sm hover:border-aqua/40">
+              <button type="button" onClick={() => setManaging(t)} className="card-flat flex w-full items-center gap-3 px-3 py-2 text-left text-sm hover:border-gold-soft/40">
                 <TeamCrest team={{ ...t, code: null }} size={28} className={t.retired ? 'opacity-50 grayscale' : undefined} />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-semibold">{t.name}</span>
@@ -108,7 +108,7 @@ function ManageSheet({ team: t, tz, onClose, onChanged }: { team: TeamCatalogEnt
         </dl>
         {!t.retired && t.provider === 'api-football' && (
           <label className="card-flat flex items-center gap-3 p-3 text-sm">
-            <input type="checkbox" className="size-5 accent-[var(--color-red)]" checked={t.followed} disabled={busy}
+            <input type="checkbox" className="size-5 accent-[var(--color-brand)]" checked={t.followed} disabled={busy}
               onChange={(e) => { const on = e.target.checked; void run(async () => {
                 const r = await adminApi.followTeam(t.id, on)
                 if (on && r.selected_now) toast(`${r.selected_now} partido(s) agregados a la quiniela`)

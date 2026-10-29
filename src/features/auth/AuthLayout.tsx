@@ -7,6 +7,7 @@ export function AuthLayout({ title, subtitle, children, footer }: { title: strin
     <div className="mx-auto flex min-h-dvh max-w-md flex-col px-4 pb-[calc(env(safe-area-inset-bottom)+1.5rem)] pt-[calc(env(safe-area-inset-top)+2rem)] lg:max-w-5xl lg:flex-row lg:items-center lg:gap-16">
       <section className="mb-8 flex flex-col items-center text-center lg:mb-0 lg:flex-1 lg:items-start lg:text-left">
         <BrandLogo size="lg" />
+        <p className="display mt-4 text-3xl font-bold tracking-[0.06em]"><span className="gold-text">GB</span> QUINELA</p>
         <p className="mt-5 max-w-sm text-sm text-muted">{brand.description}</p>
       </section>
       <section className="card p-5 sm:p-6 lg:w-[26rem]">

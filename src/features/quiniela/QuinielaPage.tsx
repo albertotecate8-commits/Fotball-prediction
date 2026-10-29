@@ -183,7 +183,7 @@ function Form({ data, tz }: { data: PoolData; tz: string }) {
       {/* Antes de llenarla: cómo pagar para poder enviarla (cuenta y referencia para copiar). */}
       {editable.length > 0 && !canSubmitAny && <PayToSend />}
       {(data.weeks ?? []).filter((w) => w.kind === 'weekday' && w.entry_amount && !w.my_entry && editable.some((m) => m.week_id === w.id)).map((w) => (
-        <PayToSend key={w.id} amount={Number(w.entry_amount)} label={w.label} tone="aqua" />
+        <PayToSend key={w.id} amount={Number(w.entry_amount)} label={w.label} tone="soft" />
       ))}
       {editable.length > 0 && (
         <p className="mb-3 text-xs text-muted">Gana quien acierte más resultados. Si hay empate entre usuarios, gana quien más se acerque a los goles de la jornada.</p>
@@ -210,7 +210,7 @@ function Form({ data, tz }: { data: PoolData; tz: string }) {
           <div className="mx-auto max-w-3xl">
             <InlineError error={error} />
             <div className="mb-2 h-1.5 overflow-hidden rounded-full bg-surface-2" role="progressbar" aria-label="Partidos elegidos" aria-valuenow={ready.length} aria-valuemax={sendable.length}>
-              <div className="h-full rounded-full bg-aqua transition-all" style={{ width: `${Math.round((ready.length / sendable.length) * 100)}%` }} />
+              <div className="h-full rounded-full bg-gold-soft transition-all" style={{ width: `${Math.round((ready.length / sendable.length) * 100)}%` }} />
             </div>
             <div className="flex items-center gap-3">
               <div className="shrink-0">
@@ -243,7 +243,7 @@ function Form({ data, tz }: { data: PoolData; tz: string }) {
               return (
                 <li key={m.match_id} className="card-flat flex items-center gap-2 px-3 py-2">
                   <span className="min-w-0 flex-1 truncate">{m.home.short_name} vs {m.away.short_name}</span>
-                  <span className="shrink-0 font-semibold text-aqua">{outcomeLabel(p.outcome, m)}</span>
+                  <span className="shrink-0 font-semibold text-gold-soft">{outcomeLabel(p.outcome, m)}</span>
                 </li>
               )
             })}
@@ -308,7 +308,7 @@ function WeekGoalsCard({ week: w, value, editable, onChange, onError }: {
             className="grid size-12 place-items-center rounded-2xl border border-line-strong bg-surface-2 active:scale-95 disabled:opacity-35"><Minus className="size-6" /></button>
           <output aria-label="Goles en la jornada" className={cn('scoreline w-20 text-center text-5xl', value === null ? 'text-faint' : 'text-ink')}>{value ?? '–'}</output>
           <button type="button" aria-label="Más goles en la jornada" onClick={() => step(1)} disabled={value === 200}
-            className="grid size-12 place-items-center rounded-2xl border border-aqua/50 bg-aqua/15 text-aqua active:scale-95 disabled:opacity-35"><Plus className="size-6" /></button>
+            className="grid size-12 place-items-center rounded-2xl border border-gold-soft/50 bg-gold-soft/15 text-gold-soft active:scale-95 disabled:opacity-35"><Plus className="size-6" /></button>
         </div>
       ) : (
         <p className="mt-3 text-sm">

@@ -84,9 +84,9 @@ export function ConfirmEmailPage() {
   }
   if (state.kind === 'confirmed') {
     return (
-      <AuthLayout title="Correo confirmado" subtitle="Tu cuenta de SHABEX ya está activa.">
+      <AuthLayout title="Correo confirmado" subtitle="Tu cuenta de GB QUINELA ya está activa.">
         <div className="card mb-4 flex items-center gap-3 p-4 text-sm" role="status"><CheckCircle2 className="size-6 shrink-0 text-success" /> Listo: ya puedes jugar tu quiniela.</div>
-        <Button size="lg" block onClick={() => navigate('/', { replace: true })}>Entrar a SHABEX</Button>
+        <Button size="lg" block onClick={() => navigate('/', { replace: true })}>Entrar a GB QUINELA</Button>
       </AuthLayout>
     )
   }
@@ -94,7 +94,7 @@ export function ConfirmEmailPage() {
     return (
       <AuthLayout title={state.expired ? 'Enlace caducado' : 'No se pudo confirmar'}
         subtitle={state.expired ? 'El enlace ya se usó o caducó. Pide uno nuevo: llega en unos minutos.' : 'Supabase no confirmó la cuenta con este enlace.'}
-        footer={<Link to="/entrar" className="font-semibold text-aqua">Volver a entrar</Link>}>
+        footer={<Link to="/entrar" className="font-semibold text-gold-soft">Volver a entrar</Link>}>
         <div className="card mb-4 flex items-start gap-3 p-4 text-sm text-muted" role="alert"><MailWarning className="size-6 shrink-0 text-gold" /> {state.detail || 'El enlace no es válido.'}</div>
         <ResendConfirmation />
       </AuthLayout>
@@ -102,7 +102,7 @@ export function ConfirmEmailPage() {
   }
   return (
     <AuthLayout title="Inicia sesión" subtitle="No pudimos comprobar la confirmación en este navegador."
-      footer={<Link to="/entrar" className="font-semibold text-aqua">Ir a entrar</Link>}>
+      footer={<Link to="/entrar" className="font-semibold text-gold-soft">Ir a entrar</Link>}>
       <p className="mb-4 text-sm text-muted">Si el enlace era válido, tu correo ya quedó confirmado: entra con tu correo y contraseña. Si te vuelve a pedir confirmar, solicita un correo nuevo.</p>
       <ResendConfirmation />
     </AuthLayout>
@@ -127,7 +127,7 @@ export function ResendConfirmation({ initialEmail = '' }: { initialEmail?: strin
   if (sent) {
     return (
       <div className="card flex items-start gap-3 p-4 text-sm text-muted" role="status">
-        <RefreshCw className="mt-0.5 size-5 shrink-0 text-aqua" />
+        <RefreshCw className="mt-0.5 size-5 shrink-0 text-gold-soft" />
         <span>Solicitud aceptada. Si la cuenta de {normalizeEmail(email)} está pendiente de confirmar, recibirás un correo nuevo en unos minutos. Usa el enlace más reciente: los anteriores dejan de servir.</span>
       </div>
     )

@@ -84,7 +84,7 @@ function PlanRow({ w, sources, onEdit }: { w: WeekPlan; sources: PoolSource[]; o
       <div role="radiogroup" aria-label={`Modo de ${w.label}`} className="mb-1.5 grid grid-cols-3 gap-1 rounded-full border border-line p-1">
         {MODES.map((m) => (
           <button key={m.value} type="button" role="radio" aria-checked={w.auto_mode === m.value} disabled={busy} onClick={() => void setMode(m.value)}
-            className={cn('h-8 rounded-full text-[12px] font-semibold transition', w.auto_mode === m.value ? 'bg-red text-white' : 'text-muted hover:text-ink')}>
+            className={cn('h-8 rounded-full text-[12px] font-semibold transition', w.auto_mode === m.value ? 'bg-brand text-on-brand' : 'text-muted hover:text-ink')}>
             {m.label}
           </button>
         ))}
@@ -97,7 +97,7 @@ function PlanRow({ w, sources, onEdit }: { w: WeekPlan; sources: PoolSource[]; o
       <p className="text-[11px] text-faint">{MODES.find((m) => m.value === w.auto_mode)!.hint}</p>
       <div className="mt-1 flex items-center justify-between gap-2">
         <label className="flex items-center gap-2 text-xs font-semibold">
-          <input type="checkbox" className="size-4 accent-[var(--color-red)]" checked={w.repeat_weekly} disabled={busy} onChange={(e) => void setRepeat(e.target.checked)} />
+          <input type="checkbox" className="size-4 accent-[var(--color-brand)]" checked={w.repeat_weekly} disabled={busy} onChange={(e) => void setRepeat(e.target.checked)} />
           Repetir cada semana
         </label>
         <Button size="sm" variant="ghost" onClick={onEdit}>Editar</Button>
@@ -153,7 +153,7 @@ function PlanSheet({ open, plan, sources, today, onClose }: { open: boolean; pla
               const on = picked.includes(k)
               return (
                 <button key={k} type="button" aria-pressed={on} onClick={() => toggle(k)}
-                  className={cn('h-9 rounded-full border px-3 text-sm font-semibold', on ? 'border-aqua/60 bg-aqua/15 text-aqua' : 'border-line-strong text-muted')}>
+                  className={cn('h-9 rounded-full border px-3 text-sm font-semibold', on ? 'border-gold-soft/60 bg-gold-soft/15 text-gold-soft' : 'border-line-strong text-muted')}>
                   {s.label}{s.kind === 'league' ? ' (liga)' : ''}
                 </button>
               )
@@ -161,11 +161,11 @@ function PlanSheet({ open, plan, sources, today, onClose }: { open: boolean; pla
           </div>
         </fieldset>
         <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" className="size-4 accent-[var(--color-red)]" checked={weekendOnly} onChange={(e) => setWeekendOnly(e.target.checked)} />
+          <input type="checkbox" className="size-4 accent-[var(--color-brand)]" checked={weekendOnly} onChange={(e) => setWeekendOnly(e.target.checked)} />
           Solo viernes a domingo (ligas y equipos)
         </label>
         <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" className="size-4 accent-[var(--color-red)]" checked={repeat} onChange={(e) => setRepeat(e.target.checked)} />
+          <input type="checkbox" className="size-4 accent-[var(--color-brand)]" checked={repeat} onChange={(e) => setRepeat(e.target.checked)} />
           Repetir cada semana (la siguiente se arma sola el lunes)
         </label>
         <Field label="Modo">{(id) => (

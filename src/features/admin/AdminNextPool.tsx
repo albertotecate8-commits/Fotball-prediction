@@ -158,7 +158,7 @@ export function AdminNextPool() {
 
       <section aria-labelledby="sel-h" className="mb-7">
         <div className="mb-2 flex items-baseline justify-between gap-2">
-          <h2 id="sel-h" className="text-xs font-bold uppercase tracking-[0.15em] text-aqua">A · Partidos seleccionados ({selected.length})</h2>
+          <h2 id="sel-h" className="text-xs font-bold uppercase tracking-[0.15em] text-gold-soft">A · Partidos seleccionados ({selected.length})</h2>
           {pending > 0 && <span className="text-[11px] font-semibold text-gold">{pending} cambio(s) sin publicar</span>}
         </div>
         {selected.length === 0 ? (
@@ -178,7 +178,7 @@ export function AdminNextPool() {
       </section>
 
       <section aria-labelledby="av-h">
-        <h2 id="av-h" className="mb-2 text-xs font-bold uppercase tracking-[0.15em] text-aqua">B · Partidos disponibles para agregar ({suggested.length})</h2>
+        <h2 id="av-h" className="mb-2 text-xs font-bold uppercase tracking-[0.15em] text-gold-soft">B · Partidos disponibles para agregar ({suggested.length})</h2>
         <div className="mb-3 grid gap-2 sm:grid-cols-[1fr_auto]">
           <div className="relative">
             <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-muted" />
@@ -264,9 +264,9 @@ export function AdminNextPool() {
 
 function Row({ m, tz, state, index, children }: { m: NextPoolMatch; tz: string; state: NextPoolMatch['state']; index?: number; children: React.ReactNode }) {
   return (
-    <li className={cn('card p-3', state === 'selected' && 'border-aqua/30')}>
+    <li className={cn('card p-3', state === 'selected' && 'border-gold-soft/30')}>
       <div className="mb-2 flex flex-wrap items-center gap-1.5">
-        {index !== undefined && <span className="scoreline mr-1 text-lg text-aqua">{index}</span>}
+        {index !== undefined && <span className="scoreline mr-1 text-lg text-gold-soft">{index}</span>}
         {badges(m, state).map((b) => <Badge key={b.label} tone={b.tone} className="normal-case tracking-normal">{b.label}</Badge>)}
         <Badge tone={m.source === 'auto' ? 'accent' : 'gold'} className="normal-case tracking-normal">{m.source === 'auto' ? 'Automático' : 'Manual'}</Badge>
       </div>
@@ -294,7 +294,7 @@ function Preview({ rows, tz }: { rows: NextPoolMatch[]; tz: string }) {
       <p className="text-xs text-muted">Así se verá «Mi quiniela» después de publicar ({rows.length} partidos). Cada partido cierra a su hora de inicio.</p>
       {[...byDay.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([k, ms]) => (
         <section key={k}>
-          <h3 className="mb-1.5 text-xs font-bold uppercase tracking-[0.15em] text-aqua">{formatDate(ms[0]!.kickoff_at, tz)}</h3>
+          <h3 className="mb-1.5 text-xs font-bold uppercase tracking-[0.15em] text-gold-soft">{formatDate(ms[0]!.kickoff_at, tz)}</h3>
           <ul className="space-y-1.5">
             {ms.map((m) => (
               <li key={m.match_id} className="card-flat flex items-center gap-2 px-3 py-2 text-sm">

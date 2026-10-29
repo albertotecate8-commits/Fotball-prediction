@@ -73,15 +73,15 @@ export function AdminApiUsage() {
         <div className="flex items-end justify-between">
           <div>
             <div className="scoreline text-4xl">{u.used}<span className="text-xl text-muted">/{u.budget}</span></div>
-            <div className="text-xs text-muted">consultas de SHABEX hoy · presupuesto interno</div>
+            <div className="text-xs text-muted">consultas de la app hoy · presupuesto interno</div>
           </div>
           <div className="text-right">
-            <div className="scoreline text-3xl text-aqua">{u.remaining_internal}</div>
+            <div className="scoreline text-3xl text-gold-soft">{u.remaining_internal}</div>
             <div className="text-xs text-muted">restantes</div>
           </div>
         </div>
         <div className="mt-3 h-2 overflow-hidden rounded-full bg-surface-2" role="progressbar" aria-valuenow={u.used} aria-valuemin={0} aria-valuemax={u.budget} aria-label="Consumo del presupuesto">
-          <div className={cn('h-full rounded-full', pct >= 90 ? 'bg-red' : pct >= 70 ? 'bg-gold' : 'bg-aqua')} style={{ width: `${pct}%` }} />
+          <div className={cn('h-full rounded-full', pct >= 90 ? 'bg-danger' : pct >= 70 ? 'bg-gold' : 'bg-gold-soft')} style={{ width: `${pct}%` }} />
         </div>
         <p className="mt-3 text-xs text-muted">{st.text}{u.paused && u.paused_until ? ` Se reanuda: ${formatDateTime(u.paused_until, timezone)}.` : ''}</p>
       </section>
@@ -101,8 +101,8 @@ export function AdminApiUsage() {
           <p className="text-muted">Aún no hay dato del proveedor hoy. No existe una forma garantizada de conocer el saldo exacto: se usa lo que informa en cada respuesta.</p>
         )}
         {u.provider_current !== null && <p className="mt-1 text-xs text-muted">Contraste directo: el proveedor registra {u.provider_current} consultas hoy ({u.provider_checked_at ? formatTime(u.provider_checked_at, timezone) : '—'}).</p>}
-        {u.external_usage && <p className="mt-2 text-xs font-semibold text-gold">El proveedor cuenta más consultas que SHABEX: otra aplicación podría estar usando la misma clave.</p>}
-        <p className="mt-2 text-xs text-muted">SHABEX nunca baja de {u.margin} consultas del proveedor (margen de seguridad).</p>
+        {u.external_usage && <p className="mt-2 text-xs font-semibold text-gold">El proveedor cuenta más consultas que GB QUINELA: otra aplicación podría estar usando la misma clave.</p>}
+        <p className="mt-2 text-xs text-muted">GB QUINELA nunca baja de {u.margin} consultas del proveedor (margen de seguridad).</p>
         <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-line pt-3">
           <span className="text-xs font-semibold">Consultas al día: {u.budget}</span>
           {u.budget < 100

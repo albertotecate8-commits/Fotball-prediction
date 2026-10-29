@@ -43,7 +43,7 @@ export function PickCard({ match: m, tz, value, disabled, saved, submitted, onCh
       <button key={o} type="button" disabled={disabled} aria-pressed={active} onClick={() => choose(o)}
         aria-label={o === 'X' ? 'Empate' : `Gana ${team!.name}`}
         className={cn('flex min-h-[86px] flex-1 flex-col items-center justify-center gap-1.5 rounded-2xl border px-1.5 py-2 text-center transition active:scale-[0.97]',
-          active ? 'border-aqua bg-aqua/15 text-ink shadow-[0_0_0_1px_var(--color-aqua)]' : 'border-line-strong bg-surface-2 text-ink/85',
+          active ? 'border-gold-soft bg-gold-soft/15 text-ink shadow-[0_0_0_1px_var(--color-gold-soft)]' : 'border-line-strong bg-surface-2 text-ink/85',
           disabled && !active && 'opacity-45', disabled && 'cursor-default active:scale-100')}>
         {team ? <TeamCrest team={team} size={30} /> : <span className="scoreline grid size-[30px] place-items-center text-2xl text-muted">=</span>}
         <span className="line-clamp-2 text-[12px] font-semibold leading-tight">{label}</span>
@@ -52,7 +52,7 @@ export function PickCard({ match: m, tz, value, disabled, saved, submitted, onCh
   }
 
   return (
-    <article className={cn('card p-3 transition', complete && 'border-aqua/30', highlight && !complete && 'border-gold/60 ring-2 ring-gold/30')}>
+    <article className={cn('card p-3 transition', complete && 'border-gold-soft/30', highlight && !complete && 'border-gold/60 ring-2 ring-gold/30')}>
       <div className="mb-2.5 flex items-center justify-between gap-2 text-[11px] text-muted">
         <span className="flex min-w-0 items-center gap-1.5 truncate">{m.competition?.name ?? 'Partido'}</span>
         <span className="flex shrink-0 items-center gap-2">
@@ -72,7 +72,7 @@ export function PickCard({ match: m, tz, value, disabled, saved, submitted, onCh
       </div>
       <div className="mt-2.5 flex items-center justify-between gap-2 border-t border-line pt-2.5">
         <span className={cn('inline-flex items-center gap-1 text-[11px] font-semibold',
-          state === 'Enviado' ? 'text-success' : state === 'Guardado' ? 'text-aqua' : state === 'Elige un resultado' ? 'text-gold' : 'text-muted')}>
+          state === 'Enviado' ? 'text-success' : state === 'Guardado' ? 'text-gold-soft' : state === 'Elige un resultado' ? 'text-gold' : 'text-muted')}>
           {state === 'Elige un resultado' || state === 'Sin pronóstico' ? <Circle className="size-3.5" /> : state === 'Guardando…' ? <CircleDot className="size-3.5" /> : state === 'Cerrado' ? <Lock className="size-3.5" /> : <CheckCircle2 className="size-3.5" />} {state}
         </span>
         {m.score && (m.status === 'live' || m.status === 'suspended') ? (

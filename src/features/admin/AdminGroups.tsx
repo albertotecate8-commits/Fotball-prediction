@@ -52,7 +52,7 @@ export function AdminGroups() {
               </div>
               <div className="mt-3 flex flex-wrap items-center gap-2 rounded-2xl border border-line bg-surface-2/50 p-3">
                 <span className="text-xs text-muted">Código</span>
-                <code className="flex-1 font-mono text-lg tracking-[0.25em] text-aqua">{g.invite_code}</code>
+                <code className="flex-1 font-mono text-lg tracking-[0.25em] text-gold-soft">{g.invite_code}</code>
                 <Button size="sm" variant="ghost" icon={<Copy className="size-4" />} onClick={() => { void navigator.clipboard?.writeText(g.invite_code); toast('Código copiado') }}>Copiar</Button>
                 <Button size="sm" variant="ghost" icon={<RefreshCw className="size-4" />} onClick={() => void regenerate(g)}>Regenerar</Button>
               </div>
@@ -91,8 +91,8 @@ function GroupSheet({ group, onClose }: { group: AdminGroup | null; onClose: () 
       <div className="space-y-4">
         <Field label="Nombre">{(id) => <Input id={id} maxLength={60} value={name} onChange={(e) => setName(e.target.value)} />}</Field>
         <Field label="Descripción">{(id) => <Textarea id={id} maxLength={280} value={description} onChange={(e) => setDescription(e.target.value)} />}</Field>
-        <label className="flex items-center gap-3 text-sm"><input type="checkbox" className="size-5 accent-[var(--color-aqua)]" checked={approval} onChange={(e) => setApproval(e.target.checked)} /> Aprobar manualmente a quien se une con el código</label>
-        <label className="flex items-center gap-3 text-sm"><input type="checkbox" className="size-5 accent-[var(--color-aqua)]" checked={active} onChange={(e) => setActive(e.target.checked)} /> Grupo activo</label>
+        <label className="flex items-center gap-3 text-sm"><input type="checkbox" className="size-5 accent-[var(--color-gold-soft)]" checked={approval} onChange={(e) => setApproval(e.target.checked)} /> Aprobar manualmente a quien se une con el código</label>
+        <label className="flex items-center gap-3 text-sm"><input type="checkbox" className="size-5 accent-[var(--color-gold-soft)]" checked={active} onChange={(e) => setActive(e.target.checked)} /> Grupo activo</label>
         <InlineError error={error} />
       </div>
     </Sheet>

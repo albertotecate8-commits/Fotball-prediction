@@ -31,11 +31,11 @@ export function LoginPage() {
 
   return (
     <AuthLayout title="Entrar" subtitle="Accede para hacer tu quiniela y ver cómo vas."
-      footer={<>¿No tienes cuenta? <Link to="/registro" className="font-semibold text-aqua">Regístrate</Link></>}>
+      footer={<>¿No tienes cuenta? <Link to="/registro" className="font-semibold text-gold-soft">Regístrate</Link></>}>
       <form onSubmit={onSubmit} className="space-y-4" noValidate>
         <Field label="Correo">{(id) => <Input id={id} type="email" inputMode="email" autoCapitalize="none" autoCorrect="off" spellCheck={false} autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />}</Field>
         <Field label="Contraseña">{(id) => <PasswordInput id={id} autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />}</Field>
-        <div className="text-right"><Link to="/recuperar" className="text-sm text-muted hover:text-aqua">¿Olvidaste tu contraseña?</Link></div>
+        <div className="text-right"><Link to="/recuperar" className="text-sm text-muted hover:text-gold-soft">¿Olvidaste tu contraseña?</Link></div>
         <InlineError error={error} />
         <Button type="submit" size="lg" block loading={loading} disabled={!email || !password}>Entrar</Button>
       </form>
@@ -85,8 +85,8 @@ export function SignupPage() {
   if (outcome === 'sent') {
     return (
       <AuthLayout title="Revisa tu correo" subtitle={`Enviamos un enlace de confirmación a ${clean}.`}
-        footer={<Link to="/entrar" className="font-semibold text-aqua">Volver a entrar</Link>}>
-        <div className="card mb-5 flex items-center gap-3 p-4 text-sm text-muted"><MailCheck className="size-6 shrink-0 text-aqua" /> Abre el enlace para activar tu cuenta. Caduca en 1 hora.</div>
+        footer={<Link to="/entrar" className="font-semibold text-gold-soft">Volver a entrar</Link>}>
+        <div className="card mb-5 flex items-center gap-3 p-4 text-sm text-muted"><MailCheck className="size-6 shrink-0 text-gold-soft" /> Abre el enlace para activar tu cuenta. Caduca en 1 hora.</div>
         <ResendConfirmation initialEmail={clean} />
       </AuthLayout>
     )
@@ -94,7 +94,7 @@ export function SignupPage() {
   if (outcome === 'pending') {
     return (
       <AuthLayout title="Ya tienes cuenta" subtitle="Ese correo ya está registrado y falta confirmarlo. No se creó otra cuenta."
-        footer={<Link to="/entrar" className="font-semibold text-aqua">Ir a entrar</Link>}>
+        footer={<Link to="/entrar" className="font-semibold text-gold-soft">Ir a entrar</Link>}>
         <p className="mb-4 text-sm text-muted">Pide un correo nuevo y abre el enlace más reciente. Tu contraseña sigue siendo la misma.</p>
         <ResendConfirmation initialEmail={clean} />
       </AuthLayout>
@@ -103,7 +103,7 @@ export function SignupPage() {
   if (outcome === 'registered') {
     return (
       <AuthLayout title="Ya tienes cuenta" subtitle="Ese correo ya está registrado y confirmado. No se creó otra cuenta."
-        footer={<Link to="/recuperar" className="font-semibold text-aqua">¿Olvidaste tu contraseña?</Link>}>
+        footer={<Link to="/recuperar" className="font-semibold text-gold-soft">¿Olvidaste tu contraseña?</Link>}>
         <Link to="/entrar" className="block"><Button size="lg" block>Entrar</Button></Link>
       </AuthLayout>
     )
@@ -111,7 +111,7 @@ export function SignupPage() {
 
   return (
     <AuthLayout title="Crear cuenta" subtitle="Tu alias es lo que verán tus amigos en la clasificación."
-      footer={<>¿Ya tienes cuenta? <Link to="/entrar" className="font-semibold text-aqua">Entrar</Link></>}>
+      footer={<>¿Ya tienes cuenta? <Link to="/entrar" className="font-semibold text-gold-soft">Entrar</Link></>}>
       <form onSubmit={onSubmit} className="space-y-4" noValidate>
         <Field label="Alias" error={nameError}>{(id) => <Input id={id} autoComplete="nickname" maxLength={40} required value={name} onChange={(e) => setName(e.target.value)} />}</Field>
         <Field label="Correo" error={emailError}>{(id) => <Input id={id} type="email" inputMode="email" autoCapitalize="none" autoCorrect="off" spellCheck={false} autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />}</Field>
@@ -141,10 +141,10 @@ export function ForgotPasswordPage() {
 
   return (
     <AuthLayout title="Recuperar acceso" subtitle="Te enviaremos un enlace para crear una nueva contraseña."
-      footer={<Link to="/entrar" className="font-semibold text-aqua">Volver a entrar</Link>}>
+      footer={<Link to="/entrar" className="font-semibold text-gold-soft">Volver a entrar</Link>}>
       {sent ? (
         <div className="card flex items-center gap-3 p-4 text-sm text-muted" role="status">
-          <MailCheck className="size-6 shrink-0 text-aqua" /> Si existe una cuenta con {email}, recibirás el enlace en unos minutos.
+          <MailCheck className="size-6 shrink-0 text-gold-soft" /> Si existe una cuenta con {email}, recibirás el enlace en unos minutos.
         </div>
       ) : (
         <form onSubmit={onSubmit} className="space-y-4" noValidate>

@@ -49,7 +49,7 @@ export function HomePage() {
 
       {live.length > 0 && (
         <>
-          <SectionTitle><span className="inline-flex items-center gap-2"><Radio className="size-4 text-red" /> En vivo</span></SectionTitle>
+          <SectionTitle><span className="inline-flex items-center gap-2"><Radio className="size-4 text-live" /> En vivo</span></SectionTitle>
           <div className="space-y-2">
             {live.map((m) => <Link key={m.match_id} to="/quinielas" className="block"><MatchRow match={m} tz={timezone} /></Link>)}
           </div>

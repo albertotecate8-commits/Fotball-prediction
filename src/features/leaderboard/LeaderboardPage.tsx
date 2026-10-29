@@ -46,8 +46,8 @@ export function LeaderboardPage() {
           ) : (
             <>
               {me && (
-                <p className="mb-3 rounded-2xl border border-aqua/40 bg-aqua/10 px-4 py-2.5 text-sm">
-                  Vas <span className="font-bold text-aqua">{me.rank_position}.º</span> de {rows.length} con <span className="font-bold">{me.points} {me.points === 1 ? 'punto' : 'puntos'}</span>
+                <p className="mb-3 rounded-2xl border border-gold-soft/40 bg-gold-soft/10 px-4 py-2.5 text-sm">
+                  Vas <span className="font-bold text-gold-soft">{me.rank_position}.º</span> de {rows.length} con <span className="font-bold">{me.points} {me.points === 1 ? 'punto' : 'puntos'}</span>
                   {me.pending > 0 ? ` · te quedan ${me.pending} por definirse` : ''}
                 </p>
               )}
@@ -76,7 +76,7 @@ function Summary({ data, tz }: { data: WeekStandings; tz: string }) {
   return (
     <section aria-label="Resumen de la jornada" className="card mb-4 p-4">
       <div className="flex items-baseline justify-between gap-2">
-        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-aqua">Jornada actual · {data.week!.label}</p>
+        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-gold-soft">Jornada actual · {data.week!.label}</p>
       </div>
       <p className="mt-1 text-lg font-semibold">
         <span className="scoreline text-2xl">{done}</span> de {s.total} finalizados
@@ -88,7 +88,7 @@ function Summary({ data, tz }: { data: WeekStandings; tz: string }) {
       <ul className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1 text-xs">
         <li className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-success" /> {done} finalizados</li>
         <li className="flex items-center gap-1.5"><span className={cn('size-2 rounded-full bg-live', s.live > 0 && 'animate-pulse-soft')} /> {s.live} en vivo</li>
-        <li className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-aqua" /> {s.pending} pendientes</li>
+        <li className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-silver/70" /> {s.pending} pendientes</li>
         {s.void > 0 && <li className="flex items-center gap-1.5 text-muted"><span className="size-2 rounded-full bg-muted" /> {s.void} aplazados/cancelados</li>}
       </ul>
       <p className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted">
@@ -103,15 +103,15 @@ function Row({ r, onOpen }: { r: StandingsRow; onOpen: () => void }) {
   return (
     <li>
       <button type="button" onClick={onOpen} aria-label={`Ver pronósticos de ${r.display_name}`}
-        className={cn('card flex w-full items-center gap-3 p-3 text-left transition hover:border-aqua/40', r.is_me && 'border-aqua/60 bg-aqua/[0.06]')}>
+        className={cn('card flex w-full items-center gap-3 p-3 text-left transition hover:border-gold-soft/40', r.rank_position === 1 && 'border-gold/60 bg-gold/[0.06] shadow-[0_0_24px_-12px_rgba(212,175,55,0.6)]', r.is_me && 'border-gold-soft/60 bg-gold-soft/[0.06]')}>
         <span className={cn('scoreline w-7 shrink-0 text-center text-2xl', MEDAL[r.rank_position - 1] ?? 'text-muted')}>{r.rank_position}</span>
         <Avatar name={r.display_name} url={r.avatar_url} size={36} />
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-semibold">{r.display_name}{r.is_me && <span className="ml-1.5 text-[11px] font-bold text-aqua">TÚ</span>}</span>
+          <span className="block truncate text-sm font-semibold">{r.display_name}{r.is_me && <span className="ml-1.5 text-[11px] font-bold text-gold-soft">TÚ</span>}</span>
           <span className="mt-0.5 flex flex-wrap items-center gap-x-2.5 text-[11px]">
             <span className="inline-flex items-center gap-0.5 text-success" title="Aciertos confirmados"><Check className="size-3.5" />{r.hits}</span>
             <span className="inline-flex items-center gap-0.5 text-danger" title="Fallos confirmados"><X className="size-3.5" />{r.misses}</span>
-            <span className="inline-flex items-center gap-0.5 text-aqua" title="Por definirse"><Clock className="size-3.5" />{r.pending}</span>
+            <span className="inline-flex items-center gap-0.5 text-silver/80" title="Por definirse"><Clock className="size-3.5" />{r.pending}</span>
             {r.live > 0 && <span className="inline-flex items-center gap-1 text-live"><span className="size-1.5 animate-pulse-soft rounded-full bg-live" />{r.live} en vivo</span>}
             {r.guess !== null && <span className="text-muted">· {r.guess} goles</span>}
           </span>
@@ -130,7 +130,7 @@ const RESULT: Record<PickResult, { label: string; cls: string; icon: React.React
   hit: { label: 'Acierto', cls: 'text-success border-success/40 bg-success/10', icon: <Check className="size-3.5" /> },
   miss: { label: 'Fallo', cls: 'text-danger border-danger/40 bg-danger/10', icon: <X className="size-3.5" /> },
   live: { label: 'En vivo', cls: 'text-live border-live/40 bg-live/10', icon: <span className="size-1.5 animate-pulse-soft rounded-full bg-live" /> },
-  pending: { label: 'Pendiente', cls: 'text-aqua border-aqua/30 bg-aqua/10', icon: <Clock className="size-3.5" /> },
+  pending: { label: 'Pendiente', cls: 'text-silver border-line-strong bg-white/5', icon: <Clock className="size-3.5" /> },
   unconfirmed: { label: 'Sin resultado definitivo', cls: 'text-gold border-gold/40 bg-gold/10', icon: <Clock className="size-3.5" /> },
   void: { label: 'Sin resultado', cls: 'text-muted border-line bg-white/5', icon: <Minus className="size-3.5" /> },
   none: { label: 'Sin pronóstico', cls: 'text-muted border-line bg-white/5', icon: <Minus className="size-3.5" /> },
@@ -148,7 +148,7 @@ function DetailSheet({ weekId, row, tz, onClose }: { weekId: string; row: Standi
           <div className="card-flat p-2"><dt className="text-[10px] uppercase text-muted">Puntos</dt><dd className="scoreline text-xl">{row.points}</dd></div>
           <div className="card-flat p-2"><dt className="text-[10px] uppercase text-success">Aciertos</dt><dd className="scoreline text-xl text-success">{row.hits}</dd></div>
           <div className="card-flat p-2"><dt className="text-[10px] uppercase text-danger">Fallos</dt><dd className="scoreline text-xl text-danger">{row.misses}</dd></div>
-          <div className="card-flat p-2"><dt className="text-[10px] uppercase text-aqua">Faltan</dt><dd className="scoreline text-xl text-aqua">{row.pending}</dd></div>
+          <div className="card-flat p-2"><dt className="text-[10px] uppercase text-muted">Faltan</dt><dd className="scoreline text-xl text-silver">{row.pending}</dd></div>
         </dl>
         {d?.guess != null && <p className="text-xs text-muted"><Goal className="mr-1 inline size-3.5 text-gold" />Total de goles de la jornada: <span className="font-semibold text-ink">{d.guess}</span></p>}
         {q.isLoading ? <CardSkeleton lines={4} /> : q.error ? <ErrorState error={q.error} onRetry={() => void q.refetch()} /> : (

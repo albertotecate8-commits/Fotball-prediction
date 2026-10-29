@@ -2,7 +2,7 @@ import { forwardRef, useId, useState, type InputHTMLAttributes, type ReactNode, 
 import { Eye, EyeOff } from 'lucide-react'
 import { cn } from '@/lib/cn'
 
-const control = 'w-full rounded-2xl border border-line-strong bg-surface-2/80 px-4 text-ink placeholder:text-faint transition focus:border-aqua focus:outline-none focus:ring-2 focus:ring-aqua/25 disabled:opacity-50'
+const control = 'w-full rounded-2xl border border-line-strong bg-surface-2/80 px-4 text-ink placeholder:text-faint transition focus:border-gold-soft focus:outline-none focus:ring-2 focus:ring-gold-soft/25 disabled:opacity-50'
 
 export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(function Input({ className, ...rest }, ref) {
   return <input ref={ref} className={cn(control, 'h-12', className)} {...rest} />

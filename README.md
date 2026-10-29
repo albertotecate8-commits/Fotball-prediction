@@ -1,4 +1,4 @@
-# SHABEX — La Quiniela
+# GB QUINELA
 
 Plataforma de quinielas de fútbol entre amigos, pensada primero para el teléfono: jornadas, pronósticos con autoguardado, envío definitivo bloqueado, resultados automáticos, puntuación oficial, clasificación y panel de administración.
 

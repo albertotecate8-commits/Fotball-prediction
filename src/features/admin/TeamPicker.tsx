@@ -38,7 +38,7 @@ export function TeamPicker({ label, value, onChange }: { label: string; value: C
         <ul className="mt-2 max-h-56 space-y-1 overflow-y-auto">
           {(results.data ?? []).map((t) => (
             <li key={t.id}>
-              <button type="button" onClick={() => onChange(t)} className="card-flat flex w-full items-center gap-3 px-3 py-2 text-left text-sm hover:border-aqua/40">
+              <button type="button" onClick={() => onChange(t)} className="card-flat flex w-full items-center gap-3 px-3 py-2 text-left text-sm hover:border-gold-soft/40">
                 <TeamCrest team={{ ...t, code: null }} size={24} />
                 <span className="min-w-0 flex-1 truncate font-semibold">{t.name}</span>
                 <span className="shrink-0 text-[10px] text-muted">{t.external_id ? `#${t.external_id}` : 'manual'}</span>

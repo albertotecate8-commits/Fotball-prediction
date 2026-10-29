@@ -87,7 +87,7 @@ export function AddTeamFlow({ initialName = '', onDone, onCancel, offerFollow = 
 
       {offerFollow && (
         <label className="flex items-center gap-2 text-xs font-semibold">
-          <input type="checkbox" className="size-4 accent-[var(--color-red)]" checked={follow} onChange={(e) => setFollow(e.target.checked)} />
+          <input type="checkbox" className="size-4 accent-[var(--color-brand)]" checked={follow} onChange={(e) => setFollow(e.target.checked)} />
           Incluir sus partidos cada semana en la quiniela
         </label>
       )}
@@ -98,7 +98,7 @@ export function AddTeamFlow({ initialName = '', onDone, onCancel, offerFollow = 
           <ul className="space-y-1.5">
             {inCatalog.slice(0, 5).map((t) => (
               <li key={t.id}>
-                <button type="button" disabled={busy} onClick={() => void chooseCatalog(t)} className="card-flat flex w-full items-center gap-3 px-3 py-2 text-left text-sm hover:border-aqua/40 disabled:opacity-50">
+                <button type="button" disabled={busy} onClick={() => void chooseCatalog(t)} className="card-flat flex w-full items-center gap-3 px-3 py-2 text-left text-sm hover:border-gold-soft/40 disabled:opacity-50">
                   <TeamCrest team={{ ...t, code: null }} size={28} />
                   <span className="min-w-0 flex-1 truncate font-semibold">{t.name}</span>
                   <span className="shrink-0 text-[10px] text-muted">{t.external_id ? `API-Football #${t.external_id}` : 'manual'}</span>
@@ -119,14 +119,14 @@ export function AddTeamFlow({ initialName = '', onDone, onCancel, offerFollow = 
                 {results.map((t) => (
                   <li key={t.external_id}>
                     <button type="button" disabled={busy} onClick={() => void pick(t)}
-                      className="card-flat flex w-full items-center gap-3 px-3 py-2 text-left text-sm hover:border-aqua/40 disabled:opacity-50">
+                      className="card-flat flex w-full items-center gap-3 px-3 py-2 text-left text-sm hover:border-gold-soft/40 disabled:opacity-50">
                       <TeamCrest team={{ name: t.name, short_name: t.code ?? t.name, code: t.code, logo_url: t.logo_url }} size={30} />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate font-semibold">{t.name}</span>
                         <span className="block truncate text-[11px] text-muted">{[t.league, t.country].filter(Boolean).join(' · ') || '—'} · API-Football #{t.external_id}</span>
                       </span>
                       {t.catalog_id ? <Badge tone={t.catalog_retired ? 'danger' : 'success'} className="normal-case tracking-normal">{t.catalog_retired ? 'Retirado' : 'Ya en catálogo'}</Badge>
-                        : <span className="shrink-0 rounded-full bg-red px-3 py-1 text-xs font-bold text-white">Añadir</span>}
+                        : <span className="shrink-0 rounded-full bg-brand px-3 py-1 text-xs font-bold text-on-brand">Añadir</span>}
                     </button>
                   </li>
                 ))}

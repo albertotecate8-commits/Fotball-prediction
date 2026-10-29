@@ -24,10 +24,10 @@ function BottomNav() {
           <li key={to} className="flex-1">
             <NavLink to={to} end={end}
               className={({ isActive }) => cn('relative flex h-16 flex-col items-center justify-center gap-1 text-[11px] font-semibold transition-colors',
-                isActive ? 'text-red' : 'text-muted hover:text-ink')}>
+                isActive ? 'text-brand' : 'text-muted hover:text-ink')}>
               {({ isActive }) => (
                 <>
-                  {isActive && <span className="absolute inset-x-5 top-0 h-0.5 rounded-full bg-red" aria-hidden />}
+                  {isActive && <span className="absolute inset-x-5 top-0 h-0.5 rounded-full bg-brand" aria-hidden />}
                   <Icon className="size-[22px]" strokeWidth={isActive ? 2.3 : 1.8} aria-hidden />
                   {label}
                 </>
@@ -55,9 +55,9 @@ function TopBar() {
 function PreviewBanner() {
   const navigate = useNavigate()
   return (
-    <div className="sticky top-0 z-40 -mx-4 flex items-center gap-2 border-b border-aqua/40 bg-aqua/15 px-4 py-2 text-xs font-semibold text-aqua backdrop-blur lg:mx-0 lg:mb-4 lg:rounded-xl lg:border">
+    <div className="sticky top-0 z-40 -mx-4 flex items-center gap-2 border-b border-gold-soft/40 bg-gold-soft/15 px-4 py-2 text-xs font-semibold text-gold-soft backdrop-blur lg:mx-0 lg:mb-4 lg:rounded-xl lg:border">
       <ShieldCheck className="size-4 shrink-0" /> <span className="min-w-0 flex-1">Vista de participante</span>
-      <button type="button" className="h-8 shrink-0 rounded-full bg-aqua px-3 font-bold text-black" onClick={() => { setAdminPreview(false); void navigate('/admin') }}>Volver al panel</button>
+      <button type="button" className="h-8 shrink-0 rounded-full bg-gold-soft px-3 font-bold text-black" onClick={() => { setAdminPreview(false); void navigate('/admin') }}>Volver al panel</button>
     </div>
   )
 }
@@ -72,8 +72,8 @@ function Sidebar() {
         {NAV.map(({ to, label, icon: Icon, end }) => (
           <NavLink key={to} to={to} end={end}
             className={({ isActive }) => cn('flex h-11 items-center gap-3 rounded-xl px-3 text-sm font-semibold transition',
-              isActive ? 'bg-red/12 text-ink shadow-[inset_3px_0_0_var(--color-red)]' : 'text-muted hover:bg-white/5 hover:text-ink')}>
-            {({ isActive }) => <><Icon className={cn('size-5', isActive && 'text-red')} aria-hidden /> {label}</>}
+              isActive ? 'bg-brand/12 text-ink shadow-[inset_3px_0_0_var(--color-brand)]' : 'text-muted hover:bg-white/5 hover:text-ink')}>
+            {({ isActive }) => <><Icon className={cn('size-5', isActive && 'text-brand')} aria-hidden /> {label}</>}
           </NavLink>
         ))}
       </nav>

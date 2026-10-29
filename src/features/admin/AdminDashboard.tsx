@@ -52,7 +52,7 @@ export function AdminDashboard() {
             <p className="mt-1 text-xs text-muted">{s.last_sync.matches_checked} revisados · {s.last_sync.matches_updated} actualizados{s.last_sync.error_message ? ` · ${s.last_sync.error_message}` : ''}</p>
           </div>
         ) : <span className="text-sm text-muted">Aún no se ha ejecutado ninguna sincronización.</span>}
-        <Link to="/admin/resultados" className="text-sm font-semibold text-aqua">Ver</Link>
+        <Link to="/admin/resultados" className="text-sm font-semibold text-gold-soft">Ver</Link>
       </div>
 
       <SectionTitle>Proveedor deportivo</SectionTitle>
@@ -61,8 +61,8 @@ export function AdminDashboard() {
       <SectionTitle>Accesos rápidos</SectionTitle>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {QUICK.map(({ to, label, icon: Icon }) => (
-          <Link key={label} to={to} className="card flex items-center gap-3 p-4 transition hover:border-aqua/40">
-            <span className="grid size-10 place-items-center rounded-full bg-aqua/12 text-aqua"><Icon className="size-5" /></span>
+          <Link key={label} to={to} className="card flex items-center gap-3 p-4 transition hover:border-gold-soft/40">
+            <span className="grid size-10 place-items-center rounded-full bg-gold-soft/12 text-gold-soft"><Icon className="size-5" /></span>
             <span className="text-sm font-semibold">{label}</span>
           </Link>
         ))}

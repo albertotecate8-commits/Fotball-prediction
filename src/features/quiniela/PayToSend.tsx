@@ -10,13 +10,13 @@ import { CopyRow } from '@/features/profile/PaymentCard'
  * referencia listas para copiar y pegar en la app del banco.
  * `amount` y `label` sirven para una quiniela con entrada aparte.
  */
-export function PayToSend({ amount, label, tone = 'gold' }: { amount?: number | null; label?: string; tone?: 'gold' | 'aqua' }) {
+export function PayToSend({ amount, label, tone = 'gold' }: { amount?: number | null; label?: string; tone?: 'gold' | 'soft' }) {
   const q = useQuery({ queryKey: qk.myPayment, queryFn: playerApi.myPayment })
   const p = q.data
   const value = amount ?? p?.amount ?? null
   const money = value ? new Intl.NumberFormat('es-MX', { style: 'currency', currency: p?.currency || 'MXN', maximumFractionDigits: Number.isInteger(Number(value)) ? 0 : 2 }).format(Number(value)) : null
   const pending = !label && p?.state === 'pending'
-  const accent = tone === 'aqua' ? 'border-aqua/40 bg-aqua/[0.07] text-aqua' : 'border-gold/40 bg-gold/10 text-gold'
+  const accent = tone === 'soft' ? 'border-gold-soft/40 bg-gold-soft/[0.07] text-gold-soft' : 'border-gold/40 bg-gold/10 text-gold'
   return (
     <section aria-label={label ? `Pago ${label}` : 'Pago para enviar tu quiniela'} className={`mb-4 rounded-2xl border p-3 text-sm ${accent}`}>
       <p className="flex items-center gap-2 font-semibold">

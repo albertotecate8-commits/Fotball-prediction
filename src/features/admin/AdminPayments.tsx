@@ -82,7 +82,7 @@ export function AdminPayments() {
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <div className="flex items-center gap-1"><span className="truncate font-semibold">{r.alias}</span><CopyChip value={r.alias} label="alias" /></div>
-                  <div className="flex items-center gap-1"><span className="font-mono text-sm font-bold text-aqua">{r.reference}</span><CopyChip value={r.reference} label="referencia" /></div>
+                  <div className="flex items-center gap-1"><span className="font-mono text-sm font-bold text-gold-soft">{r.reference}</span><CopyChip value={r.reference} label="referencia" /></div>
                   <div className="truncate text-[11px] text-faint">{r.email}{r.legacy_reference ? ` · antes ${r.legacy_reference}` : ''}</div>
                 </div>
                 <Badge tone={STATE[r.state].tone}>{STATE[r.state].l}</Badge>
@@ -182,9 +182,9 @@ function ExtraPotSwitch({ x }: { x: ExtraPot }) {
     } catch (e) { toast(errorMessage(e), 'error') } finally { setBusy(false) }
   }
   return (
-    <section className="card mb-4 border-aqua/30 p-4" aria-label={`Bolsa ${x.label}`}>
-      <h2 className="flex items-center gap-2 font-semibold"><Trophy className="size-5 text-aqua" /> Bolsa {x.label}</h2>
-      <p className="scoreline mt-1 text-3xl text-aqua">{money}</p>
+    <section className="card mb-4 border-gold-soft/30 p-4" aria-label={`Bolsa ${x.label}`}>
+      <h2 className="flex items-center gap-2 font-semibold"><Trophy className="size-5 text-gold-soft" /> Bolsa {x.label}</h2>
+      <p className="scoreline mt-1 text-3xl text-gold-soft">{money}</p>
       <p className="text-[11px] text-muted">70 % de {x.entries} {x.entries === 1 ? 'entrada' : 'entradas'} de {new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(Number(x.entry_amount))}</p>
       <label className="mt-3 flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-line bg-surface-2 p-3">
         <span>
@@ -282,7 +282,7 @@ function ConfirmSheet({ row, onClose }: { row: PaymentRow; onClose: () => void }
     <Sheet open onClose={onClose} title={`Pago de ${row.alias}`}
       footer={<Button block size="lg" loading={busy} disabled={!valid} onClick={() => void save()}>Guardar</Button>}>
       <div className="space-y-4">
-        <p className="text-sm text-muted">Referencia: <span className="font-mono font-bold text-aqua">{row.reference}</span>. Todo lo de abajo es opcional.</p>
+        <p className="text-sm text-muted">Referencia: <span className="font-mono font-bold text-gold-soft">{row.reference}</span>. Todo lo de abajo es opcional.</p>
         <Field label="Estado">{(id) => (
           <Select id={id} value={status} onChange={(e) => setStatus(e.target.value as PaymentStatus)}>
             <option value="authorized">Confirmado (puede enviar pronósticos)</option>

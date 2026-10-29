@@ -160,7 +160,7 @@ function PredictionForm({ detail, userId, participation }: { detail: RoundDetail
       <div className="card sticky top-[calc(env(safe-area-inset-top)+0.5rem)] z-30 mb-4 flex items-center justify-between gap-3 p-3 pl-4 glass">
         <div>
           <div className="text-[10px] font-bold uppercase tracking-wider text-muted">Progreso</div>
-          <div className="scoreline text-2xl"><span className={complete ? 'text-aqua' : ''}>{done}</span><span className="text-muted"> / {total}</span></div>
+          <div className="scoreline text-2xl"><span className={complete ? 'text-gold-soft' : ''}>{done}</span><span className="text-muted"> / {total}</span></div>
         </div>
         <div className="flex flex-col items-end gap-1">
           <Countdown target={detail.round.deadline_at} compact className="text-lg" />
@@ -191,7 +191,7 @@ function PredictionForm({ detail, userId, participation }: { detail: RoundDetail
           const p = picks[m.match_id]!
           const filled = p.home != null && p.away != null
           return (
-            <li key={m.match_id} className={cn('card p-4 transition animate-fade-up', filled && 'border-aqua/25')} style={{ animationDelay: `${Math.min(i, 8) * 40}ms` }}>
+            <li key={m.match_id} className={cn('card p-4 transition animate-fade-up', filled && 'border-gold-soft/25')} style={{ animationDelay: `${Math.min(i, 8) * 40}ms` }}>
               <div className="mb-3 flex items-center justify-between text-xs text-muted">
                 <span className="font-semibold">Partido {m.position}{m.competition ? ` · ${m.competition.name}` : ''}</span>
                 <span className="capitalize">{formatShortDate(m.kickoff_at, timezone)} · {formatTime(m.kickoff_at, timezone)}</span>

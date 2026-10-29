@@ -18,8 +18,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       <div className="pointer-events-none fixed inset-x-0 top-[calc(env(safe-area-inset-top)+0.75rem)] z-[60] flex flex-col items-center gap-2 px-4" aria-live="polite">
         {toasts.map((t) => (
           <div key={t.id} className={cn('glass pointer-events-auto flex max-w-md items-center gap-2 rounded-2xl border px-4 py-3 text-sm shadow-card animate-fade-up',
-            t.tone === 'success' ? 'border-aqua/30' : 'border-danger/40')}>
-            {t.tone === 'success' ? <CheckCircle2 className="size-4 text-aqua" /> : <AlertTriangle className="size-4 text-danger" />}
+            t.tone === 'success' ? 'border-gold-soft/30' : 'border-danger/40')}>
+            {t.tone === 'success' ? <CheckCircle2 className="size-4 text-gold-soft" /> : <AlertTriangle className="size-4 text-danger" />}
             {t.message}
           </div>
         ))}

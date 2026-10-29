@@ -54,13 +54,13 @@ export function JoinGroupCard() {
     <div className="space-y-4">
       {pending.map((g) => (
         <div key={g.group_id} className="card flex items-center gap-3 p-4">
-          <Hourglass className="size-6 shrink-0 text-aqua" />
+          <Hourglass className="size-6 shrink-0 text-gold-soft" />
           <div className="text-sm"><span className="font-semibold">{g.name}</span><p className="text-muted">Tu solicitud está pendiente de aprobación por el administrador.</p></div>
         </div>
       ))}
       <form onSubmit={onSubmit} className="card space-y-4 p-5">
         <div className="flex items-center gap-3">
-          <span className="grid size-11 place-items-center rounded-full bg-aqua/12 text-aqua"><Users className="size-5" /></span>
+          <span className="grid size-11 place-items-center rounded-full bg-gold-soft/12 text-gold-soft"><Users className="size-5" /></span>
           <div>
             <h2 className="display text-xl font-semibold uppercase">Únete a un grupo</h2>
             <p className="text-sm text-muted">Pide el código de invitación al organizador.</p>
@@ -72,7 +72,7 @@ export function JoinGroupCard() {
         <Button type="submit" block loading={loading} disabled={code.trim().length < 6}>Unirme</Button>
       </form>
       {!isAdmin && (
-        <button type="button" onClick={() => void claimAdmin()} className="mx-auto flex items-center gap-2 text-xs text-muted hover:text-aqua">
+        <button type="button" onClick={() => void claimAdmin()} className="mx-auto flex items-center gap-2 text-xs text-muted hover:text-gold-soft">
           <ShieldCheck className="size-3.5" /> ¿Eres el organizador y es la primera vez? Activar administración
         </button>
       )}

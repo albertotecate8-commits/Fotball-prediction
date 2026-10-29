@@ -1,11 +1,11 @@
-/* SHABEX — service worker.
+/* GB QUINELA — service worker.
  * Solo guarda en caché lo ESTÁTICO (código con hash, iconos, manifest) para que
  * la app abra rápido y funcione como aplicación instalada. Nunca toca los datos
  * deportivos ni de la cuenta: Supabase y las funciones van siempre a la red
  * (son de otro dominio y no se interceptan). Las páginas se piden primero a la
  * red; sin conexión se muestra la última versión de la app, y la propia app
  * indica cuándo se actualizaron los datos. */
-const VERSION = 'shabex-v2'
+const VERSION = 'shabex-v3'
 const STATIC = `${VERSION}-static`
 const SHELL = `${VERSION}-shell`
 const scope = new URL(self.registration.scope)
@@ -61,7 +61,7 @@ self.addEventListener('fetch', (event) => {
     return
   }
   // Iconos y manifest: de la red y, sin conexión, de caché.
-  if (path.startsWith('icons/') || path === 'manifest.webmanifest' || path === 'favicon.svg') {
+  if (path.startsWith('icons/') || path === 'manifest.webmanifest' || path.startsWith('favicon') || path.startsWith('brand/')) {
     event.respondWith((async () => {
       try {
         const res = await fetch(req)

@@ -25,17 +25,17 @@ export function GroupsPage() {
             const st = STATUS[g.member_status as keyof typeof STATUS] ?? STATUS.pending
             return (
               <li key={g.group_id}>
-                <div className={cn('card-flat flex items-center gap-3 px-4 py-3', isActive && 'border-aqua/40')}>
-                  <span className={cn('grid size-10 shrink-0 place-items-center rounded-full', isActive ? 'bg-aqua/12 text-aqua' : 'bg-surface-2 text-muted')}><Users className="size-5" /></span>
+                <div className={cn('card-flat flex items-center gap-3 px-4 py-3', isActive && 'border-gold-soft/40')}>
+                  <span className={cn('grid size-10 shrink-0 place-items-center rounded-full', isActive ? 'bg-gold-soft/12 text-gold-soft' : 'bg-surface-2 text-muted')}><Users className="size-5" /></span>
                   <div className="min-w-0 flex-1">
                     <div className="truncate font-semibold">{g.name}</div>
                     <div className="text-xs text-muted">{g.members_count} jugadores</div>
                   </div>
                   <Badge tone={st.tone}>{st.label}</Badge>
                   {g.member_status === 'active' && (isActive ? (
-                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-aqua"><CheckCircle2 className="size-4" /> Activo</span>
+                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-gold-soft"><CheckCircle2 className="size-4" /> Activo</span>
                   ) : (
-                    <button type="button" onClick={() => select(g.group_id)} className="h-9 rounded-full border border-line-strong px-3 text-xs font-semibold transition hover:border-aqua/50 hover:text-aqua">Usar</button>
+                    <button type="button" onClick={() => select(g.group_id)} className="h-9 rounded-full border border-line-strong px-3 text-xs font-semibold transition hover:border-gold-soft/50 hover:text-gold-soft">Usar</button>
                   ))}
                 </div>
               </li>

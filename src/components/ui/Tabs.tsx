@@ -16,7 +16,7 @@ export function PillTabs<T extends string>({ value, onChange, options, className
           <button key={o.value} role="tab" aria-selected={active} type="button" onClick={() => onChange(o.value)}
             className={cn(
               'h-10 shrink-0 rounded-full border px-4 text-sm font-semibold transition',
-              active ? 'border-red bg-red text-white shadow-red' : 'border-line-strong bg-surface/60 text-ink/85 hover:bg-surface-2',
+              active ? 'border-brand bg-brand text-on-brand shadow-brand' : 'border-line-strong bg-surface/60 text-ink/85 hover:bg-surface-2',
             )}>
             {o.label}
             {o.count !== undefined && <span className={cn('ml-1.5 text-xs', active ? 'text-white/75' : 'text-muted')}>{o.count}</span>}

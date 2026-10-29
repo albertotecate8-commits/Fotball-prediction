@@ -13,7 +13,7 @@ export function FullPageSpinner({ label = 'Cargando…' }: { label?: string }) {
   return (
     <div className="grid min-h-[60dvh] place-items-center text-muted" role="status" aria-live="polite">
       <div className="flex flex-col items-center gap-3">
-        <Spinner className="size-7 text-aqua" />
+        <Spinner className="size-7 text-gold-soft" />
         <span className="text-sm">{label}</span>
       </div>
     </div>

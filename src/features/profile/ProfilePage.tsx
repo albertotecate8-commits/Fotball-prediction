@@ -64,7 +64,7 @@ export function ProfilePage() {
     <div>
       <PageHeader title="Mi perfil" />
       <section className="card mb-6 flex flex-col items-center gap-3 p-6 text-center">
-        <Avatar name={profile.display_name} url={profile.avatar_url} size={84} className="border-2 border-aqua/60" />
+        <Avatar name={profile.display_name} url={profile.avatar_url} size={84} className="border-2 border-gold-soft/60" />
         {editing ? (
           <div className="w-full max-w-xs space-y-2">
             <Input aria-label="Alias" value={name} maxLength={40} onChange={(e) => setName(e.target.value)} autoFocus />
@@ -78,7 +78,7 @@ export function ProfilePage() {
           <div>
             <h2 className="display flex items-center justify-center gap-2 text-2xl font-semibold uppercase">
               {profile.display_name}
-              <button type="button" onClick={() => setEditing(true)} aria-label="Editar alias" className="grid size-8 place-items-center rounded-full text-muted hover:bg-white/5 hover:text-aqua"><Pencil className="size-4" /></button>
+              <button type="button" onClick={() => setEditing(true)} aria-label="Editar alias" className="grid size-8 place-items-center rounded-full text-muted hover:bg-white/5 hover:text-gold-soft"><Pencil className="size-4" /></button>
             </h2>
             <p className="text-sm text-muted">Miembro desde {formatDate(profile.created_at, timezone)}</p>
             {isAdmin && <Badge tone="accent" className="mt-2">Administrador</Badge>}
@@ -100,7 +100,7 @@ export function ProfilePage() {
                   <span className="block text-[11px] capitalize text-muted">{formatShortDate(m.kickoff_at, timezone)} · {m.pick!.status === 'submitted' ? 'enviado' : 'guardado sin enviar'}</span>
                 </span>
                 <span className="scoreline text-base">{m.pick!.home !== null ? `${m.pick!.home}-${m.pick!.away}` : m.pick!.outcome}</span>
-                {m.score && <span className="scoreline w-10 text-right text-base text-aqua">+{m.score.points}</span>}
+                {m.score && <span className="scoreline w-10 text-right text-base text-gold-soft">+{m.score.points}</span>}
               </li>
             ))}
           </ul>
@@ -111,7 +111,7 @@ export function ProfilePage() {
       <div className="card divide-y divide-line">
         <div className="px-4 py-3 text-sm"><span className="text-muted">Correo:</span> {session.user.email}</div>
         {isAdmin && (
-          <Link to="/admin" className="flex items-center gap-3 px-4 py-3 text-sm font-semibold hover:bg-white/5"><Shield className="size-4 text-aqua" /> Panel de administración</Link>
+          <Link to="/admin" className="flex items-center gap-3 px-4 py-3 text-sm font-semibold hover:bg-white/5"><Shield className="size-4 text-gold-soft" /> Panel de administración</Link>
         )}
         <button type="button" onClick={() => void resetPassword()} className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm font-semibold hover:bg-white/5">
           <KeyRound className="size-4 text-muted" /> Cambiar contraseña por correo

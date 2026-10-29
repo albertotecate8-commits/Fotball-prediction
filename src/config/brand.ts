@@ -1,11 +1,11 @@
-// Todos los textos de marca en un solo lugar (y <title> en index.html).
+// Todos los textos de marca en un solo lugar (y <title> en index.html, manifest.webmanifest).
 export const brand = {
-  name: 'SHABEX',
-  fullName: 'SHABEX — La Quiniela',
-  shortName: 'SHABEX',
-  subline: 'La Quiniela',
-  tagline: 'Pronostica. Compite. Gana la quiniela.',
-  description: 'Quiniela de fútbol entre amigos: pronósticos, puntos y clasificación con resultados reales.',
+  name: 'GB QUINELA',
+  fullName: 'GB QUINELA',
+  shortName: 'GB QUINELA',
+  subline: 'Good Barber',
+  tagline: 'Pronostica. Compite. Gana la quinela.',
+  description: 'Quinela de fútbol de Good Barber: pronósticos, puntos y clasificación con resultados reales.',
   /** Fotografías de portada opcionales (archivos locales con licencia en /public/images). */
   heroImage: null as string | null,
   supportEmail: null as string | null,

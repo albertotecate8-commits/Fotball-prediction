@@ -28,7 +28,7 @@ export function NextRoundCard({ round, tz }: { round: RoundListItem; tz: string 
       <HeroArt />
       <div className="relative">
         <div className="mb-3 flex items-center justify-between gap-2">
-          <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-aqua">
+          <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-gold-soft">
             {round.phase === 'open' ? 'Jornada abierta' : round.phase === 'upcoming' ? 'Próxima jornada' : 'Jornada actual'}
           </span>
           <RoundPhaseBadge phase={round.phase} />
@@ -52,7 +52,7 @@ export function NextRoundCard({ round, tz }: { round: RoundListItem; tz: string 
               <span>Tu quiniela</span><span className="font-semibold text-ink">{round.my_items} de {round.match_count}</span>
             </div>
             <div className="h-2 overflow-hidden rounded-full bg-surface-3" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}>
-              <div className="h-full rounded-full bg-red transition-[width] duration-500" style={{ width: `${progress}%` }} />
+              <div className="h-full rounded-full bg-brand transition-[width] duration-500" style={{ width: `${progress}%` }} />
             </div>
           </div>
         )}

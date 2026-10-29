@@ -22,8 +22,8 @@ export function AdminShell() {
     <div className="min-h-dvh">
       <header className="glass sticky top-0 z-30 border-b border-line pt-[env(safe-area-inset-top)]">
         <div className="mx-auto flex max-w-4xl items-center gap-2 px-4 py-3">
-          <Link to="/admin" aria-label="Panel de administración" className="min-w-0"><BrandLogo size="sm" /></Link>
-          <span className="hidden shrink-0 items-center gap-1 rounded-full border border-aqua/40 min-[400px]:inline-flex bg-aqua/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-aqua">
+          <Link to="/admin" aria-label="Panel de administración" className="min-w-0"><BrandLogo size="xs" /></Link>
+          <span className="hidden shrink-0 items-center gap-1 rounded-full border border-gold-soft/40 min-[400px]:inline-flex bg-gold-soft/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-gold-soft">
             <ShieldCheck className="size-3.5" /> Admin
           </span>
           <div className="ml-auto flex shrink-0 items-center gap-1">
@@ -39,7 +39,7 @@ export function AdminShell() {
           {LINKS.map((l) => (
             <NavLink key={l.to} to={l.to} end={l.end}
               className={({ isActive }) => cn('h-9 shrink-0 rounded-full border px-4 text-sm font-semibold leading-9 transition',
-                isActive ? 'border-red bg-red text-white' : 'border-line-strong bg-surface/60 text-ink/85 hover:bg-surface-2')}>
+                isActive ? 'border-brand bg-brand text-on-brand' : 'border-line-strong bg-surface/60 text-ink/85 hover:bg-surface-2')}>
               {l.label}
             </NavLink>
           ))}

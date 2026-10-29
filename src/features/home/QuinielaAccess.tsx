@@ -18,7 +18,7 @@ export function QuinielaAccess({ round, tz, explore = false }: { round: RoundLis
     <section className="card p-4" aria-labelledby="quiniela-oficial">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-aqua">Quiniela oficial</p>
+          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-gold-soft">Quiniela oficial</p>
           <h2 id="quiniela-oficial" className="display mt-1 truncate text-2xl font-semibold uppercase leading-none">{round.name}</h2>
           <p className="mt-1.5 flex flex-wrap items-center gap-x-3 text-xs text-muted">
             <span className="inline-flex items-center gap-1"><ListChecks className="size-3.5" /> {round.match_count} partidos</span>
@@ -40,13 +40,13 @@ export function QuinielaAccess({ round, tz, explore = false }: { round: RoundLis
         <div className="mt-3">
           <div className="mb-1 flex justify-between text-[11px] text-muted"><span>Tu pronóstico</span><span className="font-semibold text-ink">{round.my_items}/{round.match_count}</span></div>
           <div className="h-1.5 overflow-hidden rounded-full bg-surface-3" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}>
-            <div className="h-full rounded-full bg-red" style={{ width: `${progress}%` }} />
+            <div className="h-full rounded-full bg-brand" style={{ width: `${progress}%` }} />
           </div>
         </div>
       )}
       <div className="mt-4 flex gap-2">
         <ButtonLink to={cta.to} variant={cta.variant} className="flex-1" icon={cta.icon}>{cta.label}</ButtonLink>
-        <Link to="/quinielas" aria-label="Ver todas las jornadas" className="grid size-11 shrink-0 place-items-center rounded-full border border-line-strong text-muted transition hover:text-aqua">
+        <Link to="/quinielas" aria-label="Ver todas las jornadas" className="grid size-11 shrink-0 place-items-center rounded-full border border-line-strong text-muted transition hover:text-gold-soft">
           <ChevronRight className="size-5" />
         </Link>
       </div>
@@ -57,7 +57,7 @@ export function QuinielaAccess({ round, tz, explore = false }: { round: RoundLis
 export function NoQuiniela() {
   return (
     <section className="card flex items-center gap-3 p-4">
-      <span className="grid size-10 shrink-0 place-items-center rounded-full bg-aqua/12 text-aqua"><Ticket className="size-5" /></span>
+      <span className="grid size-10 shrink-0 place-items-center rounded-full bg-gold-soft/12 text-gold-soft"><Ticket className="size-5" /></span>
       <div className="min-w-0 flex-1 text-sm">
         <p className="font-semibold">La quiniela oficial aún no tiene jornada</p>
         <p className="text-xs text-muted">Cuando se publique verás aquí sus partidos para pronosticar.</p>
