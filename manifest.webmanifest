@@ -14,14 +14,14 @@
   "theme_color": "#070707",
   "categories": ["sports", "entertainment"],
   "icons": [
-    { "src": "icons/icon-96.png", "sizes": "96x96", "type": "image/png", "purpose": "any" },
-    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "icons/maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
-    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    { "src": "icons/icon-96.png?v=gb1", "sizes": "96x96", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-192.png?v=gb1", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png?v=gb1", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/maskable-192.png?v=gb1", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/maskable-512.png?v=gb1", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ],
   "shortcuts": [
-    { "name": "Mi quiniela", "short_name": "Quiniela", "url": "./quinielas", "icons": [{ "src": "icons/icon-96.png", "sizes": "96x96", "type": "image/png" }] },
-    { "name": "Clasificación", "short_name": "Clasificación", "url": "./clasificacion", "icons": [{ "src": "icons/icon-96.png", "sizes": "96x96", "type": "image/png" }] }
+    { "name": "Mi quiniela", "short_name": "Quiniela", "url": "./quinielas", "icons": [{ "src": "icons/icon-96.png?v=gb1", "sizes": "96x96", "type": "image/png" }] },
+    { "name": "Clasificación", "short_name": "Clasificación", "url": "./clasificacion", "icons": [{ "src": "icons/icon-96.png?v=gb1", "sizes": "96x96", "type": "image/png" }] }
   ]
 }
