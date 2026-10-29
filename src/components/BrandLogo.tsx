@@ -15,7 +15,7 @@ export function BrandMark({ size = 36, className }: { size?: number; className?:
 
 /** Logo completo (con «QUINELA»): inicio de sesión y portada. Tamaño fijo para que no salte al cargar. */
 export function BrandLogoFull({ size = 176, className }: { size?: number; className?: string }) {
-  return <img src={logoUrl} alt={brand.fullName} width={size} height={size} decoding="async"
+  return <img src={logoUrl} alt={brand.fullName} width={size} height={size} loading="eager" fetchPriority="high"
     className={cn('shrink-0 rounded-3xl object-cover shadow-[0_18px_50px_-20px_rgba(212,175,55,0.55)] ring-1 ring-gold/30', className)} style={{ width: size, height: size }} />
 }
 
