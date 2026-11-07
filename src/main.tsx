@@ -1,3 +1,5 @@
+// Primero: un enlace de correo que llegó a otra página va a la pantalla que lo procesa.
+import './app/emailLinkBoot'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './styles/index.css'

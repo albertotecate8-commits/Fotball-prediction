@@ -154,6 +154,21 @@ test.describe('pantallas', () => {
     await expect(page.getByRole('heading', { name: '¿Cuántos goles habrá en la jornada?' })).toHaveCount(0)
   })
 
+  test('recuperar contraseña: el enlace del correo que llega a la principal lleva a «Nueva contraseña»', async ({ page }) => {
+    // Cuenta FICTICIA. El servidor de cuentas manda el enlace a la principal (la dirección
+    // de regreso no está permitida) y en el teléfono había otra sesión abierta.
+    await mockBackend(page)
+    const user = { id: '00000000-0000-4000-8000-0000000000c4', aud: 'authenticated', role: 'authenticated', email: 'otra@example.test', email_confirmed_at: new Date().toISOString(), app_metadata: {}, user_metadata: {}, created_at: new Date().toISOString() }
+    await page.route('https://mock-project.supabase.co/auth/v1/user', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(user) }))
+    const exp = Math.floor(Date.now() / 1000) + 3600
+    const b64 = (o: unknown) => Buffer.from(JSON.stringify(o)).toString('base64url')
+    const jwt = `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64({ sub: user.id, exp, role: 'authenticated' })}.c2lnbmF0dXJl`
+    await page.goto(`/#access_token=${jwt}&refresh_token=ficticio&expires_at=${exp}&expires_in=3600&token_type=bearer&type=recovery`)
+    await expect(page.getByRole('heading', { name: 'Nueva contraseña' })).toBeVisible()
+    await expect(page).toHaveURL(/\/restablecer$/)
+    await expect(page.getByLabel('Confirmar')).toBeVisible()
+  })
+
   test('sin pago: la quiniela se guarda sola pero no se envía, y ve cómo pagar', async ({ page }, info) => {
     const calls: string[] = []
     await mockBackend(page, { paid: false, calls })

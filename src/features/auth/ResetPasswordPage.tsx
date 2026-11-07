@@ -30,7 +30,7 @@ export function ResetPasswordPage() {
   if (authLoading || hashState === 'checking') return <FullPageSpinner />
   if (!session) {
     return (
-      <AuthLayout title="Enlace no válido" subtitle={typeof hashState === 'object' ? 'El enlace caducó o ya se usó. Solicita uno nuevo.' : 'El enlace expiró, ya se usó o se abrió en otro navegador. Solicita uno nuevo.'}>
+      <AuthLayout title="Enlace no válido" subtitle={typeof hashState === 'object' ? 'El enlace caducó o ya se usó. Pide uno nuevo y abre solo el correo más reciente (cada correo nuevo anula los anteriores).' : 'El enlace expiró, ya se usó o se abrió en otro navegador. Pide uno nuevo y abre solo el correo más reciente.'}>
         <Button size="lg" block onClick={() => navigate('/recuperar')}>Solicitar otro enlace</Button>
       </AuthLayout>
     )
