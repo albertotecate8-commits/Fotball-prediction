@@ -13,8 +13,14 @@ create table if not exists auth.users (
   last_sign_in_at timestamptz,
   email_confirmed_at timestamptz,
   deleted_at timestamptz,
+  encrypted_password varchar(255),
+  updated_at timestamptz,
   created_at timestamptz not null default now()
 );
+alter table auth.users add column if not exists encrypted_password varchar(255);
+alter table auth.users add column if not exists updated_at timestamptz;
+create schema if not exists extensions;
+create extension if not exists pgcrypto with schema extensions;
 
 create or replace function auth.uid() returns uuid language sql stable as $$
   select coalesce(

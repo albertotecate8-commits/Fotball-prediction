@@ -7,7 +7,7 @@ import { useQuery } from '@tanstack/react-query'
 import { playerApi } from '@/services/player'
 import { profileApi } from '@/services/profile'
 import { qk } from '@/services/queryKeys'
-import { authEmailClient } from '@/lib/supabase'
+import { authEmailClient, supabase } from '@/lib/supabase'
 import { useAppConfig } from '@/hooks/useAppConfig'
 import { formatDate } from '@/lib/time'
 import { brand } from '@/config/brand'
@@ -17,7 +17,8 @@ import { InstallCard } from '@/features/install/InstallCard'
 import { Avatar } from '@/components/ui/Avatar'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
-import { Input } from '@/components/ui/Field'
+import { Field, Input, PasswordInput } from '@/components/ui/Field'
+import { Sheet } from '@/components/ui/Sheet'
 import { InlineError } from '@/components/ui/States'
 import { useToast } from '@/components/ui/Toast'
 import { TeamCrest } from '@/components/TeamCrest'
@@ -113,6 +114,7 @@ export function ProfilePage() {
         {isAdmin && (
           <Link to="/admin" className="flex items-center gap-3 px-4 py-3 text-sm font-semibold hover:bg-white/5"><Shield className="size-4 text-gold-soft" /> Panel de administración</Link>
         )}
+        <ChangePassword />
         <button type="button" onClick={() => void resetPassword()} className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm font-semibold hover:bg-white/5">
           <KeyRound className="size-4 text-muted" /> Cambiar contraseña por correo
         </button>
@@ -122,5 +124,42 @@ export function ProfilePage() {
       </div>
       <p className="mt-10 pb-2 text-center text-[9px] leading-snug text-faint/80">{brand.legalNotice}</p>
     </div>
+  )
+}
+
+/** Cambiar la contraseña desde la sesión abierta, sin correo. */
+function ChangePassword() {
+  const toast = useToast()
+  const [open, setOpen] = useState(false)
+  const [password, setPassword] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<unknown>(null)
+  const mismatch = confirm.length > 0 && confirm !== password
+  const close = () => { setOpen(false); setPassword(''); setConfirm(''); setError(null) }
+  const save = async () => {
+    if (password.length < 8 || mismatch) return
+    setBusy(true)
+    setError(null)
+    const { error: e } = await supabase.auth.updateUser({ password })
+    setBusy(false)
+    if (e) return setError(e)
+    toast('Contraseña actualizada')
+    close()
+  }
+  return (
+    <>
+      <button type="button" onClick={() => setOpen(true)} className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm font-semibold hover:bg-white/5">
+        <KeyRound className="size-4 text-gold-soft" /> Cambiar contraseña
+      </button>
+      <Sheet open={open} onClose={close} title="Cambiar contraseña"
+        footer={<Button block size="lg" loading={busy} disabled={password.length < 8 || mismatch || !confirm} onClick={() => void save()}>Guardar</Button>}>
+        <div className="space-y-4">
+          <Field label="Nueva contraseña" hint="Mínimo 8 caracteres.">{(id) => <PasswordInput id={id} autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />}</Field>
+          <Field label="Confirmar contraseña" error={mismatch ? 'No coincide.' : null}>{(id) => <PasswordInput id={id} autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />}</Field>
+          <InlineError error={error} />
+        </div>
+      </Sheet>
+    </>
   )
 }

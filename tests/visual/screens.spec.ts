@@ -169,6 +169,31 @@ test.describe('pantallas', () => {
     await expect(page.getByLabel('Confirmar')).toBeVisible()
   })
 
+  test('admin: contraseña temporal sin correo para quien no pudo recuperar su cuenta', async ({ page }) => {
+    await mockBackend(page, { admin: true })
+    page.on('dialog', (d) => void d.accept())
+    await page.goto('/admin/participantes')
+    await page.getByRole('button', { name: 'Contraseña temporal' }).first().click()
+    const sheet = page.getByRole('dialog', { name: /Contraseña temporal de/ })
+    await expect(sheet.getByText('GBPRUEBA23')).toBeVisible()
+    await expect(sheet.getByRole('button', { name: 'Copiar' })).toBeVisible()
+  })
+
+  test('mi perfil: cambiar contraseña sin correo', async ({ page }) => {
+    await mockBackend(page)
+    let updated = false
+    await page.route('https://mock-project.supabase.co/auth/v1/user', (route) => {
+      if (route.request().method() === 'PUT') updated = true
+      return route.fallback()
+    })
+    await page.goto('/perfil')
+    await page.getByRole('button', { name: 'Cambiar contraseña', exact: true }).click()
+    await page.getByLabel('Nueva contraseña').fill('nueva-ficticia-123')
+    await page.getByLabel('Confirmar contraseña').fill('nueva-ficticia-123')
+    await page.getByRole('button', { name: 'Guardar' }).click()
+    await expect.poll(() => updated).toBe(true)
+  })
+
   test('sin pago: la quiniela se guarda sola pero no se envía, y ve cómo pagar', async ({ page }, info) => {
     const calls: string[] = []
     await mockBackend(page, { paid: false, calls })

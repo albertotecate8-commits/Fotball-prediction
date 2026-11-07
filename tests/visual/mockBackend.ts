@@ -292,6 +292,8 @@ export async function mockBackend(page: Page, opts: { admin?: boolean; featured?
       if (fn === 'admin_set_prize_visible') return json({ visible: true })
       if (fn === 'admin_set_prize_pot') return json({ pot: 1500, manual: true, automatic: 1200 })
       if (fn === 'admin_unlock_quiniela') return json({ picks: 11, week_goals: 1 })
+      // Contraseña FICTICIA para la prueba visual.
+      if (fn === 'admin_temp_password') return json({ password: 'GBPRUEBA23' })
       if (fn === 'admin_confirm_payment') return json({ reference: 'ALBERTO', state: 'confirmed', amount: 50 })
       if (fn === 'admin_payments') return json([{ user_id: UID, display_name: 'Alberto', email: 'alberto@example.test', reference: 'SHX-ABC123', payment_status: 'not_applicable', valid_until: null, payment_reference: null, confirmed_at: null, confirmed_by: null, joined_at: iso(-90 * 24 * H) }])
       if (fn === 'get_my_participation') {

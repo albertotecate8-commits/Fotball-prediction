@@ -255,6 +255,8 @@ export const adminApi = {
     rpc<{ reference: string; state: PaymentState; amount: number | null }>('admin_confirm_payment', {
       p_user: v.user, p_status: v.status, p_valid_until: v.validUntil, p_amount: v.amount, p_method: v.method, p_bank_reference: v.bankReference, p_reason: v.reason }),
   /** Autoriza a un participante a editar su quiniela enviada (solo partidos que no han empezado). */
+  /** Contraseña temporal (sin correo): el admin se la pasa en privado al participante. */
+  tempPassword: (user: string) => rpc<{ password: string }>('admin_temp_password', { p_user: user }),
   unlockQuiniela: (user: string, reason?: string) => rpc<{ picks: number; week_goals: number }>('admin_unlock_quiniela', { p_user: user, p_reason: reason ?? null }),
   /** Fija (o quita con null) el monto de la bolsa de la semana actual. */
   setPrizePot: (amount: number | null, reason?: string) => rpc<{ pot: number; manual: boolean; automatic: number }>('admin_set_prize_pot', { p_amount: amount, p_reason: reason ?? null }),

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { BadgeCheck, Check, Copy, Landmark, PencilLine, Search, Ticket, Trophy } from 'lucide-react'
+import { BadgeCheck, Check, Copy, KeyRound, Landmark, PencilLine, Search, Ticket, Trophy } from 'lucide-react'
 import { adminApi, type PaymentRow, type PaymentState } from '@/services/admin'
 import { playerApi } from '@/services/player'
 import { useAppConfig } from '@/hooks/useAppConfig'
@@ -100,6 +100,7 @@ export function AdminPayments() {
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 {r.state !== 'confirmed' && <QuickConfirm row={r} />}
                 {(r.sent_open ?? 0) > 0 && <UnlockButton row={r} />}
+                <TempPasswordButton row={r} />
                 {extras.map((x) => <EntryButton key={x.week_id} row={r} weekId={x.week_id} label={x.label} amount={x.entry_amount} />)}
                 <Button size="sm" variant="secondary" disabled={!r.in_group} onClick={() => setEditing(r)}>
                   {r.state === 'confirmed' ? 'Cambiar pago' : 'Más opciones'}
@@ -236,6 +237,40 @@ function UnlockButton({ row }: { row: PaymentRow }) {
     } catch (e) { toast(errorMessage(e), 'error') } finally { setBusy(false) }
   }
   return <Button size="sm" variant="secondary" loading={busy} icon={<PencilLine className="size-4" />} onClick={() => void go()}>Permitir editar quiniela</Button>
+}
+
+/** Contraseña temporal sin correo: para quien no pudo recuperar su cuenta. */
+function TempPasswordButton({ row }: { row: PaymentRow }) {
+  const toast = useToast()
+  const [busy, setBusy] = useState(false)
+  const [pw, setPw] = useState<string | null>(null)
+  const go = async () => {
+    if (!confirm(`¿Poner una contraseña temporal a ${row.alias}? Su contraseña actual deja de servir. Pásasela en privado; la puede cambiar en «Mi perfil».`)) return
+    setBusy(true)
+    try { setPw((await adminApi.tempPassword(row.user_id)).password) } catch (e) { toast(errorMessage(e), 'error') } finally { setBusy(false) }
+  }
+  const copy = async () => {
+    if (!pw) return
+    try { await navigator.clipboard.writeText(pw); toast('Contraseña copiada') } catch { toast('No se pudo copiar; mantén presionado el texto.', 'error') }
+  }
+  return (
+    <>
+      <Button size="sm" variant="ghost" loading={busy} icon={<KeyRound className="size-4" />} onClick={() => void go()}>Contraseña temporal</Button>
+      <Sheet open={pw !== null} onClose={() => setPw(null)} title={`Contraseña temporal de ${row.alias}`}>
+        <div className="space-y-3 text-sm">
+          <p className="text-muted">Pásasela en privado (por ejemplo, por WhatsApp). Solo se muestra esta vez.</p>
+          <div className="flex items-center gap-3 rounded-2xl border border-gold/40 bg-gold/10 p-3">
+            <span className="flex-1 select-all break-all font-mono text-2xl font-bold tracking-wider">{pw}</span>
+            <Button size="sm" variant="secondary" icon={<Copy className="size-4" />} onClick={() => void copy()}>Copiar</Button>
+          </div>
+          <ol className="list-decimal space-y-1 pl-5 text-muted">
+            <li>Entra a la app con su correo y esta contraseña.</li>
+            <li>En «Mi perfil» → «Cambiar contraseña» pone una suya.</li>
+          </ol>
+        </div>
+      </Sheet>
+    </>
+  )
 }
 
 /** Un toque: confirma el pago (manual, por el admin, queda registrado). */
